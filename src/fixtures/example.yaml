@@ -1,0 +1,349 @@
+schema_version: 2
+dialect: "AnimYAML-DSL"
+determinism:
+  rules:
+    - "No randomness"
+    - "All time values are explicit"
+    - "All easing names resolve to fixed functions in the renderer"
+    - "All layout expressions are pure (no font-metric queries unless renderer is pinned)"
+  pinned:
+    renderer_version: "jsxgraph-ir@0.3.0"
+    font_pack: "dejavu+tex@1.0"
+
+params:
+  number: 720
+
+  text:
+    title: "Root Simplification"
+    prompt_latex: "\\sqrt{${number}} = ?"
+
+  style:
+    board:
+      viewbox: [-6, 10, 6, -10]
+      theme: { bg: "#000000" }
+    title: { color: "#2FB9FF", scale: 1.05, weight: "bold" }
+    text:  { color: "#FFFFFF", scale: 0.95 }
+    final: { color: "#FFFFFF", scale: 1.05 }
+
+  layout:
+    title_at:  { anchor: "Center", x: 0.0, y: 6.6 }
+    prompt_at: { anchor: "Center", x: 1.1, y: 5.7 }
+
+    ladder:
+      x_left: -1.6
+      x_right: 1.0
+      y0: 2.0
+      dy: -0.9
+      left_anchor: "Right"
+      right_anchor: "Left"
+
+    line_at: { anchor: "Center", x: 0.0, y: -4.6 }
+
+  time:
+    title:  { t0: 0.33, t1: 0.67, ease: "easeOutCubic" }
+    prompt: { t0: 1.00, t1: 1.33, ease: "easeOutCubic" }
+    ladder_first_left: { t0: 2.00, t1: 2.30, ease: "easeOutCubic" }
+
+    row_times:
+      - { t0: 3.80, t1: 4.10, ease: "easeOutCubic" }
+      - { t0: 5.80, t1: 6.10, ease: "easeOutCubic" }
+      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
+      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
+      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
+      - { t0: 9.70, t1: 10.20, ease: "easeOutCubic" }
+      - { t0: 9.70, t1: 10.20, ease: "easeOutCubic" }
+
+    factline: { t0: 12.00, t1: 12.40, ease: "easeOutCubic" }
+    to_root1: { t0: 19.80, t1: 20.20, ease: "easeOutCubic", transition: "crossFade" }
+    to_root2: { t0: 21.80, t1: 22.20, ease: "easeOutCubic", transition: "crossFade" }
+    to_final: { t0: 23.70, t1: 24.10, ease: "easeOutCubic", transition: "crossFade" }
+
+expr:
+  allowed:
+    - let
+    - index
+    - len
+    - add
+    - mul
+    - format
+    - concat
+    - map
+    - reduce
+  stdlib:
+    math.prime_factors: "returns list of prime factors sorted ascending (with multiplicity)"
+    math.quotient_chain: "given N and factors, returns [N, N/f1, N/(f1f2), ...]"
+    math.count_powers: "given factors, returns list of {p:int, k:int} sorted by p"
+    tex.prime_factor_expr: "given N and powers -> 'N = p^k × ...' (k=1 omits exponent)"
+    tex.root_rewrite: "given N and rhs -> '\\sqrt{N} = \\sqrt{rhs}'"
+    tex.split_root: "given rhs powers -> '\\sqrt{N} = \\sqrt{p1^k1} × ...'"
+    tex.extract_squares: "returns simplified string like '\\sqrt{N} = 12\\sqrt{5}'"
+
+ir_api:
+  board.init: {}
+  text.create: {}
+  text.update: {}
+  point.create: {}
+  line.create: {}
+  polygon.create: {}
+  numberline.create: {}
+  numberline.movePoint: {}
+  graph.plot: {}
+  graph.movePoint: {}
+  graph.tangentAt: {}
+  balance.create: {}
+  balance.setLeftRight: {}
+  flow.create: {}
+  flow.setStep: {}
+  bar.create: {}
+  bar.mergeSegments: {}
+  bar.scaleTo: {}
+  slider.create: {}
+  param.set: {}
+  effect.flash: {}
+  effect.confetti: {}
+
+defs:
+
+  SimplifyRoot:
+    params: [N]
+    returns: [FinalLatex]
+    body:
+      - call: { fn: board.init, args: { viewbox: "$.params.style.board.viewbox", theme: "$.params.style.board.theme" } }
+
+      - call: { fn: BuildFactorLadder, args: { N: "$N" }, out: Ladder }
+      - call: { fn: LadderToPrimeFactorization, args: { N: "$N", Ladder: "$Ladder" }, out: PF }
+      - call: { fn: RewriteRootWithFactorization, args: { N: "$N", PF: "$PF" }, out: RW }
+      - call: { fn: SplitRootFactors, args: { N: "$N", RW: "$RW", Ladder: "$Ladder" }, out: SR }
+      - call: { fn: ExtractPerfectSquares, args: { N: "$N", Ladder: "$Ladder", SR: "$SR" }, out: FinalLatex }
+
+      - call:
+          fn: Present_SimplifyRootVideo
+          args:
+            N: "$N"
+            Ladder: "$Ladder"
+            PF: "$PF"
+            RW: "$RW"
+            SR: "$SR"
+            FinalLatex: "$FinalLatex"
+          out: _
+
+      - return: "$FinalLatex"
+
+  BuildFactorLadder:
+    params: [N]
+    returns: [Ladder]
+    body:
+      - let: { factors: { expr: "math.prime_factors(N)", args: { N: "$N" } } }
+      - let: { left_values: { expr: "math.quotient_chain(N, factors)", args: { N: "$N", factors: "$factors" } } }
+      - return:
+          left_values: "$left_values"
+          factors: "$factors"
+
+  LadderToPrimeFactorization:
+    params: [N, Ladder]
+    returns: [PFLatex]
+    body:
+      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
+      - let: { PFLatex: { expr: "tex.prime_factor_expr(N, powers)", args: { N: "$N", powers: "$powers" } } }
+      - return: "$PFLatex"
+
+  RewriteRootWithFactorization:
+    params: [N, PF]
+    returns: [RWLatex]
+    body:
+      - let: { rhs: { expr: "tex.rhs_of_equation(PF)", args: { PF: "$PF" } } }
+      - let: { RWLatex: { expr: "tex.root_rewrite(N, rhs)", args: { N: "$N", rhs: "$rhs" } } }
+      - return: "$RWLatex"
+
+  SplitRootFactors:
+    params: [N, RW, Ladder]
+    returns: [SRLatex]
+    body:
+      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
+      - let: { SRLatex: { expr: "tex.split_root(N, powers)", args: { N: "$N", powers: "$powers" } } }
+      - return: "$SRLatex"
+
+  ExtractPerfectSquares:
+    params: [N, Ladder, SR]
+    returns: [FinalLatex]
+    body:
+      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
+      - let: { FinalLatex: { expr: "tex.extract_squares(N, powers)", args: { N: "$N", powers: "$powers" } } }
+      - return: "$FinalLatex"
+
+  Present_SimplifyRootVideo:
+    params: [N, Ladder, PF, RW, SR, FinalLatex]
+    returns: []
+    body:
+      - call:
+          fn: ShowTextTimed
+          args:
+            id: "title"
+            text: "$.params.text.title"
+            at: "$.params.layout.title_at"
+            style: "$.params.style.title"
+            t0: "$.params.time.title.t0"
+            t1: "$.params.time.title.t1"
+            ease: "$.params.time.title.ease"
+
+      - call:
+          fn: ShowMathTimed
+          args:
+            id: "prompt"
+            latex: { expr: "format('\\\\sqrt{%s} = ?', N)", args: { N: "$N" } }
+            at: "$.params.layout.prompt_at"
+            style: "$.params.style.text"
+            t0: "$.params.time.prompt.t0"
+            t1: "$.params.time.prompt.t1"
+            ease: "$.params.time.prompt.ease"
+
+      - call:
+          fn: ShowTextTimed
+          args:
+            id: "L0"
+            text: { expr: "index(Ladder.left_values, 0)", args: { Ladder: "$Ladder" } }
+            at:
+              anchor: "$.params.layout.ladder.left_anchor"
+              x: "$.params.layout.ladder.x_left"
+              y: "$.params.layout.ladder.y0"
+            style: "$.params.style.text"
+            t0: "$.params.time.ladder_first_left.t0"
+            t1: "$.params.time.ladder_first_left.t1"
+            ease: "$.params.time.ladder_first_left.ease"
+
+      - foreach:
+          var: i
+          range: { expr: "range(0, len(Ladder.factors))", args: { Ladder: "$Ladder" } }
+          do:
+            - let: { tw: { expr: "index($.params.time.row_times, i)", args: { i: "$i" } } }
+
+            - call:
+                fn: ShowTextTimed
+                args:
+                  id: { expr: "format('R%d', i)", args: { i: "$i" } }
+                  text: { expr: "index(Ladder.factors, i)", args: { Ladder: "$Ladder", i: "$i" } }
+                  at:
+                    anchor: "$.params.layout.ladder.right_anchor"
+                    x: "$.params.layout.ladder.x_right"
+                    y: { expr: "add($.params.layout.ladder.y0, mul(i, $.params.layout.ladder.dy))", args: { i: "$i" } }
+                  style: "$.params.style.text"
+                  t0: "$tw.t0"
+                  t1: "$tw.t1"
+                  ease: "$tw.ease"
+
+            - call:
+                fn: ShowTextTimed
+                args:
+                  id: { expr: "format('L%d', add(i,1))", args: { i: "$i" } }
+                  text: { expr: "index(Ladder.left_values, add(i,1))", args: { Ladder: "$Ladder", i: "$i" } }
+                  at:
+                    anchor: "$.params.layout.ladder.left_anchor"
+                    x: "$.params.layout.ladder.x_left"
+                    y: { expr: "add($.params.layout.ladder.y0, mul(add(i,1), $.params.layout.ladder.dy))", args: { i: "$i" } }
+                  style: "$.params.style.text"
+                  t0: "$tw.t0"
+                  t1: "$tw.t1"
+                  ease: "$tw.ease"
+
+      - call:
+          fn: ShowMathTimed
+          args:
+            id: "factline"
+            latex: "$PF"
+            at: "$.params.layout.line_at"
+            style: "$.params.style.text"
+            t0: "$.params.time.factline.t0"
+            t1: "$.params.time.factline.t1"
+            ease: "$.params.time.factline.ease"
+
+      - call:
+          fn: CrossFadeMathTimed
+          args:
+            id: "factline"
+            toLatex: "$RW"
+            at: "$.params.layout.line_at"
+            style: "$.params.style.text"
+            t0: "$.params.time.to_root1.t0"
+            t1: "$.params.time.to_root1.t1"
+            ease: "$.params.time.to_root1.ease"
+            transition: "$.params.time.to_root1.transition"
+
+      - call:
+          fn: CrossFadeMathTimed
+          args:
+            id: "factline"
+            toLatex: "$SR"
+            at: "$.params.layout.line_at"
+            style: "$.params.style.text"
+            t0: "$.params.time.to_root2.t0"
+            t1: "$.params.time.to_root2.t1"
+            ease: "$.params.time.to_root2.ease"
+            transition: "$.params.time.to_root2.transition"
+
+      - call:
+          fn: CrossFadeMathTimed
+          args:
+            id: "factline"
+            toLatex: "$FinalLatex"
+            at: "$.params.layout.line_at"
+            style: "$.params.style.final"
+            t0: "$.params.time.to_final.t0"
+            t1: "$.params.time.to_final.t1"
+            ease: "$.params.time.to_final.ease"
+            transition: "$.params.time.to_final.transition"
+
+  ShowTextTimed:
+    params: [id, text, at, style, t0, t1, ease]
+    returns: []
+    body:
+      - ir:
+          fn: text.create
+          args:
+            id: "$id"
+            text: "$text"
+            mode: "text"
+            at: "$at"
+            style: "$style"
+            t0: "$t0"
+            t1: "$t1"
+            ease: "$ease"
+
+  ShowMathTimed:
+    params: [id, latex, at, style, t0, t1, ease]
+    returns: []
+    body:
+      - ir:
+          fn: text.create
+          args:
+            id: "$id"
+            text: "$latex"
+            mode: "math"
+            at: "$at"
+            style: "$style"
+            t0: "$t0"
+            t1: "$t1"
+            ease: "$ease"
+
+  CrossFadeMathTimed:
+    params: [id, toLatex, at, style, t0, t1, ease, transition]
+    returns: []
+    body:
+      - ir:
+          fn: text.update
+          args:
+            id: "$id"
+            toText: "$toLatex"
+            mode: "math"
+            at: "$at"
+            style: "$style"
+            t0: "$t0"
+            t1: "$t1"
+            ease: "$ease"
+            transition: "$transition"
+
+program:
+  entry:
+    call:
+      fn: SimplifyRoot
+      args:
+        N: "$.params.number"
