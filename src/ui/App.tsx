@@ -9,7 +9,7 @@ import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { executeWithTrace } from '../core/runtimeTracer';
-import type { TimelineEvent, YAMLSpec } from '../core/types';
+import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
 
@@ -88,10 +88,21 @@ export const App: React.FC = () => {
     return map;
   }, [yamlToElementMap]);
   
-  // Handle params changes by merging back into full YAML
+  // Handle params changes by merging back into full YAML (from code editor)
   const handleParamsChange = (newParams: string) => {
     const merged = mergeParams(fullYamlContent, newParams);
     setFullYamlContent(merged);
+  };
+  
+  // Handle params object changes (from tree view editor)
+  const handleParamsObjectChange = (newParams: Params) => {
+    try {
+      const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
+      fullSpec.params = newParams;
+      setFullYamlContent(yaml.dump(fullSpec, { indent: 2, lineWidth: -1 }));
+    } catch (e) {
+      console.error('Failed to update params:', e);
+    }
   };
   
   // Handle line click in YAML panel
@@ -195,6 +206,7 @@ export const App: React.FC = () => {
                   spec={parsedSpec}
                   content={paramsContent}
                   onChange={handleParamsChange}
+                  onParamsChange={handleParamsObjectChange}
                 />
                 <ChatPanel title="Chat" />
               </div>
@@ -206,6 +218,7 @@ export const App: React.FC = () => {
                   spec={parsedSpec}
                   content={paramsContent}
                   onChange={handleParamsChange}
+                  onParamsChange={handleParamsObjectChange}
                   onLineClick={handleLineClick}
                   highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
                 />
@@ -232,6 +245,7 @@ export const App: React.FC = () => {
                   spec={parsedSpec}
                   content={paramsContent}
                   onChange={handleParamsChange}
+                  onParamsChange={handleParamsObjectChange}
                 />
                 
                 {/* Runtime Trace Panel */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
-import type { YAMLSpec } from '../core/types';
+import type { YAMLSpec, Params } from '../core/types';
 
 interface YAMLScriptPanelProps {
   spec: YAMLSpec | null;
@@ -9,6 +9,7 @@ interface YAMLScriptPanelProps {
   onChange: (value: string) => void;
   onLineClick?: (lineIndex: number) => void;
   highlightedLines?: number[];
+  onParamsChange?: (params: Params) => void;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -17,6 +18,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onChange,
   onLineClick,
   highlightedLines = [],
+  onParamsChange,
 }) => {
   const [viewMode, setViewMode] = useState<'code' | 'tree'>('tree');
 
@@ -49,7 +51,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       {/* Panel content */}
       <div className="flex-1 min-h-0">
         {viewMode === 'tree' ? (
-          <YAMLTreePanel spec={spec} />
+          <YAMLTreePanel spec={spec} onParamsChange={onParamsChange} />
         ) : (
           <CodePanel
             title="YAMLScript"
