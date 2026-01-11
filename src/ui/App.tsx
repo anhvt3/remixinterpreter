@@ -246,6 +246,8 @@ export const App: React.FC = () => {
                   onFunctionArgsChange={handleFunctionArgsChange}
                   onLineClick={handleLineClick}
                   highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
+                  onElementSelect={handleElementClick}
+                  selectedElementId={selectedElementId}
                 />
                 
                 <AnimPanelWithControls 
@@ -272,6 +274,8 @@ export const App: React.FC = () => {
                   onChange={handleParamsChange}
                   onParamsChange={handleParamsObjectChange}
                   onFunctionArgsChange={handleFunctionArgsChange}
+                  onElementSelect={handleElementClick}
+                  selectedElementId={selectedElementId}
                 />
                 
                 {/* Runtime Trace Panel */}
