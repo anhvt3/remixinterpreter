@@ -20,18 +20,23 @@ export const App: React.FC = () => {
   // Parse and execute YAML whenever it changes
   useEffect(() => {
     try {
+      console.log('Parsing YAML...');
       const spec = loadYAML(yamlContent);
       const validation = validateSchema(spec);
       
       if (!validation.valid) {
+        console.error('Validation errors:', validation.errors);
         setError(validation.errors.join('\n'));
         return;
       }
       
+      console.log('Executing DSL...');
       const result = execute(spec);
+      console.log('Generated events:', result.timeline.length, result.timeline);
       setEvents(result.timeline);
       setError(null);
     } catch (e) {
+      console.error('Execution error:', e);
       setError(e instanceof Error ? e.message : 'Unknown error');
     }
   }, [yamlContent]);

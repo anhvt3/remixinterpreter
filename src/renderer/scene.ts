@@ -43,19 +43,27 @@ export function computeScene(events: TimelineEvent[], t: number): Scene {
     }
     
     if (event.type === 'text.create') {
-      processTextCreate(scene, event as TextCreateEvent, t);
+      processTextCreate(scene, event, t);
     }
     
     if (event.type === 'text.update') {
-      processTextUpdate(scene, event as TextUpdateEvent, t);
+      processTextUpdate(scene, event, t);
     }
   }
   
   return scene;
 }
 
-function processTextCreate(scene: Scene, event: TextCreateEvent, t: number): void {
-  const { id, text, mode, at, style, t0, t1, ease } = event.args;
+function processTextCreate(scene: Scene, event: TimelineEvent, t: number): void {
+  const args = event.args as Record<string, unknown>;
+  const id = args.id as string;
+  const text = args.text;
+  const mode = (args.mode as 'text' | 'math') || 'text';
+  const at = args.at as LayoutPosition;
+  const style = args.style as StyleDef;
+  const t0 = args.t0 as number;
+  const t1 = args.t1 as number;
+  const ease = (args.ease as string) || 'easeOutCubic';
   
   // Element not yet visible
   if (t < t0) {
@@ -79,8 +87,17 @@ function processTextCreate(scene: Scene, event: TextCreateEvent, t: number): voi
   scene.elements.set(id, element);
 }
 
-function processTextUpdate(scene: Scene, event: TextUpdateEvent, t: number): void {
-  const { id, toText, mode, at, style, t0, t1, ease, transition } = event.args;
+function processTextUpdate(scene: Scene, event: TimelineEvent, t: number): void {
+  const args = event.args as Record<string, unknown>;
+  const id = args.id as string;
+  const toText = args.toText;
+  const mode = (args.mode as 'text' | 'math') || 'text';
+  const at = args.at as LayoutPosition;
+  const style = args.style as StyleDef;
+  const t0 = args.t0 as number;
+  const t1 = args.t1 as number;
+  const ease = (args.ease as string) || 'easeOutCubic';
+  const transition = args.transition as string;
   
   // Update hasn't started yet
   if (t < t0) {
@@ -90,7 +107,6 @@ function processTextUpdate(scene: Scene, event: TextUpdateEvent, t: number): voi
   const existing = scene.elements.get(id);
   
   if (!existing) {
-    // Create new element if doesn't exist
     const progress = calculateProgress(t, t0, t1, ease);
     scene.elements.set(id, {
       id,
@@ -105,25 +121,21 @@ function processTextUpdate(scene: Scene, event: TextUpdateEvent, t: number): voi
     return;
   }
   
-  // Handle crossFade transition
   if (transition === 'crossFade') {
     const progress = calculateProgress(t, t0, t1, ease);
     
     if (progress >= 1) {
-      // Transition complete - show new content
       existing.content = String(toText);
       existing.style = style;
       existing.previousContent = undefined;
       existing.transitionProgress = undefined;
     } else {
-      // During transition
       existing.previousContent = existing.content;
       existing.content = String(toText);
       existing.style = style;
       existing.transitionProgress = progress;
     }
   } else {
-    // Instant update after t1
     if (t >= t1) {
       existing.content = String(toText);
       existing.style = style;
