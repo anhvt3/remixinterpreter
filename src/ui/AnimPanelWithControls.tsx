@@ -9,13 +9,19 @@ import { AnimRenderer } from '../renderer/AnimRenderer';
 interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
+  primaryElements?: string[];
+  secondaryElements?: string[];
   onElementClick?: (elementId: string) => void;
+  onElementHover?: (elementId: string | null) => void;
 }
 
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
   events,
   selectedElementId,
+  primaryElements = [],
+  secondaryElements = [],
   onElementClick,
+  onElementHover,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -149,7 +155,10 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
             width={dimensions.width}
             height={dimensions.height}
             selectedElementId={selectedElementId}
+            primaryElements={primaryElements}
+            secondaryElements={secondaryElements}
             onElementClick={onElementClick}
+            onElementHover={onElementHover}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">

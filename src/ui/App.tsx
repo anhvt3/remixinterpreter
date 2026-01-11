@@ -10,6 +10,7 @@ import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { executeWithTrace } from '../core/runtimeTracer';
 import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
+import { type ProvenanceMap, type CreatorMap, type AnimatorMap, makeStatementKey } from '../core/provenanceTracker';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
 
@@ -43,7 +44,14 @@ export const App: React.FC = () => {
   const [runtimeSteps, setRuntimeSteps] = useState<RuntimeStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedStatement, setSelectedStatement] = useState<{ fnName: string; stmtIndex: number } | null>(null);
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
+  
+  // Provenance tracking
+  const [provenance, setProvenance] = useState<ProvenanceMap>(new Map());
+  const [creatorMap, setCreatorMap] = useState<CreatorMap>(new Map());
+  const [animatorMap, setAnimatorMap] = useState<AnimatorMap>(new Map());
   
   // Extract editable params from full YAML
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
@@ -128,18 +136,109 @@ export const App: React.FC = () => {
     }
   };
   
-  // Handle line click in YAML panel
-  const handleLineClick = (lineIndex: number) => {
-    const elementId = yamlToElementMap[lineIndex.toString()];
-    if (elementId) {
+  // Handle statement click in YAMLTree panel
+  const handleStatementClick = (fnName: string, stmtIndex: number) => {
+    const key = makeStatementKey(fnName, stmtIndex);
+    
+    // Check if this statement creates or animates elements
+    const createdElements = creatorMap.get(key) || [];
+    const animatedElements = animatorMap.get(key) || [];
+    const allElements = [...new Set([...createdElements, ...animatedElements])];
+    
+    if (allElements.length > 0) {
+      // Toggle selection
+      if (selectedStatement?.fnName === fnName && selectedStatement?.stmtIndex === stmtIndex) {
+        setSelectedStatement(null);
+        setSelectedElementId(null);
+      } else {
+        setSelectedStatement({ fnName, stmtIndex });
+        // Select the first element for primary highlight
+        setSelectedElementId(allElements[0]);
+      }
+    }
+  };
+  
+  // Handle element click in Anim panel - find the creator statement
+  const handleElementClick = (elementId: string) => {
+    const prov = provenance.get(elementId);
+    if (prov) {
+      // Toggle selection
+      if (selectedElementId === elementId) {
+        setSelectedElementId(null);
+        setSelectedStatement(null);
+      } else {
+        setSelectedElementId(elementId);
+        setSelectedStatement({
+          fnName: prov.creatorFn,
+          stmtIndex: prov.creatorStmtIndex,
+        });
+      }
+    } else {
       setSelectedElementId(elementId === selectedElementId ? null : elementId);
     }
   };
   
-  // Handle element click in Anim panel
-  const handleElementClick = (elementId: string) => {
-    setSelectedElementId(elementId === selectedElementId ? null : elementId);
+  // Handle element hover - show animator relationships
+  const handleElementHover = (elementId: string | null) => {
+    setHoveredElementId(elementId);
   };
+  
+  // Compute which elements should be highlighted (primary + secondary)
+  const highlightedElements = useMemo(() => {
+    const primary: string[] = [];
+    const secondary: string[] = [];
+    
+    if (selectedStatement) {
+      const key = makeStatementKey(selectedStatement.fnName, selectedStatement.stmtIndex);
+      const created = creatorMap.get(key) || [];
+      const animated = animatorMap.get(key) || [];
+      primary.push(...created);
+      secondary.push(...animated.filter(id => !created.includes(id)));
+    } else if (selectedElementId) {
+      primary.push(selectedElementId);
+      // Add animated elements as secondary
+      const prov = provenance.get(selectedElementId);
+      if (prov) {
+        for (const animator of prov.animators) {
+          const animKey = makeStatementKey(animator.fn, animator.stmtIndex);
+          const animated = animatorMap.get(animKey) || [];
+          secondary.push(...animated.filter(id => id !== selectedElementId));
+        }
+      }
+    }
+    
+    return { primary, secondary };
+  }, [selectedStatement, selectedElementId, creatorMap, animatorMap, provenance]);
+  
+  // Compute which statements should be highlighted
+  const highlightedStatements = useMemo(() => {
+    const primary: { fnName: string; stmtIndex: number }[] = [];
+    const secondary: { fnName: string; stmtIndex: number }[] = [];
+    
+    if (selectedElementId) {
+      const prov = provenance.get(selectedElementId);
+      if (prov) {
+        // Creator is primary
+        primary.push({ fnName: prov.creatorFn, stmtIndex: prov.creatorStmtIndex });
+        // Animators are secondary
+        for (const animator of prov.animators) {
+          secondary.push({ fnName: animator.fn, stmtIndex: animator.stmtIndex });
+        }
+      }
+    } else if (selectedStatement) {
+      primary.push(selectedStatement);
+    }
+    
+    // Add hovered element's relationships as tertiary hints
+    if (hoveredElementId && hoveredElementId !== selectedElementId) {
+      const prov = provenance.get(hoveredElementId);
+      if (prov) {
+        secondary.push({ fnName: prov.creatorFn, stmtIndex: prov.creatorStmtIndex });
+      }
+    }
+    
+    return { primary, secondary };
+  }, [selectedElementId, selectedStatement, hoveredElementId, provenance]);
   
   // Parse and execute YAML whenever it changes
   useEffect(() => {
@@ -156,6 +255,9 @@ export const App: React.FC = () => {
       const result = executeWithTrace(spec);
       setEvents(result.timeline);
       setRuntimeSteps(result.steps);
+      setProvenance(result.provenance);
+      setCreatorMap(result.creatorMap);
+      setAnimatorMap(result.animatorMap);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
@@ -244,14 +346,18 @@ export const App: React.FC = () => {
                   onChange={handleParamsChange}
                   onParamsChange={handleParamsObjectChange}
                   onFunctionArgsChange={handleFunctionArgsChange}
-                  onLineClick={handleLineClick}
-                  highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
+                  onStatementClick={handleStatementClick}
+                  primaryStatements={highlightedStatements.primary}
+                  secondaryStatements={highlightedStatements.secondary}
                 />
                 
                 <AnimPanelWithControls 
                   events={events} 
                   selectedElementId={selectedElementId}
+                  primaryElements={highlightedElements.primary}
+                  secondaryElements={highlightedElements.secondary}
                   onElementClick={handleElementClick}
+                  onElementHover={handleElementHover}
                 />
                 <div className="flex flex-col gap-2 h-full">
                   <div className="flex-1 min-h-0">

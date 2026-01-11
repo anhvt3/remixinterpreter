@@ -3,6 +3,11 @@ import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
 import type { YAMLSpec, Params } from '../core/types';
 
+export interface StatementHighlight {
+  fnName: string;
+  stmtIndex: number;
+}
+
 interface YAMLScriptPanelProps {
   spec: YAMLSpec | null;
   content: string;
@@ -11,6 +16,9 @@ interface YAMLScriptPanelProps {
   highlightedLines?: number[];
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
+  onStatementClick?: (fnName: string, stmtIndex: number) => void;
+  primaryStatements?: StatementHighlight[];
+  secondaryStatements?: StatementHighlight[];
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -21,6 +29,9 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   highlightedLines = [],
   onParamsChange,
   onFunctionArgsChange,
+  onStatementClick,
+  primaryStatements = [],
+  secondaryStatements = [],
 }) => {
   const [viewMode, setViewMode] = useState<'code' | 'tree'>('tree');
 
@@ -57,6 +68,9 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             spec={spec} 
             onParamsChange={onParamsChange} 
             onFunctionArgsChange={onFunctionArgsChange}
+            onStatementClick={onStatementClick}
+            primaryStatements={primaryStatements}
+            secondaryStatements={secondaryStatements}
           />
         ) : (
           <CodePanel
