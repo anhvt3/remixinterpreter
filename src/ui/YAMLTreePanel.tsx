@@ -90,6 +90,38 @@ function formatValue(v: unknown): string {
   return String(v);
 }
 
+// Determine if a value is safely editable (won't break DSL execution)
+function isSafelyEditable(value: unknown): boolean {
+  // Numbers are always safe to edit
+  if (typeof value === 'number') return true;
+  
+  // Strings that start with $ are variable/param references - NOT safe
+  if (typeof value === 'string') {
+    if (value.startsWith('$')) return false; // Variable ref like $N, $Ladder
+    if (value.startsWith('$.')) return false; // Param ref like $.params.number
+    return true; // Plain string literals are safe
+  }
+  
+  // Objects (expr, nested) are not directly editable
+  return false;
+}
+
+// Get visual style class based on editability
+function getValueStyle(value: unknown, isEditable: boolean): string {
+  if (isEditable && isSafelyEditable(value)) {
+    return 'text-foreground'; // Bright, clearly editable
+  }
+  
+  // Read-only styles based on type
+  if (typeof value === 'string' && value.startsWith('$')) {
+    return 'text-cyan-500/70 italic'; // Variable references
+  }
+  if (typeof value === 'object' && value !== null && 'expr' in value) {
+    return 'text-blue-400/70 italic'; // Expressions
+  }
+  return 'text-muted-foreground'; // Other read-only
+}
+
 // Statement component with expandable args
 interface StatementRowProps {
   stmt: Statement;
@@ -150,22 +182,27 @@ const StatementRow: React.FC<StatementRowProps> = ({
         </div>
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
-            {args.map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2">
-                <span className="text-orange-400 min-w-[60px]">{k}:</span>
-                {editable && (typeof v === 'string' || typeof v === 'number') ? (
-                  <Input
-                    type={typeof v === 'number' ? 'number' : 'text'}
-                    value={String(v)}
-                    onChange={(e) => handleArgChange(k, e.target.value, v)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
-                  />
-                ) : (
-                  <span className="text-foreground/80 break-all">{formatValue(v)}</span>
-                )}
-              </div>
-            ))}
+            {args.map(([k, v]) => {
+              const canEdit = editable && isSafelyEditable(v);
+              return (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="text-orange-400 min-w-[60px]">{k}:</span>
+                  {canEdit ? (
+                    <Input
+                      type={typeof v === 'number' ? 'number' : 'text'}
+                      value={String(v)}
+                      onChange={(e) => handleArgChange(k, e.target.value, v)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
+                    />
+                  ) : (
+                    <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>
+                      {formatValue(v)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -221,15 +258,16 @@ const StatementRow: React.FC<StatementRowProps> = ({
               // Check if it's an expression with args
               const isExpr = typeof v === 'object' && v !== null && 'expr' in v && 'args' in v;
               const exprObj = isExpr ? v as { expr: string; args: Record<string, unknown> } : null;
+              const canEditLet = editable && isSafelyEditable(v);
               
               return (
                 <div key={k}>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <span className="text-green-400">{k}</span>
                     <span className="text-muted-foreground">=</span>
                     {isExpr ? (
-                      <span className="text-blue-400">expr({exprObj?.expr})</span>
-                    ) : editable && (typeof v === 'string' || typeof v === 'number') ? (
+                      <span className="text-blue-400/70 italic text-xs">expr({exprObj?.expr})</span>
+                    ) : canEditLet ? (
                       <Input
                         type={typeof v === 'number' ? 'number' : 'text'}
                         value={String(v)}
@@ -240,31 +278,34 @@ const StatementRow: React.FC<StatementRowProps> = ({
                           onArgsChange?.({ ...stmt.let, [k]: parsed });
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
+                        className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
                       />
                     ) : (
-                      <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+                      <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>{formatValue(v)}</span>
                     )}
                   </div>
                   {/* Show editable args for expr */}
                   {isExpr && exprObj && Object.keys(exprObj.args).length > 0 && (
                     <div className="ml-4 pl-2 border-l border-border/30 mt-1 space-y-0.5">
-                      {Object.entries(exprObj.args).map(([argK, argV]) => (
-                        <div key={argK} className="flex items-center gap-2">
-                          <span className="text-orange-400 text-xs">{argK}:</span>
-                          {editable && (typeof argV === 'string' || typeof argV === 'number') ? (
-                            <Input
-                              type={typeof argV === 'number' ? 'number' : 'text'}
-                              value={String(argV)}
-                              onChange={(e) => handleLetArgChange(k, argK, e.target.value, argV)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
-                            />
-                          ) : (
-                            <span className="text-foreground/60 text-xs">{formatValue(argV)}</span>
-                          )}
-                        </div>
-                      ))}
+                      {Object.entries(exprObj.args).map(([argK, argV]) => {
+                        const canEditArg = editable && isSafelyEditable(argV);
+                        return (
+                          <div key={argK} className="flex items-center gap-2">
+                            <span className="text-orange-400 text-xs min-w-[50px]">{argK}:</span>
+                            {canEditArg ? (
+                              <Input
+                                type={typeof argV === 'number' ? 'number' : 'text'}
+                                value={String(argV)}
+                                onChange={(e) => handleLetArgChange(k, argK, e.target.value, argV)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
+                              />
+                            ) : (
+                              <span className={`text-xs ${getValueStyle(argV, editable)}`}>{formatValue(argV)}</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -342,22 +383,25 @@ const StatementRow: React.FC<StatementRowProps> = ({
         </div>
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
-            {args.map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2">
-                <span className="text-orange-400">{k}:</span>
-                {editable && (typeof v === 'string' || typeof v === 'number') ? (
-                  <Input
-                    type={typeof v === 'number' ? 'number' : 'text'}
-                    value={String(v)}
-                    onChange={(e) => handleIrArgChange(k, e.target.value, v)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
-                  />
-                ) : (
-                  <span className="text-foreground/80 break-all">{formatValue(v)}</span>
-                )}
-              </div>
-            ))}
+            {args.map(([k, v]) => {
+              const canEdit = editable && isSafelyEditable(v);
+              return (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="text-orange-400 min-w-[50px]">{k}:</span>
+                  {canEdit ? (
+                    <Input
+                      type={typeof v === 'number' ? 'number' : 'text'}
+                      value={String(v)}
+                      onChange={(e) => handleIrArgChange(k, e.target.value, v)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
+                    />
+                  ) : (
+                    <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>{formatValue(v)}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
