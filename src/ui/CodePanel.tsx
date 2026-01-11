@@ -43,7 +43,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       </div>
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto scrollbar-thin relative"
+        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50 relative"
       >
         {hasLineInteraction ? (
           // Render as clickable lines with syntax highlighting
