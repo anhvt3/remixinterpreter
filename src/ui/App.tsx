@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
-import { AnimPanel } from './AnimPanel';
+import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { TimelineDebugPanel } from './TimelineDebugPanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
@@ -114,12 +114,7 @@ export const App: React.FC = () => {
                   onChange={setYamlContent}
                   language="yaml"
                 />
-                <div className="panel flex flex-col">
-                  <div className="panel-header">Anim</div>
-                  <div className="flex-1 min-h-0">
-                    <AnimPanel events={events} />
-                  </div>
-                </div>
+                <AnimPanelWithControls events={events} />
                 <div className="flex flex-col gap-2 h-full">
                   <div className="flex-1 min-h-0">
                     <ChatPanel title="Chat" />

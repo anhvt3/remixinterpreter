@@ -1,29 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import type { TimelineEvent } from '../core/types';
 import { normalizeTimeline } from '../core/timeline';
 import { AnimRenderer } from '../renderer/AnimRenderer';
-import { PlayerControls } from './PlayerControls';
 
-interface AnimPanelProps {
+interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
 }
 
-export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
+export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ events }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   
-  // Calculate duration from events
   const { duration } = normalizeTimeline(events);
   
-  // Animation loop
   useEffect(() => {
     if (!isPlaying) {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       return;
     }
     
@@ -48,29 +46,21 @@ export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
     animFrameRef.current = requestAnimationFrame(animate);
     
     return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [isPlaying, duration]);
   
   const handlePlayPause = useCallback(() => {
-    if (currentTime >= duration) {
-      setCurrentTime(0);
-    }
+    if (currentTime >= duration) setCurrentTime(0);
     setIsPlaying((prev) => !prev);
   }, [currentTime, duration]);
   
-  const handleSeek = useCallback((time: number) => {
-    setCurrentTime(time);
-  }, []);
-  
+  const handleSeek = useCallback((time: number) => setCurrentTime(time), []);
   const handleReset = useCallback(() => {
     setIsPlaying(false);
     setCurrentTime(0);
   }, []);
   
-  // Get container dimensions
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   
   useEffect(() => {
@@ -78,42 +68,71 @@ export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          setDimensions({
-            width: rect.width,
-            height: rect.height,
-          });
+          setDimensions({ width: rect.width, height: rect.height });
         }
       }
     };
     
-    // Initial measure after a small delay to ensure DOM is ready
     const timer = setTimeout(updateDimensions, 100);
     window.addEventListener('resize', updateDimensions);
-    
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', updateDimensions);
     };
   }, []);
   
+  const formatTime = (t: number) => `${t.toFixed(1)}s`;
+  
   return (
-    <div className="flex flex-col h-full w-full">
-      <div ref={containerRef} className="flex-1 min-h-0 relative">
+    <div className="panel flex flex-col h-full overflow-hidden">
+      {/* Header with controls */}
+      <div className="panel-header flex items-center gap-2">
+        <span className="font-medium">Anim</span>
+        <div className="flex-1" />
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleReset}
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handlePlayPause}
+          className="h-6 w-6 p-0 text-primary hover:text-primary/80"
+        >
+          {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+        </Button>
+        
+        <span className="text-[10px] text-muted-foreground font-mono w-8">
+          {formatTime(currentTime)}
+        </span>
+        
+        <Slider
+          value={[currentTime]}
+          min={0}
+          max={duration || 1}
+          step={0.01}
+          onValueChange={([value]) => handleSeek(value)}
+          className="w-24"
+        />
+        
+        <span className="text-[10px] text-muted-foreground font-mono w-8">
+          {formatTime(duration)}
+        </span>
+      </div>
+      
+      {/* Animation canvas */}
+      <div ref={containerRef} className="flex-1 min-h-0">
         <AnimRenderer
           events={events}
           currentTime={currentTime}
           width={dimensions.width}
-          height={Math.max(dimensions.height, 200)}
-        />
-      </div>
-      <div className="shrink-0">
-        <PlayerControls
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          onPlayPause={handlePlayPause}
-          onSeek={handleSeek}
-          onReset={handleReset}
+          height={dimensions.height}
         />
       </div>
     </div>
