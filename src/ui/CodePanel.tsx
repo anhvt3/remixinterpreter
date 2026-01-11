@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CodePanelProps {
   title: string;
@@ -31,9 +32,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({
     if (!hasLineInteraction) return;
 
     if (highlightedLines.length > 0 && containerRef.current) {
+      const viewport = containerRef.current.querySelector(
+        '[data-radix-scroll-area-viewport]',
+      ) as HTMLDivElement | null;
+
+      const scrollEl = viewport ?? containerRef.current;
+
       const firstLine = Math.min(...highlightedLines);
       const lineHeight = 25.6; // Approximate line height
-      containerRef.current.scrollTop = Math.max(0, firstLine * lineHeight - 50);
+      scrollEl.scrollTop = Math.max(0, firstLine * lineHeight - 50);
     }
   }, [highlightedLines, hasLineInteraction]);
 
@@ -44,12 +51,9 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <span className="text-xs text-syntax-comment">{language.toUpperCase()}</span>
       </div>
       {hasLineInteraction ? (
-        <div
-          ref={containerRef}
-          className="flex-1 min-h-0 overflow-y-scroll scrollbar-thin relative"
-        >
+        <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as clickable lines */}
-          <div className="p-4 pr-6 text-sm font-mono">
+          <div className="p-4 pr-10 text-sm font-mono">
             {lines.map((line, idx) => {
               const isHighlighted = highlightedLines.includes(idx);
               return (
@@ -75,7 +79,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
               );
             })}
           </div>
-        </div>
+        </ScrollArea>
       ) : (
         <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin relative">
           {/* Render as editable textarea */}
