@@ -5,9 +5,10 @@ import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { TimelineDebugPanel } from './TimelineDebugPanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
+import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
-import { execute } from '../core/dslExecutor';
+import { executeWithTrace } from '../core/runtimeTracer';
 import type { TimelineEvent, YAMLSpec } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
@@ -39,6 +40,7 @@ export const App: React.FC = () => {
   const [loContent, setLoContent] = useState('# LO Content\n\nThis panel shows the Learning Objective or high-level description of the animation.');
   const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [runtimeSteps, setRuntimeSteps] = useState<RuntimeStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
@@ -118,12 +120,14 @@ export const App: React.FC = () => {
         return;
       }
       
-      const result = execute(spec);
+      const result = executeWithTrace(spec);
       setEvents(result.timeline);
+      setRuntimeSteps(result.steps);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
       setParsedSpec(null);
+      setRuntimeSteps([]);
     }
   }, [fullYamlContent]);
   
@@ -157,6 +161,7 @@ export const App: React.FC = () => {
               <TabsTrigger value="lo-desc" className="text-xs">LO-Desc</TabsTrigger>
               <TabsTrigger value="desc-dsl" className="text-xs">Desc-DSL</TabsTrigger>
               <TabsTrigger value="dsl-anim" className="text-xs">DSL-Anim</TabsTrigger>
+              <TabsTrigger value="dsl-runtime" className="text-xs">DSL-Runtime</TabsTrigger>
             </TabsList>
           </div>
           
@@ -255,6 +260,58 @@ export const App: React.FC = () => {
                     <TimelineDebugPanel events={events} />
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="dsl-runtime" className="h-full m-0">
+              <div className="grid grid-cols-3 gap-2 h-full">
+                {/* YAMLScript Panel */}
+                <div className="flex flex-col h-full min-h-0">
+                  <div className="flex gap-1 mb-2">
+                    <button
+                      onClick={() => setViewMode('tree')}
+                      className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
+                        viewMode === 'tree' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      Tree View
+                    </button>
+                    <button
+                      onClick={() => setViewMode('code')}
+                      className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
+                        viewMode === 'code' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      Code View
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {viewMode === 'tree' ? (
+                      <YAMLTreePanel spec={parsedSpec} />
+                    ) : (
+                      <CodePanel
+                        title="YAMLScript"
+                        content={paramsContent}
+                        onChange={handleParamsChange}
+                        language="yaml"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Runtime Trace Panel */}
+                <RuntimePanel steps={runtimeSteps} />
+                
+                {/* Anim Panel */}
+                <AnimPanelWithControls 
+                  events={events} 
+                  selectedElementId={selectedElementId}
+                  onElementClick={handleElementClick}
+                />
               </div>
             </TabsContent>
           </div>
