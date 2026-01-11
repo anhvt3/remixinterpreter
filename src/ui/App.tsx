@@ -136,6 +136,38 @@ export const App: React.FC = () => {
     }
   };
   
+  // Handle function header click - find all elements created by this function
+  const handleFunctionClick = (fnName: string) => {
+    // Find all elements whose creator function matches this function
+    const createdByFn: string[] = [];
+    const animatedByFn: string[] = [];
+    
+    provenance.forEach((prov, elementId) => {
+      if (prov.creatorFn === fnName) {
+        createdByFn.push(elementId);
+      }
+      // Also check if any animator is in this function
+      for (const animator of prov.animators) {
+        if (animator.fn === fnName) {
+          animatedByFn.push(elementId);
+        }
+      }
+    });
+    
+    const allElements = [...new Set([...createdByFn, ...animatedByFn])];
+    
+    // Toggle selection - always select the function for visual feedback
+    if (selectedStatement?.fnName === fnName && selectedStatement?.stmtIndex === -1) {
+      setSelectedStatement(null);
+      setSelectedElementId(null);
+    } else {
+      setSelectedStatement({ fnName, stmtIndex: -1 }); // -1 indicates whole function
+      if (allElements.length > 0) {
+        setSelectedElementId(allElements[0]);
+      }
+    }
+  };
+  
   // Handle statement click in YAMLTree panel
   const handleStatementClick = (fnName: string, stmtIndex: number) => {
     const key = makeStatementKey(fnName, stmtIndex);
@@ -189,11 +221,26 @@ export const App: React.FC = () => {
     const secondary: string[] = [];
     
     if (selectedStatement) {
-      const key = makeStatementKey(selectedStatement.fnName, selectedStatement.stmtIndex);
-      const created = creatorMap.get(key) || [];
-      const animated = animatorMap.get(key) || [];
-      primary.push(...created);
-      secondary.push(...animated.filter(id => !created.includes(id)));
+      if (selectedStatement.stmtIndex === -1) {
+        // Whole function selected - highlight all elements created/animated by this function
+        provenance.forEach((prov, elementId) => {
+          if (prov.creatorFn === selectedStatement.fnName) {
+            primary.push(elementId);
+          }
+          for (const animator of prov.animators) {
+            if (animator.fn === selectedStatement.fnName && !primary.includes(elementId)) {
+              secondary.push(elementId);
+            }
+          }
+        });
+      } else {
+        // Specific statement selected
+        const key = makeStatementKey(selectedStatement.fnName, selectedStatement.stmtIndex);
+        const created = creatorMap.get(key) || [];
+        const animated = animatorMap.get(key) || [];
+        primary.push(...created);
+        secondary.push(...animated.filter(id => !created.includes(id)));
+      }
     } else if (selectedElementId) {
       primary.push(selectedElementId);
       // Add animated elements as secondary
@@ -347,6 +394,8 @@ export const App: React.FC = () => {
                   onParamsChange={handleParamsObjectChange}
                   onFunctionArgsChange={handleFunctionArgsChange}
                   onStatementClick={handleStatementClick}
+                  onFunctionClick={handleFunctionClick}
+                  selectedFunction={selectedStatement?.stmtIndex === -1 ? selectedStatement.fnName : null}
                   primaryStatements={highlightedStatements.primary}
                   secondaryStatements={highlightedStatements.secondary}
                 />
