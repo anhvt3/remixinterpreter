@@ -10,8 +10,6 @@ interface YAMLTreePanelProps {
   selectedFunction?: string | null;
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onElementSelect?: (elementId: string | null) => void;
-  selectedElementId?: string | null;
 }
 
 interface FunctionNode {
@@ -130,8 +128,6 @@ interface StatementRowProps {
   defaultExpanded?: boolean;
   editable?: boolean;
   onArgsChange?: (newArgs: Record<string, unknown>) => void;
-  onElementSelect?: (elementId: string | null) => void;
-  selectedElementId?: string | null;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
@@ -139,8 +135,6 @@ const StatementRow: React.FC<StatementRowProps> = ({
   defaultExpanded = false,
   editable = false,
   onArgsChange,
-  onElementSelect,
-  selectedElementId,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   
@@ -355,11 +349,6 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const args = Object.entries(stmt.ir.args);
     const hasArgs = args.length > 0;
     
-    // Check if this is a text.create statement with an id
-    const isTextCreate = stmt.ir.fn === 'text.create';
-    const elementId = isTextCreate && typeof stmt.ir.args.id === 'string' ? stmt.ir.args.id : null;
-    const isSelected = elementId && selectedElementId === elementId;
-    
     const handleIrArgChange = (key: string, value: string, originalValue: unknown) => {
       if (!onArgsChange) return;
       
@@ -371,24 +360,11 @@ const StatementRow: React.FC<StatementRowProps> = ({
       onArgsChange({ ...stmt.ir.args, [key]: parsed });
     };
     
-    const handleClick = (e: React.MouseEvent) => {
-      if (isTextCreate && elementId && onElementSelect) {
-        e.stopPropagation();
-        onElementSelect(isSelected ? null : elementId);
-      } else if (hasArgs) {
-        setExpanded(!expanded);
-      }
-    };
-    
     return (
       <div className="py-1">
         <div 
-          className={`flex items-center gap-1 cursor-pointer rounded px-1 -mx-1 transition-colors ${
-            isSelected 
-              ? 'bg-primary/20 ring-1 ring-primary/50' 
-              : 'hover:bg-muted/30'
-          }`}
-          onClick={handleClick}
+          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+          onClick={() => hasArgs && setExpanded(!expanded)}
         >
           {hasArgs ? (
             expanded ? (
@@ -400,11 +376,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <span className="w-3" />
           )}
           <span className="text-orange-400">ir</span>
-          <span className={isSelected ? 'text-primary font-medium' : 'text-primary'}>{stmt.ir.fn}</span>
-          {isTextCreate && elementId && (
-            <span className="text-cyan-400 text-xs">#{elementId}</span>
-          )}
-          {!expanded && hasArgs && !isTextCreate && (
+          <span className="text-primary">{stmt.ir.fn}</span>
+          {!expanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
         </div>
@@ -479,8 +452,6 @@ interface TreeNodeProps {
   onSelect: (name: string) => void;
   editable?: boolean;
   onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onElementSelect?: (elementId: string | null) => void;
-  selectedElementId?: string | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -493,8 +464,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onSelect,
   editable = false,
   onArgsChange,
-  onElementSelect,
-  selectedElementId,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -557,8 +526,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                 stmt={stmt} 
                 editable={editable}
                 onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
-                onElementSelect={onElementSelect}
-                selectedElementId={selectedElementId}
               />
             ))}
           </div>
@@ -668,8 +635,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   selectedFunction,
   onParamsChange,
   onFunctionArgsChange,
-  onElementSelect,
-  selectedElementId,
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['SimplifyRoot']));
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
@@ -781,8 +746,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onSelect={handleSelect}
               editable={!!onFunctionArgsChange}
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
-              onElementSelect={onElementSelect}
-              selectedElementId={selectedElementId}
             />
           ))}
         </div>

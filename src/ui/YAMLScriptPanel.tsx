@@ -11,8 +11,6 @@ interface YAMLScriptPanelProps {
   highlightedLines?: number[];
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onElementSelect?: (elementId: string | null) => void;
-  selectedElementId?: string | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -23,8 +21,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   highlightedLines = [],
   onParamsChange,
   onFunctionArgsChange,
-  onElementSelect,
-  selectedElementId,
 }) => {
   const [viewMode, setViewMode] = useState<'code' | 'tree'>('tree');
 
@@ -61,8 +57,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             spec={spec} 
             onParamsChange={onParamsChange} 
             onFunctionArgsChange={onFunctionArgsChange}
-            onElementSelect={onElementSelect}
-            selectedElementId={selectedElementId}
           />
         ) : (
           <CodePanel
