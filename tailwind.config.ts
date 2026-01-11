@@ -54,9 +54,13 @@ export default {
         },
         syntax: {
           keyword: "hsl(var(--syntax-keyword))",
+          key: "hsl(var(--syntax-key))",
           string: "hsl(var(--syntax-string))",
           number: "hsl(var(--syntax-number))",
+          boolean: "hsl(var(--syntax-boolean))",
+          null: "hsl(var(--syntax-null))",
           comment: "hsl(var(--syntax-comment))",
+          punctuation: "hsl(var(--syntax-punctuation))",
           function: "hsl(var(--syntax-function))",
           variable: "hsl(var(--syntax-variable))",
         },

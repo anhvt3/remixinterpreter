@@ -43,9 +43,13 @@
     
     /* Syntax highlighting */
     --syntax-keyword: 195 85% 60%;
+    --syntax-key: 280 60% 70%;
     --syntax-string: 80 60% 55%;
     --syntax-number: 30 80% 60%;
+    --syntax-boolean: 340 70% 65%;
+    --syntax-null: 0 0% 50%;
     --syntax-comment: 220 10% 45%;
+    --syntax-punctuation: 220 15% 55%;
     --syntax-function: 280 60% 65%;
     --syntax-variable: 210 70% 70%;
     
@@ -133,9 +137,13 @@
   }
   
   .syntax-keyword { color: hsl(var(--syntax-keyword)); }
+  .syntax-key { color: hsl(var(--syntax-key)); }
   .syntax-string { color: hsl(var(--syntax-string)); }
   .syntax-number { color: hsl(var(--syntax-number)); }
+  .syntax-boolean { color: hsl(var(--syntax-boolean)); }
+  .syntax-null { color: hsl(var(--syntax-null)); }
   .syntax-comment { color: hsl(var(--syntax-comment)); }
+  .syntax-punctuation { color: hsl(var(--syntax-punctuation)); }
   .syntax-function { color: hsl(var(--syntax-function)); }
   .syntax-variable { color: hsl(var(--syntax-variable)); }
   

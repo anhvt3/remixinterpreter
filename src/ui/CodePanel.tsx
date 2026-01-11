@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Undo2, Redo2 } from 'lucide-react';
+import { SyntaxHighlighter } from './SyntaxHighlighter';
 
 interface CodePanelProps {
   title: string;
@@ -125,21 +126,32 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         </ScrollArea>
       ) : (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
-          {/* Render as editable textarea */}
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            readOnly={readOnly}
-            className="w-full min-h-full p-4 pr-10 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none border-none"
-            style={{
-              lineHeight: '1.6',
-              tabSize: 2,
-              minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
-            }}
-            spellCheck={false}
-          />
+          {/* Render as editable textarea with syntax highlighting overlay */}
+          <div className="relative p-4 pr-10">
+            {/* Syntax highlighted layer (behind) */}
+            <div 
+              className="absolute inset-0 p-4 pr-10 pointer-events-none select-none"
+              aria-hidden="true"
+            >
+              <SyntaxHighlighter content={content} language={language} />
+            </div>
+            {/* Transparent textarea (front, for editing) */}
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              readOnly={readOnly}
+              className="relative w-full bg-transparent text-transparent caret-foreground text-sm font-mono resize-none focus:outline-none border-none"
+              style={{
+                lineHeight: '1.6',
+                tabSize: 2,
+                minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
+                caretColor: 'hsl(var(--foreground))',
+              }}
+              spellCheck={false}
+            />
+          </div>
         </ScrollArea>
       )}
     </div>
