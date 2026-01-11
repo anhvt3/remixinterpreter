@@ -17,8 +17,10 @@ interface YAMLScriptPanelProps {
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
   onStatementClick?: (fnName: string, stmtIndex: number) => void;
+  onFunctionClick?: (fnName: string) => void;
   primaryStatements?: StatementHighlight[];
   secondaryStatements?: StatementHighlight[];
+  selectedFunction?: string | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -30,8 +32,10 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onParamsChange,
   onFunctionArgsChange,
   onStatementClick,
+  onFunctionClick,
   primaryStatements = [],
   secondaryStatements = [],
+  selectedFunction,
 }) => {
   const [viewMode, setViewMode] = useState<'code' | 'tree'>('tree');
 
@@ -69,6 +73,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             onParamsChange={onParamsChange} 
             onFunctionArgsChange={onFunctionArgsChange}
             onStatementClick={onStatementClick}
+            onFunctionSelect={onFunctionClick}
+            selectedFunction={selectedFunction}
             primaryStatements={primaryStatements}
             secondaryStatements={secondaryStatements}
           />
