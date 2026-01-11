@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Code, Play, Layers, Wand2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Code, Play, Layers, Wand2, Settings } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { YAMLSpec, FunctionDef, Statement } from '@/core/types';
+import { Input } from '@/components/ui/input';
+import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
 
 interface YAMLTreePanelProps {
   spec: YAMLSpec | null;
   onFunctionSelect?: (fnName: string) => void;
   selectedFunction?: string | null;
+  onParamsChange?: (params: Params) => void;
 }
 
 interface FunctionNode {
@@ -359,10 +361,105 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   );
 };
 
+// Editable params section component
+interface ParamsEditorProps {
+  params: Params;
+  onChange: (params: Params) => void;
+}
+
+const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
+  const [expanded, setExpanded] = useState(true);
+  
+  const handleValueChange = (key: string, value: string) => {
+    // Try to parse as number, otherwise keep as string
+    const parsed = !isNaN(Number(value)) && value.trim() !== '' ? Number(value) : value;
+    onChange({ ...params, [key]: parsed } as Params);
+  };
+  
+  const renderParamInput = (key: string, value: unknown, path: string[] = []) => {
+    const fullPath = [...path, key].join('.');
+    
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Nested object - render recursively
+      return (
+        <div key={fullPath} className="ml-2 border-l border-border/40 pl-2">
+          <div className="text-xs text-muted-foreground py-1">{key}:</div>
+          {Object.entries(value).map(([k, v]) => renderParamInput(k, v, [...path, key]))}
+        </div>
+      );
+    }
+    
+    if (typeof value === 'number' || typeof value === 'string') {
+      return (
+        <div key={fullPath} className="flex items-center gap-2 py-1">
+          <span className="text-xs text-orange-400 min-w-[80px]">{key}:</span>
+          <Input
+            type={typeof value === 'number' ? 'number' : 'text'}
+            value={String(value)}
+            onChange={(e) => {
+              // Update nested value
+              if (path.length === 0) {
+                handleValueChange(key, e.target.value);
+              } else {
+                // Deep update for nested params
+                const newParams = JSON.parse(JSON.stringify(params)) as Params;
+                let obj: Record<string, unknown> = newParams as unknown as Record<string, unknown>;
+                for (const p of path) {
+                  obj = obj[p] as Record<string, unknown>;
+                }
+                const parsed = !isNaN(Number(e.target.value)) && e.target.value.trim() !== '' 
+                  ? Number(e.target.value) 
+                  : e.target.value;
+                obj[key] = parsed;
+                onChange(newParams);
+              }
+            }}
+            className="h-6 text-xs px-2 py-0 bg-muted/50 border-border/50 w-24"
+          />
+        </div>
+      );
+    }
+    
+    // Array or other - display as read-only
+    return (
+      <div key={fullPath} className="flex items-center gap-2 py-1">
+        <span className="text-xs text-orange-400 min-w-[80px]">{key}:</span>
+        <span className="text-xs text-foreground/60">{JSON.stringify(value)}</span>
+      </div>
+    );
+  };
+  
+  return (
+    <div className="border-b border-border/50">
+      <div 
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+        )}
+        <Settings className="w-3.5 h-3.5 text-primary" />
+        <span className="text-sm font-medium text-primary">Parameters</span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {Object.keys(params).length} params
+        </span>
+      </div>
+      {expanded && (
+        <div className="px-4 pb-3">
+          {Object.entries(params).map(([k, v]) => renderParamInput(k, v))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   spec,
   onFunctionSelect,
   selectedFunction,
+  onParamsChange,
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['SimplifyRoot']));
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
@@ -421,6 +518,10 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     );
   }
   
+  const handleParamsChange = (newParams: Params) => {
+    onParamsChange?.(newParams);
+  };
+  
   return (
     <div className="flex flex-col h-full panel">
       <div className="panel-header flex items-center justify-between">
@@ -440,6 +541,11 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
           </button>
         </div>
       </div>
+      
+      {/* Editable Parameters */}
+      {spec?.params && onParamsChange && (
+        <ParamsEditor params={spec.params} onChange={handleParamsChange} />
+      )}
       
       {/* Legend */}
       <div className="flex gap-3 px-3 py-2 border-b border-border/50 text-[10px]">
