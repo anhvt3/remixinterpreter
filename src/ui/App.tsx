@@ -39,14 +39,68 @@ export const App: React.FC = () => {
   const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   
   // Extract editable params from full YAML
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
+  
+  // Build mapping from YAML sections to element IDs
+  const yamlToElementMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const lines = paramsContent.split('\n');
+    
+    // Map layout sections to element IDs
+    let currentSection = '';
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (trimmed === 'title_at:') currentSection = 'title';
+      else if (trimmed === 'prompt_at:') currentSection = 'prompt';
+      else if (trimmed === 'ladder:') currentSection = 'ladder';
+      else if (trimmed === 'line_at:') currentSection = 'factline';
+      
+      if (currentSection) {
+        map[idx.toString()] = currentSection;
+      }
+    });
+    
+    // Also map style sections
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('title:') && line.includes('color')) map[idx.toString()] = 'title';
+      if (trimmed.startsWith('text:') && line.includes('color')) map[idx.toString()] = 'text';
+      if (trimmed.startsWith('final:') && line.includes('color')) map[idx.toString()] = 'factline';
+    });
+    
+    return map;
+  }, [paramsContent]);
+  
+  // Build reverse map: element ID to line numbers
+  const elementToLinesMap = useMemo(() => {
+    const map: Record<string, number[]> = {};
+    Object.entries(yamlToElementMap).forEach(([lineNum, elementId]) => {
+      if (!map[elementId]) map[elementId] = [];
+      map[elementId].push(parseInt(lineNum));
+    });
+    return map;
+  }, [yamlToElementMap]);
   
   // Handle params changes by merging back into full YAML
   const handleParamsChange = (newParams: string) => {
     const merged = mergeParams(fullYamlContent, newParams);
     setFullYamlContent(merged);
+  };
+  
+  // Handle line click in YAML panel
+  const handleLineClick = (lineIndex: number) => {
+    const elementId = yamlToElementMap[lineIndex.toString()];
+    if (elementId) {
+      setSelectedElementId(elementId === selectedElementId ? null : elementId);
+    }
+  };
+  
+  // Handle element click in Anim panel
+  const handleElementClick = (elementId: string) => {
+    setSelectedElementId(elementId === selectedElementId ? null : elementId);
   };
   
   // Parse and execute YAML whenever it changes
@@ -145,8 +199,14 @@ export const App: React.FC = () => {
                   content={paramsContent}
                   onChange={handleParamsChange}
                   language="yaml"
+                  onLineClick={handleLineClick}
+                  highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
                 />
-                <AnimPanelWithControls events={events} />
+                <AnimPanelWithControls 
+                  events={events} 
+                  selectedElementId={selectedElementId}
+                  onElementClick={handleElementClick}
+                />
                 <div className="flex flex-col gap-2 h-full">
                   <div className="flex-1 min-h-0">
                     <ChatPanel title="Chat" />
