@@ -105,6 +105,22 @@ export const App: React.FC = () => {
     }
   };
   
+  // Handle function args changes (from tree view editor)
+  const handleFunctionArgsChange = (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => {
+    try {
+      const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
+      if (fullSpec.defs && fullSpec.defs[fnName]) {
+        const stmt = fullSpec.defs[fnName].body[stmtIndex];
+        if (stmt && 'call' in stmt) {
+          stmt.call.args = newArgs;
+          setFullYamlContent(yaml.dump(fullSpec, { indent: 2, lineWidth: -1 }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to update function args:', e);
+    }
+  };
+  
   // Handle line click in YAML panel
   const handleLineClick = (lineIndex: number) => {
     const elementId = yamlToElementMap[lineIndex.toString()];
@@ -207,6 +223,7 @@ export const App: React.FC = () => {
                   content={paramsContent}
                   onChange={handleParamsChange}
                   onParamsChange={handleParamsObjectChange}
+                  onFunctionArgsChange={handleFunctionArgsChange}
                 />
                 <ChatPanel title="Chat" />
               </div>
@@ -219,6 +236,7 @@ export const App: React.FC = () => {
                   content={paramsContent}
                   onChange={handleParamsChange}
                   onParamsChange={handleParamsObjectChange}
+                  onFunctionArgsChange={handleFunctionArgsChange}
                   onLineClick={handleLineClick}
                   highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
                 />
@@ -246,6 +264,7 @@ export const App: React.FC = () => {
                   content={paramsContent}
                   onChange={handleParamsChange}
                   onParamsChange={handleParamsObjectChange}
+                  onFunctionArgsChange={handleFunctionArgsChange}
                 />
                 
                 {/* Runtime Trace Panel */}
