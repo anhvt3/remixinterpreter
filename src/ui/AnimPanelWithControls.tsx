@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -13,11 +13,39 @@ interface AnimPanelWithControlsProps {
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ events }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const containerRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   
   const { duration } = normalizeTimeline(events);
+  
+  // Use ResizeObserver for reliable dimension tracking
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    const updateDimensions = () => {
+      // Use offsetWidth/offsetHeight which gives actual rendered size
+      const w = container.offsetWidth;
+      const h = container.offsetHeight;
+      if (w > 0 && h > 0 && h < 2000) { // Sanity check on height
+        setDimensions({ width: w, height: h });
+      }
+    };
+    
+    // Initial measurement after a short delay to let layout settle
+    const timer = setTimeout(updateDimensions, 100);
+    
+    // Use ResizeObserver for dynamic updates
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(container);
+    
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, []);
   
   useEffect(() => {
     if (!isPlaying) {
@@ -61,30 +89,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ ev
     setCurrentTime(0);
   }, []);
   
-  const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
-  
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 50 && rect.height > 50) {
-          setDimensions({ width: rect.width, height: rect.height });
-        }
-      }
-    };
-    
-    // Multiple attempts to ensure we catch the correct dimensions
-    setTimeout(updateDimensions, 50);
-    setTimeout(updateDimensions, 200);
-    setTimeout(updateDimensions, 500);
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, [events]);
-  
   const formatTime = (t: number) => `${t.toFixed(1)}s`;
-
-  // Debug: log event count
-  console.log('AnimPanel events:', events.length, 'currentTime:', currentTime);
   
   return (
     <div className="panel flex flex-col h-full overflow-hidden">
@@ -130,13 +135,19 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ ev
       </div>
       
       {/* Animation canvas */}
-      <div ref={containerRef} className="flex-1 min-h-0">
-        <AnimRenderer
-          events={events}
-          currentTime={currentTime}
-          width={dimensions.width}
-          height={dimensions.height}
-        />
+      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden" style={{ minHeight: 200 }}>
+        {dimensions.width > 0 && dimensions.height > 0 ? (
+          <AnimRenderer
+            events={events}
+            currentTime={currentTime}
+            width={dimensions.width}
+            height={dimensions.height}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+            Loading...
+          </div>
+        )}
       </div>
     </div>
   );

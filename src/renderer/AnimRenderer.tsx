@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import type { TimelineEvent, LayoutPosition, StyleDef } from '../core/types';
+import React from 'react';
+import type { TimelineEvent } from '../core/types';
 import { computeScene, renderMath, boardToPixel } from './scene';
 
 interface AnimRendererProps {
@@ -15,8 +15,6 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
   width,
   height,
 }) => {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  
   // Compute scene at current time
   const scene = computeScene(events, currentTime);
   
@@ -24,9 +22,10 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
   const viewbox = scene.boardConfig?.viewbox || [-6, 10, 6, -10];
   const bgColor = scene.boardConfig?.theme?.bg || '#000000';
   
+  const elements = Array.from(scene.elements.values());
+  
   return (
     <div
-      ref={canvasRef}
       className="relative overflow-hidden"
       style={{
         width,
@@ -34,19 +33,22 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         backgroundColor: bgColor,
       }}
     >
-      {Array.from(scene.elements.values()).map((element) => {
+      {/* Debug overlay */}
+      <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
+        {elements.length} el @ t={currentTime.toFixed(1)}s
+      </div>
+      
+      {elements.map((element) => {
         if (!element.visible) return null;
         
-        const { px, py } = boardToPixel(
-          element.at.x,
-          element.at.y,
-          viewbox,
-          width,
-          height
-        );
+        // Ensure at has valid coordinates
+        const atX = typeof element.at?.x === 'number' ? element.at.x : 0;
+        const atY = typeof element.at?.y === 'number' ? element.at.y : 0;
+        
+        const { px, py } = boardToPixel(atX, atY, viewbox, width, height);
         
         // Calculate transform based on anchor
-        const anchor = element.at.anchor || 'Center';
+        const anchor = element.at?.anchor || 'Center';
         let transform = 'translate(-50%, -50%)';
         if (anchor === 'Left') transform = 'translate(0, -50%)';
         if (anchor === 'Right') transform = 'translate(-100%, -50%)';
@@ -58,7 +60,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         return (
           <div
             key={element.id}
-            className="absolute transition-opacity duration-100"
+            className="absolute"
             style={{
               left: px,
               top: py,
@@ -68,6 +70,8 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
               fontSize,
               fontWeight,
               whiteSpace: 'nowrap',
+              border: '1px solid rgba(255,0,0,0.5)', // DEBUG: red border
+              padding: '2px 4px',
             }}
           >
             {element.mode === 'math' ? (
