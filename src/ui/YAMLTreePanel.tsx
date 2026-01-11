@@ -4,20 +4,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
 
-export interface StatementHighlight {
-  fnName: string;
-  stmtIndex: number;
-}
-
 interface YAMLTreePanelProps {
   spec: YAMLSpec | null;
   onFunctionSelect?: (fnName: string) => void;
   selectedFunction?: string | null;
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onStatementClick?: (fnName: string, stmtIndex: number) => void;
-  primaryStatements?: StatementHighlight[];
-  secondaryStatements?: StatementHighlight[];
 }
 
 interface FunctionNode {
@@ -460,9 +452,6 @@ interface TreeNodeProps {
   onSelect: (name: string) => void;
   editable?: boolean;
   onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onStatementClick?: (stmtIndex: number) => void;
-  primaryStatements?: number[];
-  secondaryStatements?: number[];
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -475,9 +464,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onSelect,
   editable = false,
   onArgsChange,
-  onStatementClick,
-  primaryStatements = [],
-  secondaryStatements = [],
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -534,27 +520,14 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       {isExpanded && (
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
-            {node.def.body.map((stmt, idx) => {
-              const isPrimary = primaryStatements.includes(idx);
-              const isSecondary = secondaryStatements.includes(idx);
-              return (
-                <div 
-                  key={idx}
-                  onClick={() => onStatementClick?.(idx)}
-                  className={`
-                    ${isPrimary ? 'bg-primary/20 ring-1 ring-primary/50 rounded -mx-1 px-1' : ''}
-                    ${isSecondary ? 'bg-amber-400/10 ring-1 ring-amber-400/30 rounded -mx-1 px-1' : ''}
-                    ${onStatementClick ? 'cursor-pointer hover:bg-muted/50' : ''}
-                  `}
-                >
-                  <StatementRow 
-                    stmt={stmt} 
-                    editable={editable}
-                    onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
-                  />
-                </div>
-              );
-            })}
+            {node.def.body.map((stmt, idx) => (
+              <StatementRow 
+                key={idx} 
+                stmt={stmt} 
+                editable={editable}
+                onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -662,9 +635,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   selectedFunction,
   onParamsChange,
   onFunctionArgsChange,
-  onStatementClick,
-  primaryStatements = [],
-  secondaryStatements = [],
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['SimplifyRoot']));
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
@@ -776,9 +746,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onSelect={handleSelect}
               editable={!!onFunctionArgsChange}
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
-              onStatementClick={onStatementClick ? (stmtIdx) => onStatementClick(node.name, stmtIdx) : undefined}
-              primaryStatements={primaryStatements.filter(s => s.fnName === node.name).map(s => s.stmtIndex)}
-              secondaryStatements={secondaryStatements.filter(s => s.fnName === node.name).map(s => s.stmtIndex)}
             />
           ))}
         </div>

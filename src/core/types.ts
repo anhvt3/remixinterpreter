@@ -125,9 +125,6 @@ export interface TimelineEvent {
   type: 'board.init' | 'text.create' | 'text.update';
   args: Record<string, unknown>;
   timestamp: number; // Order in which event was emitted
-  // Provenance tracking
-  sourceFn?: string;      // Function that emitted this event
-  sourceStmtIndex?: number; // Statement index in that function
 }
 
 export interface TextCreateEvent extends TimelineEvent {

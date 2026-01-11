@@ -10,27 +10,11 @@ import type {
 import { resolve } from './resolver';
 import { evaluate, isExpression } from './exprEngine';
 import type { RuntimeStep } from '../ui/RuntimePanel';
-import { 
-  type ProvenanceMap, 
-  type CreatorMap, 
-  type AnimatorMap, 
-  type ElementProvenance,
-  makeStatementKey 
-} from './provenanceTracker';
 
 export interface TracedExecutionResult {
   timeline: TimelineEvent[];
   returnValue: unknown;
   steps: RuntimeStep[];
-  provenance: ProvenanceMap;
-  creatorMap: CreatorMap;
-  animatorMap: AnimatorMap;
-}
-
-// Execution context passed through the call stack
-interface ExecutionContext {
-  currentFn: string;
-  currentStmtIndex: number;
 }
 
 let eventCounter = 0;
@@ -42,9 +26,6 @@ export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
   const timeline: TimelineEvent[] = [];
   const steps: RuntimeStep[] = [];
   const globalEnv: Environment = new Map();
-  const provenance: ProvenanceMap = new Map();
-  const creatorMap: CreatorMap = new Map();
-  const animatorMap: AnimatorMap = new Map();
   
   const entry = spec.program.entry.call;
   const entryFn = spec.defs[entry.fn];
@@ -58,10 +39,9 @@ export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
     resolvedArgs[key] = resolveValue(val, globalEnv, spec);
   }
   
-  const ctx: ExecutionContext = { currentFn: entry.fn, currentStmtIndex: 0 };
-  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0, provenance, creatorMap, animatorMap, ctx);
+  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0);
   
-  return { timeline, returnValue: result, steps, provenance, creatorMap, animatorMap };
+  return { timeline, returnValue: result, steps };
 }
 
 function executeFunctionTraced(
@@ -72,11 +52,7 @@ function executeFunctionTraced(
   timeline: TimelineEvent[],
   steps: RuntimeStep[],
   parentEnv: Environment,
-  depth: number,
-  provenance: ProvenanceMap,
-  creatorMap: CreatorMap,
-  animatorMap: AnimatorMap,
-  ctx: ExecutionContext
+  depth: number
 ): unknown {
   const env: Environment = new Map(parentEnv);
   
@@ -98,10 +74,8 @@ function executeFunctionTraced(
     }
   }
   
-  for (let stmtIndex = 0; stmtIndex < fn.body.length; stmtIndex++) {
-    const stmt = fn.body[stmtIndex];
-    const stmtCtx: ExecutionContext = { currentFn: fnName, currentStmtIndex: stmtIndex };
-    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1, provenance, creatorMap, animatorMap, stmtCtx);
+  for (const stmt of fn.body) {
+    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1);
     if (result !== undefined && 'return' in stmt) {
       return result;
     }
@@ -116,15 +90,11 @@ function executeStatementTraced(
   timeline: TimelineEvent[],
   steps: RuntimeStep[],
   env: Environment,
-  depth: number,
-  provenance: ProvenanceMap,
-  creatorMap: CreatorMap,
-  animatorMap: AnimatorMap,
-  ctx: ExecutionContext
+  depth: number
 ): unknown {
-  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth, provenance, creatorMap, animatorMap, ctx);
+  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth);
   if ('let' in stmt) return executeLetTraced(stmt.let, spec, steps, env, depth);
-  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth, provenance, creatorMap, animatorMap, ctx);
+  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth);
   if ('return' in stmt) {
     const value = resolveValue(stmt.return, env, spec);
     steps.push({
@@ -135,7 +105,7 @@ function executeStatementTraced(
     });
     return value;
   }
-  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth, provenance, creatorMap, animatorMap, ctx);
+  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth);
   return undefined;
 }
 
@@ -145,17 +115,13 @@ function executeCallTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number,
-  provenance: ProvenanceMap,
-  creatorMap: CreatorMap,
-  animatorMap: AnimatorMap,
-  ctx: ExecutionContext
+  depth: number
 ): unknown {
   const fnDef = spec.defs[call.fn];
   
   if (!fnDef) {
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
-      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, provenance, creatorMap, animatorMap, ctx);
+      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth);
     }
     throw new Error(`Function "${call.fn}" not found`);
   }
@@ -165,8 +131,7 @@ function executeCallTraced(
     resolvedArgs[key] = resolveValue(val, env, spec);
   }
   
-  // Pass the current context (caller's context) for provenance tracking
-  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, provenance, creatorMap, animatorMap, ctx);
+  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth);
   if (call.out) env.set(call.out, result);
   return result;
 }
@@ -197,11 +162,7 @@ function executeForeachTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number,
-  provenance: ProvenanceMap,
-  creatorMap: CreatorMap,
-  animatorMap: AnimatorMap,
-  ctx: ExecutionContext
+  depth: number
 ): void {
   const rangeValue = resolveValue(foreach.range, env, spec);
   if (!Array.isArray(rangeValue)) throw new Error(`Foreach range must be array`);
@@ -220,10 +181,8 @@ function executeForeachTraced(
     };
     steps.push(iterStep);
     
-    for (let stmtIndex = 0; stmtIndex < foreach.do.length; stmtIndex++) {
-      const stmt = foreach.do[stmtIndex];
-      // Keep parent context for foreach body statements
-      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1, provenance, creatorMap, animatorMap, ctx);
+    for (const stmt of foreach.do) {
+      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1);
     }
   }
 }
@@ -234,11 +193,7 @@ function executeIRTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number,
-  provenance: ProvenanceMap,
-  creatorMap: CreatorMap,
-  animatorMap: AnimatorMap,
-  ctx: ExecutionContext
+  depth: number
 ): void {
   const resolvedArgs: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(ir.args)) {
@@ -253,49 +208,11 @@ function executeIRTraced(
     depth,
   });
   
-  // Track provenance for element creation/modification
-  const elementId = resolvedArgs.id as string | undefined;
-  const stmtKey = makeStatementKey(ctx.currentFn, ctx.currentStmtIndex);
-  
-  if (ir.fn === 'text.create' && elementId) {
-    // This is a creator
-    const prov: ElementProvenance = {
-      elementId,
-      creatorFn: ctx.currentFn,
-      creatorStmtIndex: ctx.currentStmtIndex,
-      creatorType: 'ir',
-      animators: [],
-    };
-    provenance.set(elementId, prov);
-    
-    // Update creatorMap
-    const existing = creatorMap.get(stmtKey) || [];
-    existing.push(elementId);
-    creatorMap.set(stmtKey, existing);
-  } else if (ir.fn === 'text.update' && elementId) {
-    // This is an animator
-    const prov = provenance.get(elementId);
-    if (prov) {
-      prov.animators.push({
-        fn: ctx.currentFn,
-        stmtIndex: ctx.currentStmtIndex,
-        irType: ir.fn,
-      });
-    }
-    
-    // Update animatorMap
-    const existing = animatorMap.get(stmtKey) || [];
-    existing.push(elementId);
-    animatorMap.set(stmtKey, existing);
-  }
-  
   timeline.push({
     id: `event_${eventCounter++}`,
     type: ir.fn as TimelineEvent['type'],
     args: resolvedArgs,
     timestamp: eventCounter,
-    sourceFn: ctx.currentFn,
-    sourceStmtIndex: ctx.currentStmtIndex,
   });
 }
 
