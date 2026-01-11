@@ -295,7 +295,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onSelect,
 }) => {
   const isExpanded = expanded.has(node.name);
-  const hasChildren = node.children.length > 0;
+  const hasBody = node.def.body.length > 0;
   const isSelected = selected === node.name;
   
   return (
@@ -315,7 +315,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             e.stopPropagation();
             onToggle(node.name);
           }}
-          className={`p-0.5 rounded hover:bg-muted ${!hasChildren && 'invisible'}`}
+          className={`p-0.5 rounded hover:bg-muted ${!hasBody && 'invisible'}`}
         >
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
