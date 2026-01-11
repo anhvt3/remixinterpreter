@@ -3,6 +3,8 @@
 > **Complete system architecture for the AnimYAML-DSL interpreter**  
 > A declarative animation DSL that compiles YAML specifications into timeline events rendered as educational math animations.
 
+![Architecture Diagram](src/assets/architecture-diagram.png)
+
 ---
 
 ## Table of Contents
