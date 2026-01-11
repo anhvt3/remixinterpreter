@@ -139,7 +139,11 @@ function resolveValue(value: unknown, env: Environment, spec: YAMLSpec): unknown
     for (const [key, val] of Object.entries(value.args)) {
       resolvedArgs[key] = resolveValue(val, env, spec);
     }
+    
+    // Also resolve any $.path references in the expression by adding spec to env
     const exprEnv: Environment = new Map(env);
+    exprEnv.set('$', spec); // Allow $. paths to resolve
+    
     for (const [key, val] of Object.entries(resolvedArgs)) {
       exprEnv.set(key, val);
     }

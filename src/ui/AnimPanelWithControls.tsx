@@ -61,27 +61,30 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ ev
     setCurrentTime(0);
   }, []);
   
-  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
+  const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
+        if (rect.width > 50 && rect.height > 50) {
           setDimensions({ width: rect.width, height: rect.height });
         }
       }
     };
     
-    const timer = setTimeout(updateDimensions, 100);
+    // Multiple attempts to ensure we catch the correct dimensions
+    setTimeout(updateDimensions, 50);
+    setTimeout(updateDimensions, 200);
+    setTimeout(updateDimensions, 500);
     window.addEventListener('resize', updateDimensions);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateDimensions);
-    };
-  }, []);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [events]);
   
   const formatTime = (t: number) => `${t.toFixed(1)}s`;
+
+  // Debug: log event count
+  console.log('AnimPanel events:', events.length, 'currentTime:', currentTime);
   
   return (
     <div className="panel flex flex-col h-full overflow-hidden">

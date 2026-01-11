@@ -60,20 +60,25 @@ function resolveString(
     const varName = parts[0];
     
     if (!env.has(varName)) {
+      console.warn(`Variable not found in env: ${varName}. Available: ${Array.from(env.keys()).join(', ')}`);
       return value; // Return original if variable not found
     }
     
     let result = env.get(varName);
+    console.log(`Resolving ${value}: found ${varName} =`, result);
     
     // Resolve nested fields
     for (let i = 1; i < parts.length; i++) {
       if (result === null || result === undefined) {
+        console.warn(`Cannot resolve ${value}: intermediate is null at ${parts.slice(0, i+1).join('.')}`);
         return value; // Return original if can't resolve
       }
       if (typeof result !== 'object') {
+        console.warn(`Cannot resolve ${value}: intermediate is not object at ${parts.slice(0, i+1).join('.')}`);
         return value;
       }
       result = (result as Record<string, unknown>)[parts[i]];
+      console.log(`  .${parts[i]} =`, result);
     }
     
     return result;

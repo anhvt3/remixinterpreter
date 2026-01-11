@@ -78,7 +78,27 @@ function resolveArgValue(arg: string, providedArgs: Record<string, unknown>, env
     return providedArgs[arg];
   }
   
-  // Check for field access like "Ladder.factors" or "$.params.time.row_times"
+  // Check for root path like "$.params.time.row_times"
+  if (arg.startsWith('$.')) {
+    // Try to get from env's $ key
+    const rootSpec = env.get('$');
+    if (rootSpec && typeof rootSpec === 'object') {
+      const path = arg.substring(2); // Remove "$."
+      const parts = path.split('.');
+      let result: unknown = rootSpec;
+      for (const part of parts) {
+        if (result && typeof result === 'object') {
+          result = (result as Record<string, unknown>)[part];
+        } else {
+          return undefined;
+        }
+      }
+      return result;
+    }
+    return arg;
+  }
+  
+  // Check for field access like "Ladder.factors"
   if (arg.includes('.')) {
     const parts = arg.split('.');
     const baseName = parts[0];
