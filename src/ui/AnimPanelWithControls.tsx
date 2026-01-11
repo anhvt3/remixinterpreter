@@ -10,12 +10,14 @@ interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
   onElementClick?: (elementId: string) => void;
+  onTimeUpdate?: (time: number) => void;
 }
 
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
   events,
   selectedElementId,
   onElementClick,
+  onTimeUpdate,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -69,8 +71,10 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
         const next = prev + delta;
         if (next >= duration) {
           setIsPlaying(false);
+          onTimeUpdate?.(duration);
           return duration;
         }
+        onTimeUpdate?.(next);
         return next;
       });
       
@@ -89,7 +93,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
     setIsPlaying((prev) => !prev);
   }, [currentTime, duration]);
   
-  const handleSeek = useCallback((time: number) => setCurrentTime(time), []);
+  const handleSeek = useCallback((time: number) => { setCurrentTime(time); onTimeUpdate?.(time); }, [onTimeUpdate]);
   const handleReset = useCallback(() => {
     setIsPlaying(false);
     setCurrentTime(0);

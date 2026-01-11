@@ -5,6 +5,7 @@ import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { TimelineDebugPanel } from './TimelineDebugPanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
+import { ScriptRuntimePanel } from './ScriptRuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { execute } from '../core/dslExecutor';
@@ -43,7 +44,8 @@ export const App: React.FC = () => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
   const [viewMode, setViewMode] = useState<'code' | 'tree'>('tree');
-  
+  const [dslTab, setDslTab] = useState<'yamlscript' | 'runtime' | 'anim'>('yamlscript');
+  const [currentTime, setCurrentTime] = useState(0);
   // Extract editable params from full YAML
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
   
@@ -198,62 +200,126 @@ export const App: React.FC = () => {
             </TabsContent>
             
             <TabsContent value="dsl-anim" className="h-full m-0">
-              <div className="grid grid-cols-3 gap-2 h-full">
-                {/* Left panel: Toggle between Code and Tree view */}
-                <div className="flex flex-col h-full min-h-0">
-                  {/* View toggle */}
-                  <div className="flex gap-1 mb-2">
-                    <button
-                      onClick={() => setViewMode('tree')}
-                      className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
-                        viewMode === 'tree' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      Tree View
-                    </button>
-                    <button
-                      onClick={() => setViewMode('code')}
-                      className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
-                        viewMode === 'code' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      Code View
-                    </button>
-                  </div>
-                  
-                  {/* Panel content */}
-                  <div className="flex-1 min-h-0">
-                    {viewMode === 'tree' ? (
-                      <YAMLTreePanel spec={parsedSpec} />
-                    ) : (
-                      <CodePanel
-                        title="YAMLScript"
-                        content={paramsContent}
-                        onChange={handleParamsChange}
-                        language="yaml"
-                        onLineClick={handleLineClick}
-                        highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
-                      />
-                    )}
-                  </div>
+              <div className="flex flex-col h-full gap-2">
+                {/* Sub-tabs for DSL-Anim */}
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setDslTab('yamlscript')}
+                    className={`text-xs py-1.5 px-4 rounded transition-colors ${
+                      dslTab === 'yamlscript' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    YAMLScript
+                  </button>
+                  <button
+                    onClick={() => setDslTab('runtime')}
+                    className={`text-xs py-1.5 px-4 rounded transition-colors ${
+                      dslTab === 'runtime' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    Script Runtime
+                  </button>
+                  <button
+                    onClick={() => setDslTab('anim')}
+                    className={`text-xs py-1.5 px-4 rounded transition-colors ${
+                      dslTab === 'anim' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    Anim
+                  </button>
                 </div>
                 
-                <AnimPanelWithControls 
-                  events={events} 
-                  selectedElementId={selectedElementId}
-                  onElementClick={handleElementClick}
-                />
-                <div className="flex flex-col gap-2 h-full">
-                  <div className="flex-1 min-h-0">
-                    <ChatPanel title="Chat" />
-                  </div>
-                  <div className="h-1/3 min-h-0">
-                    <TimelineDebugPanel events={events} />
-                  </div>
+                {/* Content based on selected sub-tab */}
+                <div className="flex-1 min-h-0">
+                  {dslTab === 'yamlscript' && (
+                    <div className="grid grid-cols-3 gap-2 h-full">
+                      {/* YAMLScript panel with tree/code toggle */}
+                      <div className="flex flex-col h-full min-h-0">
+                        <div className="flex gap-1 mb-2">
+                          <button
+                            onClick={() => setViewMode('tree')}
+                            className={`flex-1 text-xs py-1 px-2 rounded transition-colors ${
+                              viewMode === 'tree' 
+                                ? 'bg-primary/50 text-primary-foreground' 
+                                : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                            }`}
+                          >
+                            Tree
+                          </button>
+                          <button
+                            onClick={() => setViewMode('code')}
+                            className={`flex-1 text-xs py-1 px-2 rounded transition-colors ${
+                              viewMode === 'code' 
+                                ? 'bg-primary/50 text-primary-foreground' 
+                                : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                            }`}
+                          >
+                            Code
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0">
+                          {viewMode === 'tree' ? (
+                            <YAMLTreePanel spec={parsedSpec} />
+                          ) : (
+                            <CodePanel
+                              title="YAMLScript"
+                              content={paramsContent}
+                              onChange={handleParamsChange}
+                              language="yaml"
+                              onLineClick={handleLineClick}
+                              highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      
+                      <AnimPanelWithControls 
+                        events={events} 
+                        selectedElementId={selectedElementId}
+                        onElementClick={handleElementClick}
+                        onTimeUpdate={setCurrentTime}
+                      />
+                      <ChatPanel title="Chat" />
+                    </div>
+                  )}
+                  
+                  {dslTab === 'runtime' && (
+                    <div className="grid grid-cols-3 gap-2 h-full">
+                      <ScriptRuntimePanel events={events} currentTime={currentTime} />
+                      <AnimPanelWithControls 
+                        events={events} 
+                        selectedElementId={selectedElementId}
+                        onElementClick={handleElementClick}
+                        onTimeUpdate={setCurrentTime}
+                      />
+                      <ChatPanel title="Chat" />
+                    </div>
+                  )}
+                  
+                  {dslTab === 'anim' && (
+                    <div className="grid grid-cols-3 gap-2 h-full">
+                      <AnimPanelWithControls 
+                        events={events} 
+                        selectedElementId={selectedElementId}
+                        onElementClick={handleElementClick}
+                        onTimeUpdate={setCurrentTime}
+                      />
+                      <div className="col-span-2 flex flex-col gap-2 h-full">
+                        <div className="flex-1 min-h-0">
+                          <ChatPanel title="Chat" />
+                        </div>
+                        <div className="h-1/3 min-h-0">
+                          <TimelineDebugPanel events={events} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
