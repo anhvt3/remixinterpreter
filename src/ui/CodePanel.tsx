@@ -24,9 +24,12 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // If we have line click handlers, render as clickable lines overlay
+  const hasLineInteraction = !!onLineClick;
+  
   // Scroll to first highlighted line when selection changes
   useEffect(() => {
-    if (!onLineClick) return;
+    if (!hasLineInteraction) return;
 
     if (highlightedLines.length > 0 && containerRef.current) {
       const viewport = containerRef.current.querySelector(
@@ -40,9 +43,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       viewport.scrollTop = Math.max(0, firstLine * lineHeight - 50);
     }
   }, [highlightedLines, hasLineInteraction]);
-
-  // If we have line click handlers, render as clickable lines overlay
-  const hasLineInteraction = !!onLineClick;
 
   return (
     <div className="flex flex-col h-full min-h-0 panel">
