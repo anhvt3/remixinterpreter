@@ -9,14 +9,14 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
-    className={cn("relative flex h-full w-full overflow-hidden", className)}
+    className={cn("relative h-full w-full overflow-hidden", className)}
     type="always"
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full flex-1 rounded-[inherit]">
+    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] overflow-y-scroll overscroll-contain">
       {children}
     </ScrollAreaPrimitive.Viewport>
-    <ScrollBar />
+    <ScrollBar forceMount />
     <ScrollAreaPrimitive.Corner />
   </ScrollAreaPrimitive.Root>
 ));
@@ -28,18 +28,17 @@ const ScrollBar = React.forwardRef<
 >(({ className, orientation = "vertical", ...props }, ref) => (
   <ScrollAreaPrimitive.ScrollAreaScrollbar
     ref={ref}
-    forceMount
     orientation={orientation}
     className={cn(
-      "z-50 flex touch-none select-none rounded-full bg-primary/20 ring-1 ring-primary/40 backdrop-blur-sm",
+      "pointer-events-auto flex touch-none select-none transition-colors",
       "data-[state=hidden]:opacity-100 data-[state=visible]:opacity-100",
-      orientation === "vertical" && "absolute right-1 top-1 bottom-1 w-5 p-1.5",
-      orientation === "horizontal" && "absolute bottom-1 left-1 right-1 h-5 flex-col p-1.5",
+      orientation === "vertical" && "h-full w-4 bg-primary/10 p-1",
+      orientation === "horizontal" && "h-4 flex-col bg-primary/10 p-1",
       className,
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-primary/90 shadow-sm min-h-12" />
+    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-primary/80 hover:bg-primary" />
   </ScrollAreaPrimitive.ScrollAreaScrollbar>
 ));
 ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName;
