@@ -120,7 +120,17 @@ function executeForeach(foreach: ForeachStatement, spec: YAMLSpec, timeline: Tim
 function executeIR(ir: { fn: string; args: Record<string, unknown> }, spec: YAMLSpec, timeline: TimelineEvent[], env: Environment): void {
   const resolvedArgs: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(ir.args)) {
-    resolvedArgs[key] = resolveValue(val, env, spec);
+    const resolved = resolveValue(val, env, spec);
+    resolvedArgs[key] = resolved;
+    // Debug: log unresolved values
+    if (typeof resolved === 'string' && resolved.startsWith('$')) {
+      console.warn(`IR ${ir.fn}: arg "${key}" not resolved: ${resolved}`);
+    }
+  }
+  
+  // Debug: log first few IR calls
+  if (timeline.length < 5) {
+    console.log(`IR ${ir.fn}:`, JSON.stringify(resolvedArgs, null, 2));
   }
   
   timeline.push({

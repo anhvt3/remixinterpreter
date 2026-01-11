@@ -59,19 +59,36 @@ function processTextCreate(scene: Scene, event: TimelineEvent, t: number): void 
   const id = args.id as string;
   const text = args.text;
   const mode = (args.mode as 'text' | 'math') || 'text';
-  const at = args.at as LayoutPosition;
   const style = args.style as StyleDef;
-  const t0 = args.t0 as number;
-  const t1 = args.t1 as number;
   const ease = (args.ease as string) || 'easeOutCubic';
   
-  // Element not yet visible
+  // Parse time values - ensure they're numbers
+  const t0 = typeof args.t0 === 'number' ? args.t0 : parseFloat(String(args.t0)) || 0;
+  const t1 = typeof args.t1 === 'number' ? args.t1 : parseFloat(String(args.t1)) || 0;
+  
+  // Parse position - handle both object and unresolved string
+  let at: LayoutPosition;
+  if (args.at && typeof args.at === 'object') {
+    const rawAt = args.at as Record<string, unknown>;
+    at = {
+      anchor: String(rawAt.anchor || 'Center'),
+      x: typeof rawAt.x === 'number' ? rawAt.x : parseFloat(String(rawAt.x)) || 0,
+      y: typeof rawAt.y === 'number' ? rawAt.y : parseFloat(String(rawAt.y)) || 0,
+    };
+  } else {
+    // Fallback if at wasn't resolved
+    console.warn(`text.create ${id}: 'at' was not resolved:`, args.at);
+    at = { anchor: 'Center', x: 0, y: 0 };
+  }
+  
+  // Element not yet visible (use <= to show at exactly t0)
   if (t < t0) {
     return;
   }
   
-  // Calculate opacity based on progress
+  // Calculate opacity based on progress (ensure minimum visibility when at t0)
   const progress = calculateProgress(t, t0, t1, ease);
+  const opacity = Math.max(0.01, progress); // Ensure at least a tiny bit visible for debugging
   
   const element: SceneElement = {
     id,
@@ -80,7 +97,7 @@ function processTextCreate(scene: Scene, event: TimelineEvent, t: number): void 
     content: String(text),
     at,
     style,
-    opacity: progress,
+    opacity,
     visible: true,
   };
   
@@ -92,12 +109,26 @@ function processTextUpdate(scene: Scene, event: TimelineEvent, t: number): void 
   const id = args.id as string;
   const toText = args.toText;
   const mode = (args.mode as 'text' | 'math') || 'text';
-  const at = args.at as LayoutPosition;
   const style = args.style as StyleDef;
-  const t0 = args.t0 as number;
-  const t1 = args.t1 as number;
   const ease = (args.ease as string) || 'easeOutCubic';
   const transition = args.transition as string;
+  
+  // Parse time values
+  const t0 = typeof args.t0 === 'number' ? args.t0 : parseFloat(String(args.t0)) || 0;
+  const t1 = typeof args.t1 === 'number' ? args.t1 : parseFloat(String(args.t1)) || 0;
+  
+  // Parse position
+  let at: LayoutPosition;
+  if (args.at && typeof args.at === 'object') {
+    const rawAt = args.at as Record<string, unknown>;
+    at = {
+      anchor: String(rawAt.anchor || 'Center'),
+      x: typeof rawAt.x === 'number' ? rawAt.x : parseFloat(String(rawAt.x)) || 0,
+      y: typeof rawAt.y === 'number' ? rawAt.y : parseFloat(String(rawAt.y)) || 0,
+    };
+  } else {
+    at = { anchor: 'Center', x: 0, y: 0 };
+  }
   
   // Update hasn't started yet
   if (t < t0) {

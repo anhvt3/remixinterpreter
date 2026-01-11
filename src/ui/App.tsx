@@ -32,7 +32,9 @@ export const App: React.FC = () => {
       
       console.log('Executing DSL...');
       const result = execute(spec);
-      console.log('Generated events:', result.timeline.length, result.timeline);
+      console.log('Generated events:', result.timeline.length);
+      
+      // Use the DSL-generated events directly now that renderer works
       setEvents(result.timeline);
       setError(null);
     } catch (e) {
