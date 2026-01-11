@@ -9,6 +9,7 @@ interface YAMLTreePanelProps {
   onFunctionSelect?: (fnName: string) => void;
   selectedFunction?: string | null;
   onParamsChange?: (params: Params) => void;
+  onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
 }
 
 interface FunctionNode {
@@ -93,10 +94,32 @@ function formatValue(v: unknown): string {
 interface StatementRowProps {
   stmt: Statement;
   defaultExpanded?: boolean;
+  editable?: boolean;
+  onArgsChange?: (newArgs: Record<string, unknown>) => void;
 }
 
-const StatementRow: React.FC<StatementRowProps> = ({ stmt, defaultExpanded = false }) => {
+const StatementRow: React.FC<StatementRowProps> = ({ 
+  stmt, 
+  defaultExpanded = false,
+  editable = false,
+  onArgsChange,
+}) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  
+  const handleArgChange = (key: string, value: string, originalValue: unknown) => {
+    if (!onArgsChange || !('call' in stmt)) return;
+    
+    // Parse value based on original type
+    let parsed: unknown = value;
+    if (typeof originalValue === 'number') {
+      parsed = value.trim() !== '' && !isNaN(Number(value)) ? Number(value) : value;
+    } else if (typeof originalValue === 'boolean') {
+      parsed = value === 'true';
+    }
+    
+    const newArgs = { ...stmt.call.args, [key]: parsed };
+    onArgsChange(newArgs);
+  };
   
   if ('call' in stmt) {
     const args = Object.entries(stmt.call.args);
@@ -128,9 +151,19 @@ const StatementRow: React.FC<StatementRowProps> = ({ stmt, defaultExpanded = fal
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => (
-              <div key={k} className="flex gap-2">
-                <span className="text-orange-400">{k}:</span>
-                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+              <div key={k} className="flex items-center gap-2">
+                <span className="text-orange-400 min-w-[60px]">{k}:</span>
+                {editable && (typeof v === 'string' || typeof v === 'number') ? (
+                  <Input
+                    type={typeof v === 'number' ? 'number' : 'text'}
+                    value={String(v)}
+                    onChange={(e) => handleArgChange(k, e.target.value, v)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
+                  />
+                ) : (
+                  <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+                )}
               </div>
             ))}
           </div>
@@ -285,6 +318,8 @@ interface TreeNodeProps {
   onToggle: (name: string) => void;
   selected: string | null;
   onSelect: (name: string) => void;
+  editable?: boolean;
+  onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -295,6 +330,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onToggle,
   selected,
   onSelect,
+  editable = false,
+  onArgsChange,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -352,7 +389,12 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => (
-              <StatementRow key={idx} stmt={stmt} />
+              <StatementRow 
+                key={idx} 
+                stmt={stmt} 
+                editable={editable}
+                onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
+              />
             ))}
           </div>
         </div>
@@ -460,6 +502,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   onFunctionSelect,
   selectedFunction,
   onParamsChange,
+  onFunctionArgsChange,
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['SimplifyRoot']));
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
@@ -569,6 +612,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onToggle={handleToggle}
               selected={selected}
               onSelect={handleSelect}
+              editable={!!onFunctionArgsChange}
+              onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
             />
           ))}
         </div>
