@@ -74,43 +74,6 @@ function buildTree(spec: YAMLSpec): Map<string, FunctionNode> {
   return nodes;
 }
 
-// Format statement for display
-function formatStatement(stmt: Statement, indent: number = 0): string {
-  const pad = '  '.repeat(indent);
-  
-  if ('call' in stmt) {
-    const args = Object.entries(stmt.call.args)
-      .map(([k, v]) => `${k}: ${formatValue(v)}`)
-      .join(', ');
-    const out = stmt.call.out ? ` → ${stmt.call.out}` : '';
-    return `${pad}call ${stmt.call.fn}(${args})${out}`;
-  }
-  
-  if ('let' in stmt) {
-    const vars = Object.entries(stmt.let)
-      .map(([k, v]) => `${k} = ${formatValue(v)}`)
-      .join(', ');
-    return `${pad}let ${vars}`;
-  }
-  
-  if ('foreach' in stmt) {
-    return `${pad}foreach ${stmt.foreach.var} in ${formatValue(stmt.foreach.range)}`;
-  }
-  
-  if ('ir' in stmt) {
-    const args = Object.entries(stmt.ir.args)
-      .map(([k, v]) => `${k}: ${formatValue(v)}`)
-      .join(', ');
-    return `${pad}ir ${stmt.ir.fn}(${args})`;
-  }
-  
-  if ('return' in stmt) {
-    return `${pad}return ${formatValue(stmt.return)}`;
-  }
-  
-  return `${pad}???`;
-}
-
 function formatValue(v: unknown): string {
   if (typeof v === 'string') {
     if (v.startsWith('$')) return v;
@@ -123,6 +86,173 @@ function formatValue(v: unknown): string {
   }
   return String(v);
 }
+
+// Statement component with expandable args
+interface StatementRowProps {
+  stmt: Statement;
+  defaultExpanded?: boolean;
+}
+
+const StatementRow: React.FC<StatementRowProps> = ({ stmt, defaultExpanded = false }) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  
+  if ('call' in stmt) {
+    const args = Object.entries(stmt.call.args);
+    const out = stmt.call.out ? ` → ${stmt.call.out}` : '';
+    const hasArgs = args.length > 0;
+    
+    return (
+      <div className="py-1">
+        <div 
+          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+          onClick={() => hasArgs && setExpanded(!expanded)}
+        >
+          {hasArgs ? (
+            expanded ? (
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            )
+          ) : (
+            <span className="w-3" />
+          )}
+          <span className="text-purple-400">call</span>
+          <span className="text-primary">{stmt.call.fn}</span>
+          {!expanded && hasArgs && (
+            <span className="text-muted-foreground/60">({args.length} args)</span>
+          )}
+          {out && <span className="text-green-400">{out}</span>}
+        </div>
+        {expanded && hasArgs && (
+          <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
+            {args.map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <span className="text-orange-400">{k}:</span>
+                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if ('let' in stmt) {
+    const vars = Object.entries(stmt.let);
+    const hasVars = vars.length > 0;
+    
+    return (
+      <div className="py-1">
+        <div 
+          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+          onClick={() => hasVars && setExpanded(!expanded)}
+        >
+          {hasVars ? (
+            expanded ? (
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            )
+          ) : (
+            <span className="w-3" />
+          )}
+          <span className="text-yellow-400">let</span>
+          {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
+        </div>
+        {expanded && hasVars && (
+          <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
+            {vars.map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <span className="text-green-400">{k}</span>
+                <span className="text-muted-foreground">=</span>
+                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if ('foreach' in stmt) {
+    return (
+      <div className="py-1">
+        <div 
+          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? (
+            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+          )}
+          <span className="text-pink-400">foreach</span>
+          <span className="text-green-400">{stmt.foreach.var}</span>
+          <span className="text-muted-foreground">in</span>
+          <span className="text-foreground/80">{formatValue(stmt.foreach.range)}</span>
+        </div>
+        {expanded && (
+          <div className="ml-6 pl-2 border-l border-border/40 mt-1">
+            {stmt.foreach.do.map((s, i) => (
+              <StatementRow key={i} stmt={s} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if ('ir' in stmt) {
+    const args = Object.entries(stmt.ir.args);
+    const hasArgs = args.length > 0;
+    
+    return (
+      <div className="py-1">
+        <div 
+          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+          onClick={() => hasArgs && setExpanded(!expanded)}
+        >
+          {hasArgs ? (
+            expanded ? (
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            )
+          ) : (
+            <span className="w-3" />
+          )}
+          <span className="text-orange-400">ir</span>
+          <span className="text-primary">{stmt.ir.fn}</span>
+          {!expanded && hasArgs && (
+            <span className="text-muted-foreground/60">({args.length} args)</span>
+          )}
+        </div>
+        {expanded && hasArgs && (
+          <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
+            {args.map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <span className="text-orange-400">{k}:</span>
+                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if ('return' in stmt) {
+    return (
+      <div className="py-1 flex items-center gap-1">
+        <span className="w-3" />
+        <span className="text-red-400">return</span>
+        <span className="text-foreground/80">{formatValue(stmt.return)}</span>
+      </div>
+    );
+  }
+  
+  return <div className="py-1 text-muted-foreground">???</div>;
+};
 
 const categoryColors: Record<FunctionNode['category'], string> = {
   entry: 'text-primary',
@@ -219,11 +349,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       {isExpanded && (
         <div className="border-l border-border/50 ml-6">
           {/* Function body */}
-          <div className="py-1 px-3 text-xs font-mono text-muted-foreground bg-muted/20 rounded-r my-1 mx-2">
+          <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => (
-              <div key={idx} className="py-0.5 whitespace-pre-wrap break-all">
-                {formatStatement(stmt)}
-              </div>
+              <StatementRow key={idx} stmt={stmt} />
             ))}
           </div>
           
