@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
@@ -7,41 +7,66 @@ import { TimelineDebugPanel } from './TimelineDebugPanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { execute } from '../core/dslExecutor';
-import type { TimelineEvent } from '../core/types';
+import type { TimelineEvent, YAMLSpec } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
+import yaml from 'js-yaml';
+
+// Extract only the params section from the full YAML
+function extractParams(fullYaml: string): string {
+  try {
+    const spec = yaml.load(fullYaml) as YAMLSpec;
+    return yaml.dump({ params: spec.params }, { indent: 2, lineWidth: -1 });
+  } catch {
+    return '# Error parsing YAML';
+  }
+}
+
+// Merge edited params back into the full spec
+function mergeParams(fullYaml: string, paramsYaml: string): string {
+  try {
+    const fullSpec = yaml.load(fullYaml) as YAMLSpec;
+    const paramsObj = yaml.load(paramsYaml) as { params: YAMLSpec['params'] };
+    fullSpec.params = paramsObj.params;
+    return yaml.dump(fullSpec, { indent: 2, lineWidth: -1 });
+  } catch {
+    return fullYaml; // Return original if merge fails
+  }
+}
 
 export const App: React.FC = () => {
-  const [yamlContent, setYamlContent] = useState(exampleYaml);
+  const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
   const [loContent, setLoContent] = useState('# LO Content\n\nThis panel shows the Learning Objective or high-level description of the animation.');
   const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   
+  // Extract editable params from full YAML
+  const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
+  
+  // Handle params changes by merging back into full YAML
+  const handleParamsChange = (newParams: string) => {
+    const merged = mergeParams(fullYamlContent, newParams);
+    setFullYamlContent(merged);
+  };
+  
   // Parse and execute YAML whenever it changes
   useEffect(() => {
     try {
-      console.log('Parsing YAML...');
-      const spec = loadYAML(yamlContent);
+      const spec = loadYAML(fullYamlContent);
       const validation = validateSchema(spec);
       
       if (!validation.valid) {
-        console.error('Validation errors:', validation.errors);
         setError(validation.errors.join('\n'));
         return;
       }
       
-      console.log('Executing DSL...');
       const result = execute(spec);
-      console.log('Generated events:', result.timeline.length);
-      
-      // Use the DSL-generated events directly now that renderer works
       setEvents(result.timeline);
       setError(null);
     } catch (e) {
-      console.error('Execution error:', e);
       setError(e instanceof Error ? e.message : 'Unknown error');
     }
-  }, [yamlContent]);
+  }, [fullYamlContent]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -105,8 +130,8 @@ export const App: React.FC = () => {
                 />
                 <CodePanel
                   title="YAMLScript"
-                  content={yamlContent}
-                  onChange={setYamlContent}
+                  content={paramsContent}
+                  onChange={handleParamsChange}
                   language="yaml"
                 />
                 <ChatPanel title="Chat" />
@@ -117,8 +142,8 @@ export const App: React.FC = () => {
               <div className="grid grid-cols-3 gap-2 h-full">
                 <CodePanel
                   title="YAMLScript"
-                  content={yamlContent}
-                  onChange={setYamlContent}
+                  content={paramsContent}
+                  onChange={handleParamsChange}
                   language="yaml"
                 />
                 <AnimPanelWithControls events={events} />
