@@ -1,5 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { Undo2, Redo2 } from 'lucide-react';
 
 interface CodePanelProps {
   title: string;
@@ -27,6 +29,25 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   // If we have line click handlers, render as clickable lines overlay
   const hasLineInteraction = !!onLineClick;
   
+  // Undo/redo for editable mode
+  const { setValue, undo, redo, canUndo, canRedo } = useUndoRedo(content, onChange);
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        redo();
+      } else {
+        undo();
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+      e.preventDefault();
+      redo();
+    }
+  }, [undo, redo]);
+
   // Scroll to first highlighted line when selection changes
   useEffect(() => {
     if (!hasLineInteraction) return;
@@ -48,7 +69,29 @@ export const CodePanel: React.FC<CodePanelProps> = ({
     <div className="flex flex-col h-full min-h-0 panel">
       <div className="panel-header flex items-center justify-between shrink-0">
         <span>{title}</span>
-        <span className="text-xs text-syntax-comment">{language.toUpperCase()}</span>
+        <div className="flex items-center gap-2">
+          {!hasLineInteraction && !readOnly && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          <span className="text-xs text-syntax-comment">{language.toUpperCase()}</span>
+        </div>
       </div>
       {hasLineInteraction ? (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
@@ -86,7 +129,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
           <textarea
             ref={textareaRef}
             value={content}
-            onChange={(e) => onChange?.(e.target.value)}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
             readOnly={readOnly}
             className="w-full min-h-full p-4 pr-10 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none border-none"
             style={{
