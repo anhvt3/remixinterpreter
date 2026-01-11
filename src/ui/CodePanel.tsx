@@ -21,15 +21,16 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <span>{title}</span>
         <span className="text-xs text-syntax-comment">{language.toUpperCase()}</span>
       </div>
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
         <textarea
           value={content}
           onChange={(e) => onChange?.(e.target.value)}
           readOnly={readOnly}
-          className="w-full h-full p-4 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-full min-h-full p-4 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
           style={{
             lineHeight: '1.6',
             tabSize: 2,
+            minHeight: 'max-content',
           }}
           spellCheck={false}
         />
