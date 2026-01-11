@@ -64,8 +64,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             content={content}
             onChange={onChange}
             language="yaml"
-            onLineClick={onLineClick}
-            highlightedLines={highlightedLines}
           />
         )}
       </div>
