@@ -111,8 +111,15 @@ export const App: React.FC = () => {
       const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
       if (fullSpec.defs && fullSpec.defs[fnName]) {
         const stmt = fullSpec.defs[fnName].body[stmtIndex];
-        if (stmt && 'call' in stmt) {
-          stmt.call.args = newArgs;
+        if (stmt) {
+          if ('call' in stmt) {
+            stmt.call.args = newArgs;
+          } else if ('let' in stmt) {
+            // newArgs is actually the new let statement
+            (stmt as { let: Record<string, unknown> }).let = newArgs;
+          } else if ('ir' in stmt) {
+            stmt.ir.args = newArgs;
+          }
           setFullYamlContent(yaml.dump(fullSpec, { indent: 2, lineWidth: -1 }));
         }
       }
