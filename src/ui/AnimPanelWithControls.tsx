@@ -8,9 +8,15 @@ import { AnimRenderer } from '../renderer/AnimRenderer';
 
 interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
+  selectedElementId?: string | null;
+  onElementClick?: (elementId: string) => void;
 }
 
-export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ events }) => {
+export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
+  events,
+  selectedElementId,
+  onElementClick,
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
@@ -142,6 +148,8 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ ev
             currentTime={currentTime}
             width={dimensions.width}
             height={dimensions.height}
+            selectedElementId={selectedElementId}
+            onElementClick={onElementClick}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
