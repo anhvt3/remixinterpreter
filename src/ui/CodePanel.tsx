@@ -81,21 +81,22 @@ export const CodePanel: React.FC<CodePanelProps> = ({
           </div>
         </ScrollArea>
       ) : (
-        <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin relative">
+        <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as editable textarea */}
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => onChange?.(e.target.value)}
             readOnly={readOnly}
-            className="w-full h-full min-h-[calc(100vh-12rem)] p-4 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none border-none"
+            className="w-full min-h-full p-4 pr-10 bg-transparent text-sm font-mono text-foreground resize-none focus:outline-none border-none"
             style={{
               lineHeight: '1.6',
               tabSize: 2,
+              minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
             }}
             spellCheck={false}
           />
-        </div>
+        </ScrollArea>
       )}
     </div>
   );
