@@ -345,33 +345,14 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </span>
       </div>
       
-      {/* Expanded content */}
+      {/* Expanded content - just the function body */}
       {isExpanded && (
         <div className="border-l border-border/50 ml-6">
-          {/* Function body */}
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => (
               <StatementRow key={idx} stmt={stmt} />
             ))}
           </div>
-          
-          {/* Child functions */}
-          {node.children.map(childName => {
-            const childNode = allNodes.get(childName);
-            if (!childNode) return null;
-            return (
-              <TreeNode
-                key={childName}
-                node={childNode}
-                allNodes={allNodes}
-                depth={depth + 1}
-                expanded={expanded}
-                onToggle={onToggle}
-                selected={selected}
-                onSelect={onSelect}
-              />
-            );
-          })}
         </div>
       )}
     </div>
@@ -391,13 +372,17 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return buildTree(spec);
   }, [spec]);
   
-  // Find root nodes (entry points)
-  const rootNodes = useMemo(() => {
-    const entryFn = spec?.program?.entry?.call?.fn;
-    if (!entryFn) return [];
-    const node = nodes.get(entryFn);
-    return node ? [node] : [];
-  }, [spec, nodes]);
+  // Show all functions as flat list
+  const allFunctions = useMemo(() => {
+    return Array.from(nodes.values()).sort((a, b) => {
+      // Entry first, then by category, then alphabetically
+      const categoryOrder = { entry: 0, logic: 1, presentation: 2, primitive: 3 };
+      if (a.category !== b.category) {
+        return categoryOrder[a.category] - categoryOrder[b.category];
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [nodes]);
   
   const handleToggle = (name: string) => {
     setExpanded(prev => {
@@ -468,7 +453,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       
       <ScrollArea className="flex-1">
         <div className="py-2">
-          {rootNodes.map(node => (
+          {allFunctions.map(node => (
             <TreeNode
               key={node.name}
               node={node}
