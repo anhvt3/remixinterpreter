@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CodePanelProps {
   title: string;
@@ -25,28 +26,33 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   
   // Scroll to first highlighted line when selection changes
   useEffect(() => {
+    if (!onLineClick) return;
+
     if (highlightedLines.length > 0 && containerRef.current) {
+      const viewport = containerRef.current.querySelector(
+        '[data-radix-scroll-area-viewport]',
+      ) as HTMLDivElement | null;
+
+      if (!viewport) return;
+
       const firstLine = Math.min(...highlightedLines);
       const lineHeight = 25.6; // Approximate line height
-      containerRef.current.scrollTop = Math.max(0, firstLine * lineHeight - 50);
+      viewport.scrollTop = Math.max(0, firstLine * lineHeight - 50);
     }
-  }, [highlightedLines]);
+  }, [highlightedLines, hasLineInteraction]);
 
   // If we have line click handlers, render as clickable lines overlay
   const hasLineInteraction = !!onLineClick;
 
   return (
-    <div className="flex flex-col h-full panel">
+    <div className="flex flex-col h-full min-h-0 panel">
       <div className="panel-header flex items-center justify-between shrink-0">
         <span>{title}</span>
         <span className="text-xs text-syntax-comment">{language.toUpperCase()}</span>
       </div>
-      <div 
-        ref={containerRef}
-        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50 relative"
-      >
-        {hasLineInteraction ? (
-          // Render as clickable lines with syntax highlighting
+      {hasLineInteraction ? (
+        <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
+          {/* Render as clickable lines */}
           <div className="p-4 text-sm font-mono">
             {lines.map((line, idx) => {
               const isHighlighted = highlightedLines.includes(idx);
@@ -73,8 +79,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({
               );
             })}
           </div>
-        ) : (
-          // Render as editable textarea
+        </ScrollArea>
+      ) : (
+        <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin relative">
+          {/* Render as editable textarea */}
           <textarea
             ref={textareaRef}
             value={content}
@@ -87,8 +95,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
             }}
             spellCheck={false}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
