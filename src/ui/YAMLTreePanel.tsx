@@ -176,6 +176,27 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const vars = Object.entries(stmt.let);
     const hasVars = vars.length > 0;
     
+    const handleLetArgChange = (varName: string, argKey: string, value: string, originalValue: unknown) => {
+      if (!onArgsChange) return;
+      
+      let parsed: unknown = value;
+      if (typeof originalValue === 'number') {
+        parsed = value.trim() !== '' && !isNaN(Number(value)) ? Number(value) : value;
+      }
+      
+      const varValue = stmt.let[varName] as { expr: string; args: Record<string, unknown> };
+      if (varValue && typeof varValue === 'object' && 'args' in varValue) {
+        const newLetStmt = {
+          ...stmt.let,
+          [varName]: {
+            ...varValue,
+            args: { ...varValue.args, [argKey]: parsed }
+          }
+        };
+        onArgsChange(newLetStmt);
+      }
+    };
+    
     return (
       <div className="py-1">
         <div 
@@ -195,14 +216,60 @@ const StatementRow: React.FC<StatementRowProps> = ({
           {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
         </div>
         {expanded && hasVars && (
-          <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
-            {vars.map(([k, v]) => (
-              <div key={k} className="flex gap-2">
-                <span className="text-green-400">{k}</span>
-                <span className="text-muted-foreground">=</span>
-                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
-              </div>
-            ))}
+          <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-1">
+            {vars.map(([k, v]) => {
+              // Check if it's an expression with args
+              const isExpr = typeof v === 'object' && v !== null && 'expr' in v && 'args' in v;
+              const exprObj = isExpr ? v as { expr: string; args: Record<string, unknown> } : null;
+              
+              return (
+                <div key={k}>
+                  <div className="flex gap-2">
+                    <span className="text-green-400">{k}</span>
+                    <span className="text-muted-foreground">=</span>
+                    {isExpr ? (
+                      <span className="text-blue-400">expr({exprObj?.expr})</span>
+                    ) : editable && (typeof v === 'string' || typeof v === 'number') ? (
+                      <Input
+                        type={typeof v === 'number' ? 'number' : 'text'}
+                        value={String(v)}
+                        onChange={(e) => {
+                          const parsed = typeof v === 'number' && !isNaN(Number(e.target.value)) 
+                            ? Number(e.target.value) 
+                            : e.target.value;
+                          onArgsChange?.({ ...stmt.let, [k]: parsed });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
+                      />
+                    ) : (
+                      <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+                    )}
+                  </div>
+                  {/* Show editable args for expr */}
+                  {isExpr && exprObj && Object.keys(exprObj.args).length > 0 && (
+                    <div className="ml-4 pl-2 border-l border-border/30 mt-1 space-y-0.5">
+                      {Object.entries(exprObj.args).map(([argK, argV]) => (
+                        <div key={argK} className="flex items-center gap-2">
+                          <span className="text-orange-400 text-xs">{argK}:</span>
+                          {editable && (typeof argV === 'string' || typeof argV === 'number') ? (
+                            <Input
+                              type={typeof argV === 'number' ? 'number' : 'text'}
+                              value={String(argV)}
+                              onChange={(e) => handleLetArgChange(k, argK, e.target.value, argV)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
+                            />
+                          ) : (
+                            <span className="text-foreground/60 text-xs">{formatValue(argV)}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -241,6 +308,17 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const args = Object.entries(stmt.ir.args);
     const hasArgs = args.length > 0;
     
+    const handleIrArgChange = (key: string, value: string, originalValue: unknown) => {
+      if (!onArgsChange) return;
+      
+      let parsed: unknown = value;
+      if (typeof originalValue === 'number') {
+        parsed = value.trim() !== '' && !isNaN(Number(value)) ? Number(value) : value;
+      }
+      
+      onArgsChange({ ...stmt.ir.args, [key]: parsed });
+    };
+    
     return (
       <div className="py-1">
         <div 
@@ -265,9 +343,19 @@ const StatementRow: React.FC<StatementRowProps> = ({
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => (
-              <div key={k} className="flex gap-2">
+              <div key={k} className="flex items-center gap-2">
                 <span className="text-orange-400">{k}:</span>
-                <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+                {editable && (typeof v === 'string' || typeof v === 'number') ? (
+                  <Input
+                    type={typeof v === 'number' ? 'number' : 'text'}
+                    value={String(v)}
+                    onChange={(e) => handleIrArgChange(k, e.target.value, v)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 text-xs px-1.5 py-0 bg-muted/50 border-border/50 w-20"
+                  />
+                ) : (
+                  <span className="text-foreground/80 break-all">{formatValue(v)}</span>
+                )}
               </div>
             ))}
           </div>
