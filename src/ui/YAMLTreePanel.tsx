@@ -256,16 +256,16 @@ const StatementRow: React.FC<StatementRowProps> = ({ stmt, defaultExpanded = fal
 
 const categoryColors: Record<FunctionNode['category'], string> = {
   entry: 'text-primary',
-  logic: 'text-green-400',
-  presentation: 'text-purple-400',
-  primitive: 'text-orange-400',
+  logic: 'text-primary',
+  presentation: 'text-primary',
+  primitive: 'text-primary',
 };
 
 const categoryIcons: Record<FunctionNode['category'], React.ReactNode> = {
   entry: <Play className="w-3.5 h-3.5" />,
-  logic: <Wand2 className="w-3.5 h-3.5" />,
-  presentation: <Layers className="w-3.5 h-3.5" />,
-  primitive: <Code className="w-3.5 h-3.5" />,
+  logic: <Play className="w-3.5 h-3.5" />,
+  presentation: <Play className="w-3.5 h-3.5" />,
+  primitive: <Play className="w-3.5 h-3.5" />,
 };
 
 const categoryLabels: Record<FunctionNode['category'], string> = {
