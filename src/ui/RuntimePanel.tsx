@@ -31,6 +31,8 @@ interface RuntimePanelProps {
   onStepClick?: (step: RuntimeStep) => void;
   // New: currently selected step (from runtime click)
   selectedStepId?: string | null;
+  // New: step IDs to highlight (from TreeView statement click)
+  highlightedStepIds?: string[];
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -72,8 +74,10 @@ const RuntimeStepRow: React.FC<{
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
   selectedStepId?: string | null;
-}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId }) => {
+  highlightedStepIds?: string[];
+}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [] }) => {
   const isSelected = step.id === selectedStepId;
+  const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
@@ -96,9 +100,11 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',         // IR commands: cyan
   };
 
-  // Highlight styles based on call chain level OR selection
+  // Highlight styles based on call chain level OR selection OR treeview highlight
   const highlightStyles = isSelected
     ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
+    : isHighlightedFromTreeView
+    ? 'bg-yellow-500/20 border-l-2 border-yellow-400/60 ring-1 ring-yellow-400/40'
     : highlightLevel === 'primary'
     ? 'bg-primary/30 border-l-2 border-primary'
     : highlightLevel === 'secondary'
@@ -210,6 +216,7 @@ const RuntimeStepRow: React.FC<{
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
           selectedStepId={selectedStepId}
+          highlightedStepIds={highlightedStepIds}
         />
       ))}
     </>
@@ -222,6 +229,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   zoomLevel = 100,
   onStepClick,
   selectedStepId,
+  highlightedStepIds = [],
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   
@@ -305,6 +313,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 getHighlightLevel={getHighlightLevel}
                 onStepClick={onStepClick}
                 selectedStepId={selectedStepId}
+                highlightedStepIds={highlightedStepIds}
               />
             ))
           )}

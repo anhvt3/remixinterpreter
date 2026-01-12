@@ -501,6 +501,10 @@ interface YAMLTreePanelProps {
   // Call chain for primary/secondary highlighting
   elementCallChain?: CallChainEntry[] | null;
   zoomLevel?: number;
+  // Callback when a statement is clicked
+  onStatementClick?: (fnName: string, stmtIndex: number) => void;
+  // Currently selected statement for highlighting
+  selectedStatement?: { fnName: string; stmtIndex: number } | null;
 }
 
 interface FunctionNode {
@@ -620,6 +624,8 @@ interface StatementRowProps {
   editable?: boolean;
   onArgsChange?: (newArgs: Record<string, unknown>) => void;
   highlightLevel?: 'primary' | 'secondary' | null;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
@@ -628,16 +634,20 @@ const StatementRow: React.FC<StatementRowProps> = ({
   editable = false,
   onArgsChange,
   highlightLevel = null,
+  onClick,
+  isSelected = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
-  // Primary = bright highlight, Secondary = dimmer highlight
-  const highlightClass = highlightLevel === 'primary' 
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+  // Selection highlight (yellow, like RuntimePanel) takes priority over call chain highlight
+  const highlightClass = isSelected
+    ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70 rounded cursor-pointer'
+    : highlightLevel === 'primary' 
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded cursor-pointer' 
     : highlightLevel === 'secondary' 
-    ? 'bg-primary/10 ring-1 ring-primary/20 rounded' 
-    : '';
+    ? 'bg-primary/10 ring-1 ring-primary/20 rounded cursor-pointer' 
+    : 'cursor-pointer hover:bg-muted/20';
   
   // Auto-scroll into view when highlighted (primary only)
   useEffect(() => {
@@ -667,10 +677,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const hasArgs = args.length > 0;
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
         <div 
-          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
-          onClick={() => hasArgs && setExpanded(!expanded)}
+          className="flex items-center gap-1 rounded px-1 -mx-1"
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); } }}
         >
           {hasArgs ? (
             expanded ? (
@@ -1007,6 +1017,10 @@ interface TreeNodeProps {
   highlightedElementId?: string | null;
   // Call chain for primary/secondary highlighting
   elementCallChain?: CallChainEntry[] | null;
+  // Callback when a statement is clicked
+  onStatementClick?: (fnName: string, stmtIndex: number) => void;
+  // Currently selected statement for highlighting
+  selectedStatement?: { fnName: string; stmtIndex: number } | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1021,6 +1035,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onArgsChange,
   highlightedElementId,
   elementCallChain,
+  onStatementClick,
+  selectedStatement,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -1167,6 +1183,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                 }
               }
               
+              // Check if this statement is selected
+              const isStatementSelected = selectedStatement?.fnName === node.name && selectedStatement?.stmtIndex === idx;
+              
               return (
                 <StatementRow 
                   key={idx} 
@@ -1174,6 +1193,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   editable={editable}
                   onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
                   highlightLevel={highlightLevel}
+                  onClick={onStatementClick ? () => onStatementClick(node.name, idx) : undefined}
+                  isSelected={isStatementSelected}
                 />
               );
             })}
@@ -1381,6 +1402,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   highlightedElementId,
   elementCallChain,
   zoomLevel = 100,
+  onStatementClick,
+  selectedStatement,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -1558,6 +1581,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
               highlightedElementId={highlightedElementId}
               elementCallChain={elementCallChain}
+              onStatementClick={onStatementClick}
+              selectedStatement={selectedStatement}
             />
           ))}
           </div>

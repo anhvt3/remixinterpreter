@@ -105,6 +105,7 @@ export const App: React.FC = () => {
   const [stepCallChains, setStepCallChains] = useState<Map<string, CallChainEntry[]>>(new Map());
   const [stepCreatedElements, setStepCreatedElements] = useState<Map<string, string[]>>(new Map());
   const [selectedRuntimeStepId, setSelectedRuntimeStepId] = useState<string | null>(null);
+  const [selectedStatement, setSelectedStatement] = useState<{ fnName: string; stmtIndex: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const handleZoomIn = useCallback(() => {
@@ -288,7 +289,47 @@ export const App: React.FC = () => {
     return collectElements(selectedStep);
   }, [selectedRuntimeStepId, runtimeSteps]);
 
-  // Combined call chain: prioritize runtime step selection, fall back to element selection
+  // Find runtime step IDs matching the selected statement
+  const highlightedStepIdsFromStatement = useMemo(() => {
+    if (!selectedStatement) return [];
+    
+    const matchingStepIds: string[] = [];
+    
+    // Recursively find steps that match the statement
+    const findMatchingSteps = (steps: RuntimeStep[]) => {
+      for (const step of steps) {
+        // Match by fnName and check if it's from the right function
+        if (step.fnName === selectedStatement.fnName) {
+          matchingStepIds.push(step.id);
+        }
+        if (step.children) {
+          findMatchingSteps(step.children);
+        }
+      }
+    };
+    
+    findMatchingSteps(runtimeSteps);
+    return matchingStepIds;
+  }, [selectedStatement, runtimeSteps]);
+
+  // Collect element IDs from highlighted steps (for TreeView → Anim highlighting)
+  const highlightedElementIdsFromStatement = useMemo(() => {
+    if (!selectedStatement || highlightedStepIdsFromStatement.length === 0) return [];
+    
+    const elementIds: string[] = [];
+    for (const stepId of highlightedStepIdsFromStatement) {
+      const elements = stepCreatedElements.get(stepId);
+      if (elements) {
+        elementIds.push(...elements);
+      }
+    }
+    return [...new Set(elementIds)];
+  }, [selectedStatement, highlightedStepIdsFromStatement, stepCreatedElements]);
+
+  // Combined highlighted elements: from runtime step click OR from statement click
+  const combinedHighlightedElementIds = selectedRuntimeStepId 
+    ? highlightedElementIds 
+    : highlightedElementIdsFromStatement;
   const activeCallChain = selectedStepCallChain || selectedElementCallChain;
 
   // Handle runtime step click
@@ -306,11 +347,21 @@ export const App: React.FC = () => {
 
   // Handle element click in Anim panel (modified to clear runtime step selection)
   const handleElementClickWithClear = useCallback((elementId: string) => {
-    setSelectedRuntimeStepId(null); // Clear runtime step selection
+    setSelectedRuntimeStepId(null);
+    setSelectedStatement(null);
     setSelectedElementId(elementId === selectedElementId ? null : elementId);
   }, [selectedElementId]);
 
-  // Common DSL panel props with persistent state
+  // Handle statement click in TreeView
+  const handleStatementClick = useCallback((fnName: string, stmtIndex: number) => {
+    if (selectedStatement?.fnName === fnName && selectedStatement?.stmtIndex === stmtIndex) {
+      setSelectedStatement(null);
+    } else {
+      setSelectedStatement({ fnName, stmtIndex });
+      setSelectedRuntimeStepId(null);
+      setSelectedElementId(null);
+    }
+  }, [selectedStatement]);
   const dslPanelProps = {
     spec: parsedSpec,
     content: paramsContent,
@@ -320,15 +371,17 @@ export const App: React.FC = () => {
     panelState: dslPanelState,
     onPanelStateChange: setDslPanelState,
     highlightedElementId: selectedElementId,
-    elementCallChain: activeCallChain, // Use combined call chain
+    elementCallChain: activeCallChain,
     zoomLevel,
+    onStatementClick: handleStatementClick,
+    selectedStatement,
   };
 
   // Common Anim panel props
   const animPanelProps = {
     events,
     selectedElementId,
-    highlightedElementIds, // New: elements highlighted by runtime step click
+    highlightedElementIds: combinedHighlightedElementIds,
     onElementClick: handleElementClickWithClear,
     zoomLevel,
   };

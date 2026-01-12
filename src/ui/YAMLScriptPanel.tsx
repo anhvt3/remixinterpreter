@@ -31,6 +31,10 @@ interface YAMLScriptPanelProps {
   highlightedElementId?: string | null;
   elementCallChain?: CallChainEntry[] | null;
   zoomLevel?: number;
+  // Callback when a statement is clicked in tree view
+  onStatementClick?: (fnName: string, stmtIndex: number) => void;
+  // Currently selected statement for highlighting
+  selectedStatement?: { fnName: string; stmtIndex: number } | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -46,6 +50,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   highlightedElementId,
   elementCallChain,
   zoomLevel = 100,
+  onStatementClick,
+  selectedStatement,
 }) => {
   const setViewMode = (mode: 'code' | 'tree') => {
     onPanelStateChange?.({ ...panelState, viewMode: mode });
@@ -91,6 +97,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             highlightedElementId={highlightedElementId}
             elementCallChain={elementCallChain}
             zoomLevel={zoomLevel}
+            onStatementClick={onStatementClick}
+            selectedStatement={selectedStatement}
           />
         ) : (
           <CodePanel
