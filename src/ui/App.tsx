@@ -316,19 +316,50 @@ export const App: React.FC = () => {
     return matchingStepIds;
   }, [selectedStatement, stepCallChains]);
 
-  // Collect element IDs from highlighted steps (for TreeView → Anim highlighting)
+  // Collect element IDs from highlighted steps AND their children recursively
+  // This ensures all elements created by a statement and its called statements are highlighted
   const highlightedElementIdsFromStatement = useMemo(() => {
     if (!selectedStatement || highlightedStepIdsFromStatement.length === 0) return [];
     
+    // Find step by ID recursively
+    const findStep = (steps: RuntimeStep[], id: string): RuntimeStep | null => {
+      for (const step of steps) {
+        if (step.id === id) return step;
+        if (step.children) {
+          const found = findStep(step.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    // Collect all element IDs from a step and its descendants
+    const collectElements = (step: RuntimeStep): string[] => {
+      const ids: string[] = [...(step.createdElementIds || [])];
+      if (step.children) {
+        for (const child of step.children) {
+          ids.push(...collectElements(child));
+        }
+      }
+      return ids;
+    };
+    
     const elementIds: string[] = [];
     for (const stepId of highlightedStepIdsFromStatement) {
-      const elements = stepCreatedElements.get(stepId);
-      if (elements) {
-        elementIds.push(...elements);
+      // Get elements directly from stepCreatedElements map
+      const directElements = stepCreatedElements.get(stepId);
+      if (directElements) {
+        elementIds.push(...directElements);
+      }
+      
+      // Also recursively collect from children
+      const step = findStep(runtimeSteps, stepId);
+      if (step) {
+        elementIds.push(...collectElements(step));
       }
     }
     return [...new Set(elementIds)];
-  }, [selectedStatement, highlightedStepIdsFromStatement, stepCreatedElements]);
+  }, [selectedStatement, highlightedStepIdsFromStatement, stepCreatedElements, runtimeSteps]);
 
   // Find runtime step IDs matching all calls to the selected function definition
   const highlightedStepIdsFromFunctionDef = useMemo(() => {
@@ -348,19 +379,47 @@ export const App: React.FC = () => {
     return matchingStepIds;
   }, [selectedFunctionDefinition, stepCallChains]);
 
-  // Collect element IDs from highlighted steps for function definition click
+  // Collect element IDs from highlighted steps for function definition click (recursive)
   const highlightedElementIdsFromFunctionDef = useMemo(() => {
     if (!selectedFunctionDefinition || highlightedStepIdsFromFunctionDef.length === 0) return [];
     
+    // Find step by ID recursively
+    const findStep = (steps: RuntimeStep[], id: string): RuntimeStep | null => {
+      for (const step of steps) {
+        if (step.id === id) return step;
+        if (step.children) {
+          const found = findStep(step.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    // Collect all element IDs from a step and its descendants
+    const collectElements = (step: RuntimeStep): string[] => {
+      const ids: string[] = [...(step.createdElementIds || [])];
+      if (step.children) {
+        for (const child of step.children) {
+          ids.push(...collectElements(child));
+        }
+      }
+      return ids;
+    };
+    
     const elementIds: string[] = [];
     for (const stepId of highlightedStepIdsFromFunctionDef) {
-      const elements = stepCreatedElements.get(stepId);
-      if (elements) {
-        elementIds.push(...elements);
+      const directElements = stepCreatedElements.get(stepId);
+      if (directElements) {
+        elementIds.push(...directElements);
+      }
+      
+      const step = findStep(runtimeSteps, stepId);
+      if (step) {
+        elementIds.push(...collectElements(step));
       }
     }
     return [...new Set(elementIds)];
-  }, [selectedFunctionDefinition, highlightedStepIdsFromFunctionDef, stepCreatedElements]);
+  }, [selectedFunctionDefinition, highlightedStepIdsFromFunctionDef, stepCreatedElements, runtimeSteps]);
 
   // Combined highlighted elements: from runtime step click, statement click, OR function definition click
   const combinedHighlightedElementIds = selectedRuntimeStepId 
