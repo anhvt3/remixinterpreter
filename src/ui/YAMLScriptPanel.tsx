@@ -13,7 +13,7 @@ export interface DSLPanelState {
 }
 
 export const DEFAULT_DSL_PANEL_STATE: DSLPanelState = {
-  viewMode: 'tree',
+  viewMode: 'code',
   paramsExpanded: true,
   expandedParams: new Set(['number']),
   expandedFunctions: new Set(['SimplifyRoot']),
