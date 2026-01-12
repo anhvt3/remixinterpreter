@@ -5,79 +5,238 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
 
-// Giải thích ngữ nghĩa cho các hàm (20-30 từ mỗi hàm)
-const functionExplanations: Record<string, string> = {
+// Giải thích ngữ nghĩa cho các hàm - bao gồm mô tả và ví dụ cụ thể
+interface Explanation {
+  description: string;
+  example: string;
+}
+
+const functionExplanations: Record<string, Explanation> = {
   // Entry
-  SimplifyRoot: "Điểm vào chính điều phối toàn bộ hoạt ảnh đơn giản hóa căn bậc hai, phối hợp các cảnh phân tích, biến đổi và đơn giản hóa cuối cùng.",
+  SimplifyRoot: {
+    description: "Điểm vào chính điều phối toàn bộ hoạt ảnh đơn giản hóa căn bậc hai.",
+    example: "SimplifyRoot(720) → phân tích 720, biến đổi thành √(2⁴×3²×5), rút gọn thành 12√5"
+  },
   
   // Init
-  InitScene: "Khởi tạo canvas hoạt ảnh với kích thước viewbox và màu nền theme đã chỉ định.",
-  Present_Intro: "Hiển thị tiêu đề mở đầu và câu hỏi toán học (√N = ?) với hiệu ứng fade-in theo thời gian.",
+  InitScene: {
+    description: "Khởi tạo canvas hoạt ảnh với kích thước viewbox và màu nền theme.",
+    example: "InitScene({viewbox: [-10, 8, 10, -8], theme: 'dark'}) → canvas 20×16 nền tối"
+  },
+  Present_Intro: {
+    description: "Hiển thị tiêu đề mở đầu và câu hỏi toán học với hiệu ứng fade-in.",
+    example: "Present_Intro('Đơn Giản Hóa Căn', '√720 = ?') → tiêu đề xuất hiện t=0, câu hỏi t=0.5s"
+  },
   
   // Scenes
-  Scene_Factorization: "Tính phân tích thừa số nguyên tố của N và hiển thị thang chia thể hiện từng bước trích xuất thừa số.",
-  Scene_MorphToEquation: "Biến đổi phân tích thừa số nguyên tố thành ký hiệu căn, chuyển đổi giữa các biểu diễn phương trình.",
-  Scene_SimplifyEquation: "Đơn giản hóa biểu thức căn về dạng cuối cùng bằng cách trích xuất các bình phương hoàn hảo.",
+  Scene_Factorization: {
+    description: "Tính phân tích thừa số nguyên tố và hiển thị thang chia từng bước.",
+    example: "Scene_Factorization(720) → 720÷2=360, 360÷2=180, ... tạo thang 7 hàng"
+  },
+  Scene_MorphToEquation: {
+    description: "Biến đổi phân tích thừa số thành ký hiệu căn với hiệu ứng chuyển đổi.",
+    example: "720 = 2⁴×3²×5 → √720 = √(2⁴×3²×5) với cross-fade 0.8s"
+  },
+  Scene_SimplifyEquation: {
+    description: "Đơn giản hóa biểu thức căn bằng cách trích xuất bình phương hoàn hảo.",
+    example: "√(2⁴×3²×5) → 2²×3×√5 → 12√5 với animation rút gọn"
+  },
   
   // Subscenes
-  Subscene_Divisions: "Tính chuỗi phép chia: chia lặp lại N cho các thừa số nguyên tố để xây dựng thang.",
-  Subscene_CountPowers: "Đếm số lần xuất hiện của mỗi thừa số nguyên tố, tạo biểu diễn lũy thừa như 2⁴.",
-  Subscene_FormatPrimeFactorExpr: "Định dạng phân tích thừa số nguyên tố thành LaTeX (ví dụ: '720 = 2⁴ × 3² × 5').",
-  Subscene_RootRewrite: "Viết lại phương trình với căn bậc hai áp dụng cho phân tích thừa số nguyên tố.",
-  Subscene_SplitRoots: "Tách căn thành các hạng tử riêng biệt cho mỗi lũy thừa thừa số nguyên tố.",
-  Subscene_SimplifyFinalLatex: "Tạo dạng đơn giản cuối cùng bằng cách trích xuất các thừa số có lũy thừa chẵn ra khỏi căn.",
+  Subscene_Divisions: {
+    description: "Tính chuỗi phép chia lặp lại để xây dựng thang phân tích.",
+    example: "720 → [{q:360, f:2}, {q:180, f:2}, {q:90, f:2}, {q:45, f:2}, {q:15, f:3}, {q:5, f:3}, {q:1, f:5}]"
+  },
+  Subscene_CountPowers: {
+    description: "Đếm số lần xuất hiện của mỗi thừa số nguyên tố.",
+    example: "[2,2,2,2,3,3,5] → {2: 4, 3: 2, 5: 1} → '2⁴ × 3² × 5'"
+  },
+  Subscene_FormatPrimeFactorExpr: {
+    description: "Định dạng phân tích thừa số thành chuỗi LaTeX.",
+    example: "{2:4, 3:2, 5:1} → '720 = 2^{4} \\times 3^{2} \\times 5'"
+  },
+  Subscene_RootRewrite: {
+    description: "Viết lại phương trình với căn bậc hai áp dụng.",
+    example: "'720 = 2⁴×3²×5' → '√720 = √(2⁴×3²×5)'"
+  },
+  Subscene_SplitRoots: {
+    description: "Tách căn thành các hạng tử riêng biệt cho mỗi lũy thừa.",
+    example: "√(2⁴×3²×5) → √2⁴ × √3² × √5"
+  },
+  Subscene_SimplifyFinalLatex: {
+    description: "Tạo dạng đơn giản cuối cùng trích xuất lũy thừa chẵn.",
+    example: "√2⁴ × √3² × √5 → 2² × 3 × √5 = 12√5"
+  },
   
   // Presentation functions
-  Present_Scene_Factorization: "Tạo hoạt ảnh cảnh phân tích: hiển thị các hàng thang chia với thời gian được tính toán.",
-  Present_Subscene_Divisions: "Render từng hàng thang (thương bên trái, thừa số bên phải) với thời gian so le.",
-  Present_Micro_LadderRow: "Hiển thị một hàng thang đơn: thừa số bên phải và thương bên trái.",
-  Present_Subscene_PrimeFactorExpr: "Hiển thị phương trình phân tích thừa số nguyên tố hoàn chỉnh ở phía dưới.",
-  Present_Scene_MorphToEquation: "Tạo hoạt ảnh chuyển đổi cross-fade giữa các biểu diễn phương trình.",
-  Present_Scene_SimplifyEquation: "Tạo hoạt ảnh đơn giản hóa cuối cùng với hiệu ứng cross-fade mượt mà đến đáp án.",
+  Present_Scene_Factorization: {
+    description: "Tạo hoạt ảnh cảnh phân tích với thời gian cho từng hàng.",
+    example: "7 hàng, span [2s, 8s] → mỗi hàng xuất hiện cách nhau 0.86s"
+  },
+  Present_Subscene_Divisions: {
+    description: "Render từng hàng thang với thời gian so le.",
+    example: "Hàng 0: t=2.0s (720|2), Hàng 1: t=2.86s (360|2), ..."
+  },
+  Present_Micro_LadderRow: {
+    description: "Hiển thị một hàng thang: thừa số phải, thương trái.",
+    example: "LadderRow(i=0, q=360, f=2) → '360' tại x=-2, '2' tại x=2, y=6"
+  },
+  Present_Subscene_PrimeFactorExpr: {
+    description: "Hiển thị phương trình phân tích hoàn chỉnh ở dưới.",
+    example: "'720 = 2⁴ × 3² × 5' tại y=-6, fade-in t=7.5s"
+  },
+  Present_Scene_MorphToEquation: {
+    description: "Tạo hoạt ảnh cross-fade giữa các biểu diễn phương trình.",
+    example: "Eq1 → Eq2: fade-out 0.4s, fade-in 0.4s, tổng 0.8s"
+  },
+  Present_Scene_SimplifyEquation: {
+    description: "Tạo hoạt ảnh đơn giản hóa cuối cùng đến đáp án.",
+    example: "'√(2⁴×3²×5)' cross-fade thành '12√5' trong 1.2s"
+  },
   
   // Primitives
-  IR_BoardInit: "Lệnh IR cấp thấp để khởi tạo bảng render với viewbox và theme.",
-  ShowTextTimed: "Primitive tạo phần tử văn bản với vị trí, style và thời gian fade-in.",
-  ShowMathTimed: "Primitive tạo phần tử toán LaTeX với vị trí, style và thời gian fade-in.",
-  CrossFadeMathTimed: "Primitive chuyển đổi mượt mà nội dung toán từ biểu thức này sang biểu thức khác.",
+  IR_BoardInit: {
+    description: "Lệnh IR cấp thấp khởi tạo bảng render.",
+    example: "IR_BoardInit({viewbox: [-10,8,10,-8], theme: 'dark'}) → SVG 800×640px"
+  },
+  ShowTextTimed: {
+    description: "Primitive tạo phần tử văn bản với vị trí và thời gian.",
+    example: "ShowTextTimed({text: '720', pos: [0,6], t: 2.0, duration: 0.3})"
+  },
+  ShowMathTimed: {
+    description: "Primitive tạo phần tử toán LaTeX với vị trí và thời gian.",
+    example: "ShowMathTimed({latex: '\\\\sqrt{720}', pos: [0,0], t: 1.0, scale: 1.5})"
+  },
+  CrossFadeMathTimed: {
+    description: "Primitive chuyển đổi mượt mà giữa hai biểu thức toán.",
+    example: "CrossFadeMathTimed({from: 'A=B', to: '√A=√B', t: 8.0, duration: 0.8})"
+  },
 };
 
 // Giải thích ngữ nghĩa cho các tham số
-const paramExplanations: Record<string, string> = {
-  number: "Số đầu vào cần đơn giản hóa. Thay đổi giá trị này để xem các phép đơn giản hóa căn bậc hai khác nhau.",
-  limits: "Ràng buộc an toàn: max_factors ngăn hoạt ảnh quá dài, desired_rows_for_scale điều khiển cỡ chữ.",
-  max_factors: "Số lượng thừa số nguyên tố tối đa cho phép. Ngăn hoạt ảnh quá dài cho các số có nhiều thừa số.",
-  desired_rows_for_scale: "Số hàng mục tiêu để tự động scale chữ. Nhiều hàng hơn = chữ nhỏ hơn để vừa khung.",
-  text: "Chuỗi nội dung: tiêu đề hiển thị ở trên và mẫu câu hỏi.",
-  title: "Tiêu đề hiển thị ở đầu hoạt ảnh (ví dụ: 'Đơn Giản Hóa Căn').",
-  prompt_template: "Mẫu LaTeX cho câu hỏi. ${N} được thay thế bằng số thực tế.",
-  style: "Style trực quan: màu sắc, tỷ lệ và độ đậm font cho các phần tử văn bản khác nhau.",
-  board: "Cài đặt canvas: viewbox định nghĩa hệ tọa độ, theme đặt màu nền.",
-  viewbox: "Giới hạn tọa độ [xMin, yMax, xMax, yMin] xác định vùng hiển thị.",
-  layout: "Định vị: điểm neo và tọa độ cho tiêu đề, câu hỏi, thang và phương trình.",
-  title_at: "Vị trí văn bản tiêu đề. Anchor định nghĩa điểm căn chỉnh.",
-  prompt_at: "Vị trí câu hỏi √N = ? bên dưới tiêu đề.",
-  ladder: "Định vị thang: tọa độ x cho cột trái/phải, y0 bắt đầu, dy khoảng cách hàng.",
-  line_at: "Vị trí dòng phương trình phân tích thừa số nguyên tố.",
-  time: "Cấu hình thời gian: khi nào mỗi phần tử xuất hiện và chuyển đổi kéo dài bao lâu.",
-  scene_spans: "Khoảng thời gian tuyệt đối cho mỗi cảnh chính (phân tích, biến đổi, đơn giản hóa).",
-  factorization: "Thời gian cho cảnh phân tích: hiển thị phép chia và thừa số nguyên tố.",
-  morphing: "Thời gian cho biến đổi phương trình: chuyển đổi cross-fade giữa các biểu diễn.",
-  simplify: "Thời gian cho đơn giản hóa cuối cùng: chuyển đổi đến đáp án đã đơn giản hóa.",
+const paramExplanations: Record<string, Explanation> = {
+  number: {
+    description: "Số đầu vào cần đơn giản hóa căn bậc hai.",
+    example: "number: 720 → √720 = 12√5; number: 48 → √48 = 4√3"
+  },
+  limits: {
+    description: "Ràng buộc an toàn ngăn hoạt ảnh quá dài.",
+    example: "limits: {max_factors: 10, desired_rows_for_scale: 6}"
+  },
+  max_factors: {
+    description: "Số lượng thừa số nguyên tố tối đa cho phép.",
+    example: "max_factors: 10 → 720 có 7 thừa số (OK), 2^15 có 15 (bị cắt)"
+  },
+  desired_rows_for_scale: {
+    description: "Số hàng mục tiêu để tự động scale cỡ chữ.",
+    example: "desired_rows_for_scale: 6 → 7 hàng thì scale = 6/7 ≈ 0.86"
+  },
+  text: {
+    description: "Chuỗi nội dung: tiêu đề và mẫu câu hỏi.",
+    example: "text: {title: 'Đơn Giản Hóa Căn', prompt_template: '√${N} = ?'}"
+  },
+  title: {
+    description: "Tiêu đề hiển thị ở đầu hoạt ảnh.",
+    example: "title: 'Đơn Giản Hóa Căn' → text lớn ở y=7"
+  },
+  prompt_template: {
+    description: "Mẫu LaTeX cho câu hỏi, ${N} được thay thế.",
+    example: "prompt_template: '√${N} = ?' với N=720 → '√720 = ?'"
+  },
+  style: {
+    description: "Style trực quan: màu sắc, tỷ lệ, độ đậm font.",
+    example: "style: {title_color: '#FFD700', scale: 1.2, weight: 'bold'}"
+  },
+  board: {
+    description: "Cài đặt canvas: viewbox và theme màu nền.",
+    example: "board: {viewbox: [-10, 8, 10, -8], theme: 'dark'}"
+  },
+  viewbox: {
+    description: "Giới hạn tọa độ [xMin, yMax, xMax, yMin].",
+    example: "viewbox: [-10, 8, 10, -8] → x: -10→10, y: -8→8"
+  },
+  layout: {
+    description: "Định vị các phần tử: tiêu đề, câu hỏi, thang, phương trình.",
+    example: "layout: {title_at: [0,7], ladder: {x_left: -2, x_right: 2, y0: 5}}"
+  },
+  title_at: {
+    description: "Vị trí văn bản tiêu đề với điểm neo.",
+    example: "title_at: {pos: [0, 7], anchor: 'middle'} → giữa trên"
+  },
+  prompt_at: {
+    description: "Vị trí câu hỏi √N = ? bên dưới tiêu đề.",
+    example: "prompt_at: {pos: [0, 5.5], anchor: 'middle'}"
+  },
+  ladder: {
+    description: "Định vị thang chia: tọa độ x cột, y bắt đầu, khoảng cách.",
+    example: "ladder: {x_left: -2, x_right: 2, y0: 4, dy: -1.2}"
+  },
+  line_at: {
+    description: "Vị trí dòng phương trình phân tích thừa số.",
+    example: "line_at: {pos: [0, -5], anchor: 'middle'}"
+  },
+  time: {
+    description: "Cấu hình thời gian xuất hiện và chuyển đổi.",
+    example: "time: {intro: 0, factorization: [2, 8], morphing: [9, 12]}"
+  },
+  scene_spans: {
+    description: "Khoảng thời gian tuyệt đối cho mỗi cảnh chính.",
+    example: "scene_spans: {factorization: [2,8], morphing: [9,12], simplify: [13,16]}"
+  },
+  factorization: {
+    description: "Thời gian cho cảnh phân tích thừa số.",
+    example: "factorization: {start: 2, end: 8, row_delay: 0.8}"
+  },
+  morphing: {
+    description: "Thời gian cho biến đổi phương trình.",
+    example: "morphing: {start: 9, end: 12, fade_duration: 0.8}"
+  },
+  simplify: {
+    description: "Thời gian cho đơn giản hóa cuối cùng.",
+    example: "simplify: {start: 13, end: 16, final_hold: 2.0}"
+  },
 };
 
-const getExplanation = (name: string): string | null => {
+// Helper component to render explanation tooltip content
+const ExplanationContent: React.FC<{ explanation: Explanation }> = ({ explanation }) => (
+  <div className="space-y-1.5">
+    <p className="font-medium">{explanation.description}</p>
+    <p className="text-muted-foreground border-t border-border/50 pt-1.5">
+      <span className="text-primary/80">VD:</span> <code className="text-[10px] bg-muted/50 px-1 py-0.5 rounded">{explanation.example}</code>
+    </p>
+  </div>
+);
+
+const getExplanation = (name: string): Explanation | null => {
   return functionExplanations[name] || paramExplanations[name] || null;
 };
 
 // Giải thích ngữ nghĩa cho các loại câu lệnh
-const statementExplanations: Record<string, string> = {
-  call: "Gọi một hàm với các đối số. Kết quả có thể được lưu vào biến bằng cú pháp → output.",
-  let: "Khai báo biến cục bộ. Giá trị có thể là literal hoặc biểu thức tính toán kết quả động.",
-  foreach: "Lặp qua một range hoặc mảng, thực thi các câu lệnh trong body cho mỗi phần tử.",
-  ir: "Lệnh Intermediate Representation - phát trực tiếp lệnh render cấp thấp đến timeline.",
-  return: "Trả về giá trị từ hàm hiện tại, làm cho giá trị đó khả dụng cho caller.",
-  params: "Tham số đầu vào được truyền cho hàm này. Tham chiếu bằng cú pháp $paramName trong body.",
+const statementExplanations: Record<string, Explanation> = {
+  call: {
+    description: "Gọi một hàm với các đối số. Kết quả lưu bằng cú pháp → output.",
+    example: "call: {fn: Scene_Factorization, args: {N: 720}} → result"
+  },
+  let: {
+    description: "Khai báo biến cục bộ với giá trị literal hoặc biểu thức.",
+    example: "let: {scale: 1.5, offset: {expr: 'core.mul($i, 1.2)'}}"
+  },
+  foreach: {
+    description: "Lặp qua range hoặc mảng, thực thi body cho mỗi phần tử.",
+    example: "foreach: {var: i, range: [0, 7], body: [...]} → i = 0,1,2,...,6"
+  },
+  ir: {
+    description: "Lệnh IR phát trực tiếp lệnh render cấp thấp đến timeline.",
+    example: "ir: {fn: showText, args: {text: '720', pos: [0,5], t: 2.0}}"
+  },
+  return: {
+    description: "Trả về giá trị từ hàm, làm giá trị khả dụng cho caller.",
+    example: "return: {expr: '$result'} → trả về biến result cho hàm gọi"
+  },
+  params: {
+    description: "Tham số đầu vào cho hàm, tham chiếu bằng $paramName.",
+    example: "params: {N: 720, scale: 1.0} → dùng $N, $scale trong body"
+  },
 };
 
 interface YAMLTreePanelProps {
@@ -274,8 +433,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <TooltipTrigger asChild>
               <span className="text-purple-400 cursor-help">call</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs text-xs">
-              <p>{statementExplanations.call}</p>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ExplanationContent explanation={statementExplanations.call} />
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -283,8 +442,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
               <span className="text-primary cursor-help">{stmt.call.fn}</span>
             </TooltipTrigger>
             {getExplanation(stmt.call.fn) && (
-              <TooltipContent side="top" className="max-w-xs text-xs">
-                <p>{getExplanation(stmt.call.fn)}</p>
+              <TooltipContent side="top" className="max-w-sm text-xs">
+                <ExplanationContent explanation={getExplanation(stmt.call.fn)!} />
               </TooltipContent>
             )}
           </Tooltip>
@@ -366,8 +525,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <TooltipTrigger asChild>
               <span className="text-yellow-400 cursor-help">let</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs text-xs">
-              <p>{statementExplanations.let}</p>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ExplanationContent explanation={statementExplanations.let} />
             </TooltipContent>
           </Tooltip>
           {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
@@ -453,8 +612,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <TooltipTrigger asChild>
               <span className="text-pink-400 cursor-help">foreach</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs text-xs">
-              <p>{statementExplanations.foreach}</p>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ExplanationContent explanation={statementExplanations.foreach} />
             </TooltipContent>
           </Tooltip>
           <span className="text-green-400">{stmt.foreach.var}</span>
@@ -506,8 +665,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <TooltipTrigger asChild>
               <span className="text-orange-400 cursor-help">ir</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs text-xs">
-              <p>{statementExplanations.ir}</p>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ExplanationContent explanation={statementExplanations.ir} />
             </TooltipContent>
           </Tooltip>
           <span className="text-primary">{stmt.ir.fn}</span>
@@ -550,8 +709,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
           <TooltipTrigger asChild>
             <span className="text-red-400 cursor-help">return</span>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs text-xs">
-            <p>{statementExplanations.return}</p>
+          <TooltipContent side="top" className="max-w-sm text-xs">
+            <ExplanationContent explanation={statementExplanations.return} />
           </TooltipContent>
         </Tooltip>
         <span className="text-foreground/80">{formatValue(stmt.return)}</span>
@@ -718,8 +877,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             </span>
           </TooltipTrigger>
           {getExplanation(node.name) && (
-            <TooltipContent side="right" className="max-w-xs text-xs">
-              <p>{getExplanation(node.name)}</p>
+            <TooltipContent side="right" className="max-w-sm text-xs">
+              <ExplanationContent explanation={getExplanation(node.name)!} />
             </TooltipContent>
           )}
         </Tooltip>
@@ -862,8 +1021,8 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
               <span className="text-xs text-orange-400 font-medium min-w-[80px] cursor-help">{key}:</span>
             </TooltipTrigger>
             {explanation && (
-              <TooltipContent side="right" className="max-w-xs text-xs">
-                <p>{explanation}</p>
+              <TooltipContent side="right" className="max-w-sm text-xs">
+                <ExplanationContent explanation={explanation} />
               </TooltipContent>
             )}
           </Tooltip>
@@ -895,8 +1054,8 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
               <span className="text-xs text-orange-400 font-medium cursor-help">{key}</span>
             </TooltipTrigger>
             {explanation && (
-              <TooltipContent side="right" className="max-w-xs text-xs">
-                <p>{explanation}</p>
+              <TooltipContent side="right" className="max-w-sm text-xs">
+                <ExplanationContent explanation={explanation} />
               </TooltipContent>
             )}
           </Tooltip>
