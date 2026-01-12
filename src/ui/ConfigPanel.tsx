@@ -201,7 +201,7 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
       {/* IR Functions Versions - 1/6 */}
       <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">IR Versions</span>
+          <span className="text-xs font-medium text-muted-foreground">IRF Versions</span>
           <Button
             variant="ghost"
             size="icon"
@@ -267,7 +267,7 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
       {/* ExampleDSL Versions - 1/6 */}
       <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">DSL Versions</span>
+          <span className="text-xs font-medium text-muted-foreground">EDSL Versions</span>
           <Button
             variant="ghost"
             size="icon"
