@@ -1,29 +1,47 @@
 schema_version: 2
 dialect: "AnimYAML-DSL"
-determinism:
-  rules:
-    - "No randomness"
-    - "All time values are explicit"
-    - "All easing names resolve to fixed functions in the renderer"
-    - "All layout expressions are pure (no font-metric queries unless renderer is pinned)"
-  pinned:
-    renderer_version: "jsxgraph-ir@0.3.0"
-    font_pack: "dejavu+tex@1.0"
+pinned:
+  renderer_version: "jsxgraph-ir@0.3.0"
+  font_pack: "dejavu+tex@1.0"
 
+# ============================================================
+# IMPORTANT NOTES (presentation constraints)
+# - Do NOT include: watermark, teal divider, ÷ symbol, teal arc, final rounded rectangle box.
+# - Presentation is INSIDE each Domain Layer function (Scene/Subscene/Micro).
+# - Lower-layer presentation timing is RELATIVE to the parent span.
+# - Option A timing: evenly partition a span by number of factors (k).
+# - Add: max font height (via scale cap), and max number of factors.
+# ============================================================
+
+# ----------------------------
+# 0) Parameters (non-coders edit here)
+# ----------------------------
 params:
   number: 720
 
+  limits:
+    max_factors: 12              # hard cap for safety/determinism
+    desired_rows_for_scale: 7    # used to compute auto-scale for small k
+
   text:
     title: "Root Simplification"
-    prompt_latex: "\\sqrt{${number}} = ?"
+    prompt_template: "\\sqrt{${N}} = ?"
 
   style:
-    board:
-      viewbox: [-6, 10, 6, -10]
-      theme: { bg: "#000000" }
+    board: { viewbox: [-6, 10, 6, -10], theme: { bg: "#000000" } }
+
     title: { color: "#2FB9FF", scale: 1.05, weight: "bold" }
-    text:  { color: "#FFFFFF", scale: 0.95 }
-    final: { color: "#FFFFFF", scale: 1.05 }
+
+    # base scale + caps (max font height ≈ scale cap)
+    text:
+      color: "#FFFFFF"
+      scale_base: 0.95
+      scale_min: 0.70
+      scale_max: 1.05
+
+    final:
+      color: "#FFFFFF"
+      scale: 1.05
 
   layout:
     title_at:  { anchor: "Center", x: 0.0, y: 6.6 }
@@ -33,51 +51,86 @@ params:
       x_left: -1.6
       x_right: 1.0
       y0: 2.0
-      dy: -0.9
+      dy: -0.9            # per row vertical step
       left_anchor: "Right"
       right_anchor: "Left"
 
     line_at: { anchor: "Center", x: 0.0, y: -4.6 }
 
+  # ----------------------------------------------------------
+  # Timing model:
+  # - Intro uses ABSOLUTE
+  # - Scenes have ABSOLUTE spans
+  # - Subscene/micro windows are RELATIVE to their parent span
+  # - Option A: row windows computed by core.slot() keeping order
+  # ----------------------------------------------------------
   time:
-    title:  { t0: 0.33, t1: 0.67, ease: "easeOutCubic" }
-    prompt: { t0: 1.00, t1: 1.33, ease: "easeOutCubic" }
-    ladder_first_left: { t0: 2.00, t1: 2.30, ease: "easeOutCubic" }
+    intro:
+      title:  { t0: 0.33, t1: 0.67, ease: "easeOutCubic" }
+      prompt: { t0: 1.00, t1: 1.33, ease: "easeOutCubic" }
 
-    row_times:
-      - { t0: 3.80, t1: 4.10, ease: "easeOutCubic" }
-      - { t0: 5.80, t1: 6.10, ease: "easeOutCubic" }
-      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
-      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
-      - { t0: 7.70, t1: 8.20, ease: "easeOutCubic" }
-      - { t0: 9.70, t1: 10.20, ease: "easeOutCubic" }
-      - { t0: 9.70, t1: 10.20, ease: "easeOutCubic" }
+    scene_spans:
+      factorization: { t0: 2.00,  t1: 12.40, ease: "easeOutCubic" }
+      morphing:      { t0: 12.40, t1: 22.20, ease: "easeOutCubic" }
+      simplify:      { t0: 22.20, t1: 24.10, ease: "easeOutCubic" }
 
-    factline: { t0: 12.00, t1: 12.40, ease: "easeOutCubic" }
-    to_root1: { t0: 19.80, t1: 20.20, ease: "easeOutCubic", transition: "crossFade" }
-    to_root2: { t0: 21.80, t1: 22.20, ease: "easeOutCubic", transition: "crossFade" }
-    to_final: { t0: 23.70, t1: 24.10, ease: "easeOutCubic", transition: "crossFade" }
+    # Relative allocation inside each scene (editors can tweak)
+    factorization:
+      divisions_rel: { rel0: 0.00, rel1: 0.90 }
+      pf_rel:        { rel0: 0.90, rel1: 1.00 }
+      first_left_rel:{ rel0: 0.00, rel1: 0.06, ease: "easeOutCubic" }
 
-expr:
-  allowed:
-    - let
-    - index
-    - len
-    - add
-    - mul
-    - format
-    - concat
-    - map
-    - reduce
-  stdlib:
-    math.prime_factors: "returns list of prime factors sorted ascending (with multiplicity)"
-    math.quotient_chain: "given N and factors, returns [N, N/f1, N/(f1f2), ...]"
-    math.count_powers: "given factors, returns list of {p:int, k:int} sorted by p"
-    tex.prime_factor_expr: "given N and powers -> 'N = p^k × ...' (k=1 omits exponent)"
-    tex.root_rewrite: "given N and rhs -> '\\sqrt{N} = \\sqrt{rhs}'"
-    tex.split_root: "given rhs powers -> '\\sqrt{N} = \\sqrt{p1^k1} × ...'"
-    tex.extract_squares: "returns simplified string like '\\sqrt{N} = 12\\sqrt{5}'"
+      # Slot parameters for row scheduling (Option A)
+      # Each row i gets a window inside divisions span:
+      #   start = i/k + pad_start
+      #   end   = i/k + active
+      slot:
+        pad_start: 0.10       # fraction of slot used as left padding
+        active:    0.80       # fraction of slot used as active reveal
+        ease:      "easeOutCubic"
 
+    morphing:
+      show_pf_rel: { rel0: 0.00, rel1: 0.08, ease: "easeOutCubic" }
+      to_root1_rel:{ rel0: 0.76, rel1: 0.80, ease: "easeOutCubic", transition: "crossFade" }
+      to_root2_rel:{ rel0: 0.92, rel1: 0.96, ease: "easeOutCubic", transition: "crossFade" }
+
+    simplify:
+      to_final_rel:{ rel0: 0.70, rel1: 1.00, ease: "easeOutCubic", transition: "crossFade" }
+
+# ----------------------------
+# 1) Deterministic stdlib (pure)
+# ----------------------------
+stdlib:
+  # math
+  math.prime_factors: {}
+  math.quotient_chain: {}
+  math.count_powers: {}
+  math.product: {}
+  # tex
+  tex.prime_factor_expr: {}
+  tex.rhs_of_equation: {}
+  tex.root_rewrite: {}
+  tex.split_root: {}
+  tex.final_root_simplified: {}
+  # core (needed for Option A + caps)
+  core.range: {}
+  core.len: {}
+  core.index: {}
+  core.add: {}
+  core.mul: {}
+  core.div: {}
+  core.min: {}
+  core.max: {}
+  core.clamp: {}
+  core.format: {}
+  core.subspan: {}        # abs span + rel -> abs span
+  core.win: {}            # abs span + rel window -> abs window
+  core.slot: {}           # Option A: evenly partition span into k slots and return window for i
+  core.assert_le: {}      # deterministic guardrail
+
+# ----------------------------
+# 2) IR API (lowest layer only)
+# ----------------------------
 ir_api:
   board.init: {}
   text.create: {}
@@ -85,94 +138,57 @@ ir_api:
   point.create: {}
   line.create: {}
   polygon.create: {}
-  numberline.create: {}
-  numberline.movePoint: {}
-  graph.plot: {}
-  graph.movePoint: {}
-  graph.tangentAt: {}
-  balance.create: {}
-  balance.setLeftRight: {}
-  flow.create: {}
-  flow.setStep: {}
-  bar.create: {}
-  bar.mergeSegments: {}
-  bar.scaleTo: {}
-  slider.create: {}
-  param.set: {}
-  effect.flash: {}
-  effect.confetti: {}
 
+# ============================================================
+# 3) Functions
+# - Presentation is inside each Domain Layer function.
+# - Lower layer presentation windows are derived from parent spans.
+# ============================================================
 defs:
 
+  # ==========================================================
+  # Layer 0: Entry
+  # ==========================================================
   SimplifyRoot:
     params: [N]
     returns: [FinalLatex]
     body:
-      - call: { fn: board.init, args: { viewbox: "$.params.style.board.viewbox", theme: "$.params.style.board.theme" } }
+      - call: { fn: InitScene, args: {}, out: _ }
+      - call: { fn: Present_Intro, args: { N: "$N" }, out: _ }
 
-      - call: { fn: BuildFactorLadder, args: { N: "$N" }, out: Ladder }
-      - call: { fn: LadderToPrimeFactorization, args: { N: "$N", Ladder: "$Ladder" }, out: PF }
-      - call: { fn: RewriteRootWithFactorization, args: { N: "$N", PF: "$PF" }, out: RW }
-      - call: { fn: SplitRootFactors, args: { N: "$N", RW: "$RW", Ladder: "$Ladder" }, out: SR }
-      - call: { fn: ExtractPerfectSquares, args: { N: "$N", Ladder: "$Ladder", SR: "$SR" }, out: FinalLatex }
+      # call scenes WITH their spans; each scene does its own Present_* internally
+      - call:
+          fn: Scene_Factorization
+          args: { N: "$N", span: "$.params.time.scene_spans.factorization" }
+          out: Fact
 
       - call:
-          fn: Present_SimplifyRootVideo
+          fn: Scene_MorphToEquation
+          args: { N: "$N", span: "$.params.time.scene_spans.morphing", Fact: "$Fact" }
+          out: Root
+
+      - call:
+          fn: Scene_SimplifyEquation
+          args: { N: "$N", span: "$.params.time.scene_spans.simplify", Fact: "$Fact", Root: "$Root" }
+          out: Simp
+
+      - return: "$Simp.FinalLatex"
+
+  # ==========================================================
+  # Layer 1: Init
+  # ==========================================================
+  InitScene:
+    params: []
+    returns: []
+    body:
+      - call:
+          fn: IR_BoardInit
           args:
-            N: "$N"
-            Ladder: "$Ladder"
-            PF: "$PF"
-            RW: "$RW"
-            SR: "$SR"
-            FinalLatex: "$FinalLatex"
-          out: _
+            viewbox: "$.params.style.board.viewbox"
+            theme: "$.params.style.board.theme"
 
-      - return: "$FinalLatex"
-
-  BuildFactorLadder:
+  Present_Intro:
     params: [N]
-    returns: [Ladder]
-    body:
-      - let: { factors: { expr: "math.prime_factors(N)", args: { N: "$N" } } }
-      - let: { left_values: { expr: "math.quotient_chain(N, factors)", args: { N: "$N", factors: "$factors" } } }
-      - return:
-          left_values: "$left_values"
-          factors: "$factors"
-
-  LadderToPrimeFactorization:
-    params: [N, Ladder]
-    returns: [PFLatex]
-    body:
-      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
-      - let: { PFLatex: { expr: "tex.prime_factor_expr(N, powers)", args: { N: "$N", powers: "$powers" } } }
-      - return: "$PFLatex"
-
-  RewriteRootWithFactorization:
-    params: [N, PF]
-    returns: [RWLatex]
-    body:
-      - let: { rhs: { expr: "tex.rhs_of_equation(PF)", args: { PF: "$PF" } } }
-      - let: { RWLatex: { expr: "tex.root_rewrite(N, rhs)", args: { N: "$N", rhs: "$rhs" } } }
-      - return: "$RWLatex"
-
-  SplitRootFactors:
-    params: [N, RW, Ladder]
-    returns: [SRLatex]
-    body:
-      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
-      - let: { SRLatex: { expr: "tex.split_root(N, powers)", args: { N: "$N", powers: "$powers" } } }
-      - return: "$SRLatex"
-
-  ExtractPerfectSquares:
-    params: [N, Ladder, SR]
-    returns: [FinalLatex]
-    body:
-      - let: { powers: { expr: "math.count_powers(Ladder.factors)", args: { Ladder: "$Ladder" } } }
-      - let: { FinalLatex: { expr: "tex.extract_squares(N, powers)", args: { N: "$N", powers: "$powers" } } }
-      - return: "$FinalLatex"
-
-  Present_SimplifyRootVideo:
-    params: [N, Ladder, PF, RW, SR, FinalLatex]
     returns: []
     body:
       - call:
@@ -181,80 +197,289 @@ defs:
             id: "title"
             text: "$.params.text.title"
             at: "$.params.layout.title_at"
-            style: "$.params.style.title"
-            t0: "$.params.time.title.t0"
-            t1: "$.params.time.title.t1"
-            ease: "$.params.time.title.ease"
+            style:
+              color: "$.params.style.title.color"
+              scale: "$.params.style.title.scale"
+              weight: "$.params.style.title.weight"
+            t0: "$.params.time.intro.title.t0"
+            t1: "$.params.time.intro.title.t1"
+            ease: "$.params.time.intro.title.ease"
 
       - call:
           fn: ShowMathTimed
           args:
             id: "prompt"
-            latex: { expr: "format('\\\\sqrt{%s} = ?', N)", args: { N: "$N" } }
+            latex: { expr: "core.format('\\\\sqrt{%s} = ?', N)", args: { N: "$N" } }
             at: "$.params.layout.prompt_at"
-            style: "$.params.style.text"
-            t0: "$.params.time.prompt.t0"
-            t1: "$.params.time.prompt.t1"
-            ease: "$.params.time.prompt.ease"
+            style:
+              color: "$.params.style.text.color"
+              scale: "$.params.style.text.scale_base"
+            t0: "$.params.time.intro.prompt.t0"
+            t1: "$.params.time.intro.prompt.t1"
+            ease: "$.params.time.intro.prompt.ease"
+
+  # ==========================================================
+  # Layer 2A: SCENES (semantic + embedded presentation)
+  # ==========================================================
+  Scene_Factorization:
+    params: [N, span]
+    returns: [Fact]
+    body:
+      - call: { fn: Subscene_Divisions, args: { N: "$N" }, out: Ladder }
+      - call: { fn: Subscene_CountPowers, args: { FactorList: "$Ladder.factors" }, out: Powers }
+      - call: { fn: Subscene_FormatPrimeFactorExpr, args: { N: "$N", Powers: "$Powers" }, out: PF }
+
+      # Present INSIDE the scene, using its span
+      - call:
+          fn: Present_Scene_Factorization
+          args: { span: "$span", N: "$N", Ladder: "$Ladder", PF: "$PF" }
+          out: _
+
+      - return: { Ladder: "$Ladder", Powers: "$Powers", PF: "$PF" }
+
+  Scene_MorphToEquation:
+    params: [N, span, Fact]
+    returns: [Root]
+    body:
+      - call: { fn: Subscene_RootRewrite, args: { N: "$N", PF: "$Fact.PF" }, out: RW }
+      - call: { fn: Subscene_SplitRoots, args: { N: "$N", Powers: "$Fact.Powers" }, out: SR }
+
+      # Present INSIDE the scene, using its span
+      - call:
+          fn: Present_Scene_MorphToEquation
+          args: { span: "$span", N: "$N", PF: "$Fact.PF", RW: "$RW", SR: "$SR" }
+          out: _
+
+      - return: { RW: "$RW", SR: "$SR" }
+
+  Scene_SimplifyEquation:
+    params: [N, span, Fact, Root]
+    returns: [Simp]
+    body:
+      - call:
+          fn: Subscene_SimplifyFinalLatex
+          args: { N: "$N", Powers: "$Fact.Powers" }
+          out: FinalLatex
+
+      # Present INSIDE the scene, using its span
+      - call:
+          fn: Present_Scene_SimplifyEquation
+          args: { span: "$span", FinalLatex: "$FinalLatex" }
+          out: _
+
+      - return: { FinalLatex: "$FinalLatex" }
+
+  # ==========================================================
+  # Layer 2B: SUBSCENES (semantic)
+  # ==========================================================
+  Subscene_Divisions:
+    params: [N]
+    returns: [Ladder]
+    body:
+      - let: { factors: { expr: "math.prime_factors(N)", args: { N: "$N" } } }
+      - let: { left_values: { expr: "math.quotient_chain(N, factors)", args: { N: "$N", factors: "$factors" } } }
+      - return: { factors: "$factors", left_values: "$left_values" }
+
+  Subscene_CountPowers:
+    params: [FactorList]
+    returns: [Powers]
+    body:
+      - let: { Powers: { expr: "math.count_powers(FactorList)", args: { FactorList: "$FactorList" } } }
+      - return: "$Powers"
+
+  Subscene_FormatPrimeFactorExpr:
+    params: [N, Powers]
+    returns: [PFLatex]
+    body:
+      - let: { PFLatex: { expr: "tex.prime_factor_expr(N, Powers)", args: { N: "$N", Powers: "$Powers" } } }
+      - return: "$PFLatex"
+
+  Subscene_RootRewrite:
+    params: [N, PF]
+    returns: [RWLatex]
+    body:
+      - let: { rhs: { expr: "tex.rhs_of_equation(PF)", args: { PF: "$PF" } } }
+      - let: { RWLatex: { expr: "tex.root_rewrite(N, rhs)", args: { N: "$N", rhs: "$rhs" } } }
+      - return: "$RWLatex"
+
+  Subscene_SplitRoots:
+    params: [N, Powers]
+    returns: [SRLatex]
+    body:
+      - let: { SRLatex: { expr: "tex.split_root(N, Powers)", args: { N: "$N", Powers: "$Powers" } } }
+      - return: "$SRLatex"
+
+  Subscene_SimplifyFinalLatex:
+    params: [N, Powers]
+    returns: [FinalLatex]
+    body:
+      - let:
+          FinalLatex:
+            expr: "tex.final_root_simplified(N, Powers)"
+            args: { N: "$N", Powers: "$Powers" }
+      - return: "$FinalLatex"
+
+  # ==========================================================
+  # Presentation INSIDE each Domain Scene (relative timing)
+  # ==========================================================
+  Present_Scene_Factorization:
+    params: [span, N, Ladder, PF]
+    returns: []
+    body:
+      # guardrail: max factors
+      - let: { k: { expr: "core.len(Ladder.factors)", args: { Ladder: "$Ladder" } } }
+      - let: { _: { expr: "core.assert_le(k, $.params.limits.max_factors, 'Too many factors')", args: { k: "$k" } } }
+
+      # compute auto-scale (Option A + max font height cap)
+      # scale_candidate = base * (desired_rows / max(k,1))
+      # then clamp to [scale_min, scale_max]
+      - let:
+          scale_candidate:
+            expr: "core.mul($.params.style.text.scale_base, core.div($.params.limits.desired_rows_for_scale, core.max(k,1)))"
+            args: { k: "$k" }
+      - let:
+          scale_eff:
+            expr: "core.clamp(scale_candidate, $.params.style.text.scale_min, $.params.style.text.scale_max)"
+            args: { scale_candidate: "$scale_candidate" }
+
+      # split scene span into subspans
+      - let:
+          spanDiv:
+            expr: "core.subspan(span, $.params.time.factorization.divisions_rel)"
+            args: { span: "$span" }
+      - let:
+          spanPF:
+            expr: "core.subspan(span, $.params.time.factorization.pf_rel)"
+            args: { span: "$span" }
+
+      - call:
+          fn: Present_Subscene_Divisions
+          args:
+            span: "$spanDiv"
+            Ladder: "$Ladder"
+            text_style:
+              color: "$.params.style.text.color"
+              scale: "$scale_eff"
+      - call:
+          fn: Present_Subscene_PrimeFactorExpr
+          args:
+            span: "$spanPF"
+            PF: "$PF"
+
+  Present_Subscene_Divisions:
+    params: [span, Ladder, text_style]
+    returns: []
+    body:
+      - let: { k: { expr: "core.len(Ladder.factors)", args: { Ladder: "$Ladder" } } }
+
+      # show first left value (L0) at beginning of divisions span
+      - let:
+          w0:
+            expr: "core.win(span, $.params.time.factorization.first_left_rel)"
+            args: { span: "$span" }
 
       - call:
           fn: ShowTextTimed
           args:
             id: "L0"
-            text: { expr: "index(Ladder.left_values, 0)", args: { Ladder: "$Ladder" } }
+            text: { expr: "core.index(Ladder.left_values, 0)", args: { Ladder: "$Ladder" } }
             at:
               anchor: "$.params.layout.ladder.left_anchor"
               x: "$.params.layout.ladder.x_left"
               y: "$.params.layout.ladder.y0"
-            style: "$.params.style.text"
-            t0: "$.params.time.ladder_first_left.t0"
-            t1: "$.params.time.ladder_first_left.t1"
-            ease: "$.params.time.ladder_first_left.ease"
+            style: "$text_style"
+            t0: "$w0.t0"
+            t1: "$w0.t1"
+            ease: "$w0.ease"
 
+      # Option A: evenly divide the span into k slots, derive a window per row
       - foreach:
           var: i
-          range: { expr: "range(0, len(Ladder.factors))", args: { Ladder: "$Ladder" } }
+          range: { expr: "core.range(0, k)", args: { k: "$k" } }
           do:
-            - let: { tw: { expr: "index($.params.time.row_times, i)", args: { i: "$i" } } }
+            - let:
+                w:
+                  expr: "core.slot(span, i, k, $.params.time.factorization.slot.pad_start, $.params.time.factorization.slot.active, $.params.time.factorization.slot.ease)"
+                  args: { span: "$span", i: "$i", k: "$k" }
 
             - call:
-                fn: ShowTextTimed
+                fn: Present_Micro_LadderRow
                 args:
-                  id: { expr: "format('R%d', i)", args: { i: "$i" } }
-                  text: { expr: "index(Ladder.factors, i)", args: { Ladder: "$Ladder", i: "$i" } }
-                  at:
-                    anchor: "$.params.layout.ladder.right_anchor"
-                    x: "$.params.layout.ladder.x_right"
-                    y: { expr: "add($.params.layout.ladder.y0, mul(i, $.params.layout.ladder.dy))", args: { i: "$i" } }
-                  style: "$.params.style.text"
-                  t0: "$tw.t0"
-                  t1: "$tw.t1"
-                  ease: "$tw.ease"
+                  span: "$w"
+                  i: "$i"
+                  Ladder: "$Ladder"
+                  text_style: "$text_style"
 
-            - call:
-                fn: ShowTextTimed
-                args:
-                  id: { expr: "format('L%d', add(i,1))", args: { i: "$i" } }
-                  text: { expr: "index(Ladder.left_values, add(i,1))", args: { Ladder: "$Ladder", i: "$i" } }
-                  at:
-                    anchor: "$.params.layout.ladder.left_anchor"
-                    x: "$.params.layout.ladder.x_left"
-                    y: { expr: "add($.params.layout.ladder.y0, mul(add(i,1), $.params.layout.ladder.dy))", args: { i: "$i" } }
-                  style: "$.params.style.text"
-                  t0: "$tw.t0"
-                  t1: "$tw.t1"
-                  ease: "$tw.ease"
+  Present_Micro_LadderRow:
+    params: [span, i, Ladder, text_style]
+    returns: []
+    body:
+      - call:
+          fn: ShowTextTimed
+          args:
+            id: { expr: "core.format('R%d', i)", args: { i: "$i" } }
+            text: { expr: "core.index(Ladder.factors, i)", args: { Ladder: "$Ladder", i: "$i" } }
+            at:
+              anchor: "$.params.layout.ladder.right_anchor"
+              x: "$.params.layout.ladder.x_right"
+              y: { expr: "core.add($.params.layout.ladder.y0, core.mul(i, $.params.layout.ladder.dy))", args: { i: "$i" } }
+            style: "$text_style"
+            t0: "$span.t0"
+            t1: "$span.t1"
+            ease: "$span.ease"
 
+      - call:
+          fn: ShowTextTimed
+          args:
+            id: { expr: "core.format('L%d', core.add(i,1))", args: { i: "$i" } }
+            text: { expr: "core.index(Ladder.left_values, core.add(i,1))", args: { Ladder: "$Ladder", i: "$i" } }
+            at:
+              anchor: "$.params.layout.ladder.left_anchor"
+              x: "$.params.layout.ladder.x_left"
+              y: { expr: "core.add($.params.layout.ladder.y0, core.mul(core.add(i,1), $.params.layout.ladder.dy))", args: { i: "$i" } }
+            style: "$text_style"
+            t0: "$span.t0"
+            t1: "$span.t1"
+            ease: "$span.ease"
+
+  Present_Subscene_PrimeFactorExpr:
+    params: [span, PF]
+    returns: []
+    body:
       - call:
           fn: ShowMathTimed
           args:
             id: "factline"
             latex: "$PF"
             at: "$.params.layout.line_at"
-            style: "$.params.style.text"
-            t0: "$.params.time.factline.t0"
-            t1: "$.params.time.factline.t1"
-            ease: "$.params.time.factline.ease"
+            style:
+              color: "$.params.style.text.color"
+              scale: "$.params.style.text.scale_base"
+            t0: "$span.t0"
+            t1: "$span.t1"
+            ease: "$span.ease"
+
+  Present_Scene_MorphToEquation:
+    params: [span, N, PF, RW, SR]
+    returns: []
+    body:
+      - let: { wShow: { expr: "core.win(span, $.params.time.morphing.show_pf_rel)", args: { span: "$span" } } }
+      - let: { w1:    { expr: "core.win(span, $.params.time.morphing.to_root1_rel)", args: { span: "$span" } } }
+      - let: { w2:    { expr: "core.win(span, $.params.time.morphing.to_root2_rel)", args: { span: "$span" } } }
+
+      # ensure factline exists (id stable)
+      - call:
+          fn: ShowMathTimed
+          args:
+            id: "factline"
+            latex: "$PF"
+            at: "$.params.layout.line_at"
+            style:
+              color: "$.params.style.text.color"
+              scale: "$.params.style.text.scale_base"
+            t0: "$wShow.t0"
+            t1: "$wShow.t1"
+            ease: "$wShow.ease"
 
       - call:
           fn: CrossFadeMathTimed
@@ -262,11 +487,13 @@ defs:
             id: "factline"
             toLatex: "$RW"
             at: "$.params.layout.line_at"
-            style: "$.params.style.text"
-            t0: "$.params.time.to_root1.t0"
-            t1: "$.params.time.to_root1.t1"
-            ease: "$.params.time.to_root1.ease"
-            transition: "$.params.time.to_root1.transition"
+            style:
+              color: "$.params.style.text.color"
+              scale: "$.params.style.text.scale_base"
+            t0: "$w1.t0"
+            t1: "$w1.t1"
+            ease: "$w1.ease"
+            transition: "$w1.transition"
 
       - call:
           fn: CrossFadeMathTimed
@@ -274,23 +501,41 @@ defs:
             id: "factline"
             toLatex: "$SR"
             at: "$.params.layout.line_at"
-            style: "$.params.style.text"
-            t0: "$.params.time.to_root2.t0"
-            t1: "$.params.time.to_root2.t1"
-            ease: "$.params.time.to_root2.ease"
-            transition: "$.params.time.to_root2.transition"
+            style:
+              color: "$.params.style.text.color"
+              scale: "$.params.style.text.scale_base"
+            t0: "$w2.t0"
+            t1: "$w2.t1"
+            ease: "$w2.ease"
+            transition: "$w2.transition"
 
+  Present_Scene_SimplifyEquation:
+    params: [span, FinalLatex]
+    returns: []
+    body:
+      - let: { w: { expr: "core.win(span, $.params.time.simplify.to_final_rel)", args: { span: "$span" } } }
       - call:
           fn: CrossFadeMathTimed
           args:
             id: "factline"
             toLatex: "$FinalLatex"
             at: "$.params.layout.line_at"
-            style: "$.params.style.final"
-            t0: "$.params.time.to_final.t0"
-            t1: "$.params.time.to_final.t1"
-            ease: "$.params.time.to_final.ease"
-            transition: "$.params.time.to_final.transition"
+            style:
+              color: "$.params.style.final.color"
+              scale: "$.params.style.final.scale"
+            t0: "$w.t0"
+            t1: "$w.t1"
+            ease: "$w.ease"
+            transition: "$w.transition"
+
+  # ==========================================================
+  # Lowest layer: ONLY IR calls
+  # ==========================================================
+  IR_BoardInit:
+    params: [viewbox, theme]
+    returns: []
+    body:
+      - ir: { fn: board.init, args: { viewbox: "$viewbox", theme: "$theme" } }
 
   ShowTextTimed:
     params: [id, text, at, style, t0, t1, ease]
@@ -341,6 +586,9 @@ defs:
             ease: "$ease"
             transition: "$transition"
 
+# ----------------------------
+# 4) Program entry
+# ----------------------------
 program:
   entry:
     call:
