@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Code, Play, Layers, Wand2, Settings } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -172,7 +172,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const hasArgs = args.length > 0;
     
     return (
-      <div className="py-1">
+      <div className={`py-1 ${highlightClass}`}>
         <div 
           className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
           onClick={() => hasArgs && setExpanded(!expanded)}
@@ -484,10 +484,23 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const hasBody = node.def.body.length > 0;
   const isSelected = selected === node.name;
   
-  // Check if any statement in this node creates the highlighted element
+  // Check if any statement in this node creates/targets the highlighted element
   const getStatementElementId = (stmt: Statement): string | null => {
+    // Check ir statements (primitives)
     if ('ir' in stmt && stmt.ir.args.id) {
-      return String(stmt.ir.args.id);
+      const id = stmt.ir.args.id;
+      // Only match if it's a literal string, not a variable reference
+      if (typeof id === 'string' && !id.startsWith('$')) {
+        return id;
+      }
+    }
+    // Check call statements with id argument
+    if ('call' in stmt && stmt.call.args.id) {
+      const id = stmt.call.args.id;
+      // Only match if it's a literal string, not a variable reference or expression
+      if (typeof id === 'string' && !id.startsWith('$')) {
+        return id;
+      }
     }
     return null;
   };
@@ -746,6 +759,46 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     if (!spec) return new Map();
     return buildTree(spec);
   }, [spec]);
+  
+  // Helper to check if a statement contains the highlighted element ID
+  const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
+    if ('ir' in stmt && stmt.ir.args.id) {
+      const id = stmt.ir.args.id;
+      if (typeof id === 'string' && !id.startsWith('$') && id === elementId) {
+        return true;
+      }
+    }
+    if ('call' in stmt && stmt.call.args.id) {
+      const id = stmt.call.args.id;
+      if (typeof id === 'string' && !id.startsWith('$') && id === elementId) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // Find which function contains the highlighted element
+  const functionWithHighlightedElement = useMemo(() => {
+    if (!highlightedElementId || !spec?.defs) return null;
+    
+    for (const [fnName, fnDef] of Object.entries(spec.defs)) {
+      for (const stmt of fnDef.body) {
+        if (statementHasElementId(stmt, highlightedElementId)) {
+          return fnName;
+        }
+      }
+    }
+    return null;
+  }, [highlightedElementId, spec]);
+  
+  // Auto-expand the function containing the highlighted element
+  useEffect(() => {
+    if (functionWithHighlightedElement && !expandedFunctions.has(functionWithHighlightedElement)) {
+      const next = new Set(expandedFunctions);
+      next.add(functionWithHighlightedElement);
+      onExpandedFunctionsChange?.(next);
+    }
+  }, [functionWithHighlightedElement, expandedFunctions, onExpandedFunctionsChange]);
   
   // Show all functions as flat list
   const allFunctions = useMemo(() => {
