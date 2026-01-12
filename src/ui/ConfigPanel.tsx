@@ -408,10 +408,10 @@ defs:
       - ir: { fn: text.create, args: { id: root, content: "$n" } }`;
 
 // Sample data for each subtab
-const createSampleVersions = (prefix: string): ConfigVersion[] => [
-  { id: `${prefix}-v3`, name: `v3.0`, timestamp: '2024-01-12 14:30', isActive: true },
-  { id: `${prefix}-v2`, name: `v2.1`, timestamp: '2024-01-10 09:15' },
-  { id: `${prefix}-v1`, name: `v1.0`, timestamp: '2024-01-08 16:45' },
+const createSampleVersions = (prefix: string, displayPrefix: string): ConfigVersion[] => [
+  { id: `${prefix}-v3`, name: `${displayPrefix} v3.0`, timestamp: '2024-01-12 14:30', isActive: true },
+  { id: `${prefix}-v2`, name: `${displayPrefix} v2.1`, timestamp: '2024-01-10 09:15' },
+  { id: `${prefix}-v1`, name: `${displayPrefix} v1.0`, timestamp: '2024-01-08 16:45' },
 ];
 
 const sampleImportantNotes: Record<string, string> = {
@@ -643,11 +643,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {/* IR Functions & Example DSL Tab */}
         <TabsContent value="IR-FUNCTIONS-EXAMPLE-DSL" className="h-full m-0">
           <IRFunctionsSubtab
-            irVersions={createSampleVersions('IR')}
+            irVersions={createSampleVersions('IR', 'IRF')}
             selectedIRVersionId={selectedIRVersion}
             onIRVersionSelect={setSelectedIRVersion}
             irFunctionsList={sampleIRFunctionsList}
-            exampleDSLVersions={createSampleVersions('ExampleDSL')}
+            exampleDSLVersions={createSampleVersions('ExampleDSL', 'EDSL')}
             selectedExampleDSLVersionId={selectedExampleDSLVersion}
             onExampleDSLVersionSelect={setSelectedExampleDSLVersion}
             exampleDSLContent={sampleExampleDSLContent}
@@ -659,7 +659,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {subtabs.filter(tab => !tab.isSpecial).map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="h-full m-0">
             <ConfigSubtab
-              versions={createSampleVersions(tab.id)}
+              versions={createSampleVersions(tab.id, tab.id)}
               selectedVersionId={selectedVersions[tab.id]}
               onVersionSelect={(id) => handleVersionSelect(tab.id, id)}
               systemPrompt={sampleSystemPrompts[tab.id] || ''}
