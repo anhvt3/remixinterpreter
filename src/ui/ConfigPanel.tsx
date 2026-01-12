@@ -597,14 +597,14 @@ interface ConfigPanelProps {
 
 // Export subtabs list for use in App.tsx header
 export const CONFIG_SUBTABS = [
-  { id: 'IRF-IR-FUNCTIONS', label: 'IRF' },
-  { id: 'EDSL-EXAMPLE-DSL', label: 'EDSL' },
-  { id: 'VA1120-EXTRACT-DESC', label: 'VA1120' },
-  { id: 'VA1210-GENERATE-DSL', label: 'VA1210' },
-  { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210' },
-  { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220' },
-  { id: 'VA2310-GENERATE-DSL', label: 'VA2310' },
-  { id: 'VA2320-EDIT-DSL', label: 'VA2320' },
+  { id: 'IRF-IR-FUNCTIONS', code: 'IRF', suffix: 'IR-FUNCTIONS' },
+  { id: 'EDSL-EXAMPLE-DSL', code: 'EDSL', suffix: 'EXAMPLE-DSL' },
+  { id: 'VA1120-EXTRACT-DESC', code: 'VA1120', suffix: 'EXTRACT-DESC' },
+  { id: 'VA1210-GENERATE-DSL', code: 'VA1210', suffix: 'GENERATE-DSL' },
+  { id: 'VA2210-GENERATE-SHORT-DESC', code: 'VA2210', suffix: 'GENERATE-SHORT-DESC' },
+  { id: 'VA2220-EDIT-SHORT-DESC', code: 'VA2220', suffix: 'EDIT-SHORT-DESC' },
+  { id: 'VA2310-GENERATE-DSL', code: 'VA2310', suffix: 'GENERATE-DSL' },
+  { id: 'VA2320-EDIT-DSL', code: 'VA2320', suffix: 'EDIT-DSL' },
 ];
 
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({ 
