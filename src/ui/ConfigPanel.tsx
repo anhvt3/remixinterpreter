@@ -1,16 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Save, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface ConfigVersion {
-  id: string;
-  name: string;
-  timestamp: string;
-  isActive?: boolean;
-}
+import { useConfigData, type ConfigVersion } from '@/hooks/useConfigData';
 
 interface ConfigSubtabProps {
   versions: ConfigVersion[];
@@ -544,21 +538,19 @@ interface ConfigPanelProps {
 }
 
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => {
-  const [selectedVersions, setSelectedVersions] = useState<Record<string, string | null>>({
-    'VA1120-EXTRACT-DESC': 'VA1120-EXTRACT-DESC-v3',
-    'VA1210-GENERATE-DSL': 'VA1210-GENERATE-DSL-v3',
-    'VA2210-GENERATE-SHORT-DESC': 'VA2210-GENERATE-SHORT-DESC-v3',
-    'VA2220-EDIT-SHORT-DESC': 'VA2220-EDIT-SHORT-DESC-v3',
-    'VA2310-GENERATE-DSL': 'VA2310-GENERATE-DSL-v3',
-    'VA2320-EDIT-DSL': 'VA2320-EDIT-DSL-v3',
-  });
+  const {
+    configs,
+    loading,
+    getVersionsForType,
+    getConfigById,
+    saveConfig,
+    createNewVersion,
+    deleteConfig,
+  } = useConfigData();
 
-  const handleVersionSelect = (tab: string, versionId: string) => {
-    setSelectedVersions(prev => ({ ...prev, [tab]: versionId }));
-  };
-
-  const [selectedIRVersion, setSelectedIRVersion] = useState<string | null>('IR-v3');
-  const [selectedExampleDSLVersion, setSelectedExampleDSLVersion] = useState<string | null>('ExampleDSL-v3');
+  const [selectedVersions, setSelectedVersions] = useState<Record<string, string | null>>({});
+  const [editableContent, setEditableContent] = useState<Record<string, string>>({});
+  const [editableNotes, setEditableNotes] = useState<Record<string, string>>({});
 
   const subtabs = [
     { id: 'IRF-IR-FUNCTIONS', label: 'IRF-IR Functions', isSpecial: 'irf' },
@@ -570,6 +562,74 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
     { id: 'VA2310-GENERATE-DSL', label: 'VA2310-GENERATE-DSL', isSpecial: false },
     { id: 'VA2320-EDIT-DSL', label: 'VA2320-EDIT-DSL', isSpecial: false },
   ];
+
+  // Get versions from DB or fallback to sample data
+  const getVersions = (type: string, displayPrefix: string): ConfigVersion[] => {
+    const dbVersions = getVersionsForType(type);
+    if (dbVersions.length > 0) return dbVersions;
+    // Fallback to sample versions
+    return createSampleVersions(type, displayPrefix);
+  };
+
+  // Get content for selected version
+  const getContent = (type: string, selectedId: string | null, fallback: string): string => {
+    if (editableContent[type] !== undefined) return editableContent[type];
+    if (selectedId) {
+      const config = getConfigById(selectedId);
+      if (config) return config.content || '';
+    }
+    return fallback;
+  };
+
+  // Get notes for selected version
+  const getNotes = (type: string, selectedId: string | null, fallback: string): string => {
+    if (editableNotes[type] !== undefined) return editableNotes[type];
+    if (selectedId) {
+      const config = getConfigById(selectedId);
+      if (config) return config.important_notes || '';
+    }
+    return fallback;
+  };
+
+  const handleVersionSelect = (type: string, versionId: string) => {
+    setSelectedVersions(prev => ({ ...prev, [type]: versionId }));
+    // Clear editable state to load from DB
+    setEditableContent(prev => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
+    setEditableNotes(prev => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
+  };
+
+  const handleSave = async (type: string) => {
+    const selectedId = selectedVersions[type];
+    const config = selectedId ? getConfigById(selectedId) : null;
+    const content = getContent(type, selectedId, sampleSystemPrompts[type] || sampleIRFunctionsList);
+    const notes = getNotes(type, selectedId, sampleImportantNotes[type] || '');
+    
+    if (config) {
+      await saveConfig(type, config.version, content, notes, config.id);
+    } else {
+      // Create first version if none exists
+      await createNewVersion(type, content, notes);
+    }
+  };
+
+  const handleCreate = async (type: string) => {
+    const selectedId = selectedVersions[type];
+    const content = getContent(type, selectedId, sampleSystemPrompts[type] || sampleIRFunctionsList);
+    const notes = getNotes(type, selectedId, sampleImportantNotes[type] || '');
+    await createNewVersion(type, content, notes);
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteConfig(id);
+  };
 
   return (
     <Tabs defaultValue="IRF-IR-FUNCTIONS" className="h-full flex flex-col">
@@ -591,12 +651,15 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {/* IRF-IR Functions Tab */}
         <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
           <SimpleSubtab
-            versions={createSampleVersions('IR', 'IRF')}
-            selectedVersionId={selectedIRVersion}
-            onVersionSelect={setSelectedIRVersion}
+            versions={getVersions('IRF-IR-FUNCTIONS', 'IRF')}
+            selectedVersionId={selectedVersions['IRF-IR-FUNCTIONS'] || null}
+            onVersionSelect={(id) => handleVersionSelect('IRF-IR-FUNCTIONS', id)}
+            onVersionDelete={handleDelete}
+            onVersionCreate={() => handleCreate('IRF-IR-FUNCTIONS')}
+            onContentSave={() => handleSave('IRF-IR-FUNCTIONS')}
             versionsTitle="IRF Versions"
             contentTitle="#IRF-IntermediateRepresentationFunctions"
-            content={sampleIRFunctionsList}
+            content={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, sampleIRFunctionsList)}
             zoomLevel={zoomLevel}
           />
         </TabsContent>
@@ -604,12 +667,15 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {/* EDSL-ExampleDSL Tab */}
         <TabsContent value="EDSL-EXAMPLE-DSL" className="h-full m-0">
           <SimpleSubtab
-            versions={createSampleVersions('ExampleDSL', 'EDSL')}
-            selectedVersionId={selectedExampleDSLVersion}
-            onVersionSelect={setSelectedExampleDSLVersion}
+            versions={getVersions('EDSL-EXAMPLE-DSL', 'EDSL')}
+            selectedVersionId={selectedVersions['EDSL-EXAMPLE-DSL'] || null}
+            onVersionSelect={(id) => handleVersionSelect('EDSL-EXAMPLE-DSL', id)}
+            onVersionDelete={handleDelete}
+            onVersionCreate={() => handleCreate('EDSL-EXAMPLE-DSL')}
+            onContentSave={() => handleSave('EDSL-EXAMPLE-DSL')}
             versionsTitle="EDSL Versions"
             contentTitle="#EDSL-ExampleDomainSpecificLanguage"
-            content={sampleExampleDSLContent}
+            content={getContent('EDSL-EXAMPLE-DSL', selectedVersions['EDSL-EXAMPLE-DSL'] || null, sampleExampleDSLContent)}
             zoomLevel={zoomLevel}
           />
         </TabsContent>
@@ -618,11 +684,14 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {subtabs.filter(tab => !tab.isSpecial).map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="h-full m-0">
             <ConfigSubtab
-              versions={createSampleVersions(tab.id, tab.id)}
-              selectedVersionId={selectedVersions[tab.id]}
+              versions={getVersions(tab.id, tab.id)}
+              selectedVersionId={selectedVersions[tab.id] || null}
               onVersionSelect={(id) => handleVersionSelect(tab.id, id)}
-              systemPrompt={sampleSystemPrompts[tab.id] || ''}
-              importantNotes={sampleImportantNotes[tab.id] || ''}
+              onVersionDelete={handleDelete}
+              onVersionCreate={() => handleCreate(tab.id)}
+              onSystemPromptSave={() => handleSave(tab.id)}
+              systemPrompt={getContent(tab.id, selectedVersions[tab.id] || null, sampleSystemPrompts[tab.id] || '')}
+              importantNotes={getNotes(tab.id, selectedVersions[tab.id] || null, sampleImportantNotes[tab.id] || '')}
               fullPrompt={sampleFullPrompts[tab.id] || ''}
               zoomLevel={zoomLevel}
             />
