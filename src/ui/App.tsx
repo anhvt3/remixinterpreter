@@ -9,6 +9,7 @@ import { ConfigPanel } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
+import { CollapsiblePanelLayout, type PanelId } from './CollapsiblePanelLayout';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { executeWithTrace, type CallChainEntry } from '../core/runtimeTracer';
@@ -37,55 +38,6 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
     return fullYaml; // Return original if merge fails
   }
 }
-
-// ============================================================
-// REUSABLE PANEL COMPONENTS
-// These are the core panels used across all tabs
-// ============================================================
-
-// LO Panel - Learning Objective content editor
-interface LOPanelProps {
-  content: string;
-  onChange: (value: string) => void;
-  zoomLevel?: number;
-}
-const LOPanel: React.FC<LOPanelProps> = ({ content, onChange, zoomLevel = 100 }) => (
-  <CodePanel
-    title="LO"
-    content={content}
-    onChange={onChange}
-    language="text"
-    zoomLevel={zoomLevel}
-  />
-);
-
-// Desc Panel - Description content editor
-interface DescPanelProps {
-  content: string;
-  onChange: (value: string) => void;
-  zoomLevel?: number;
-}
-const DescPanel: React.FC<DescPanelProps> = ({ content, onChange, zoomLevel = 100 }) => (
-  <CodePanel
-    title="Desc"
-    content={content}
-    onChange={onChange}
-    language="text"
-    zoomLevel={zoomLevel}
-  />
-);
-
-// Anim Panel - Animation preview with controls
-interface AnimPanelProps {
-  events: TimelineEvent[];
-  selectedElementId?: string | null;
-  highlightedElementIds?: string[];
-  onElementClick?: (elementId: string) => void;
-  zoomLevel?: number;
-}
-const AnimPanel: React.FC<AnimPanelProps> = ({ zoomLevel, highlightedElementIds, ...props }) => (
-  <AnimPanelWithControls {...props} highlightedElementIds={highlightedElementIds} zoomLevel={zoomLevel} />
-);
 
 // Chat Panel - Chat interface (re-exported for clarity)
 // Already exported from ChatPanel.tsx
@@ -139,45 +91,6 @@ export const App: React.FC = () => {
   // Extract editable params from full YAML
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
   
-  // Build mapping from YAML sections to element IDs
-  const yamlToElementMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    const lines = paramsContent.split('\n');
-    
-    // Map layout sections to element IDs
-    let currentSection = '';
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim();
-      if (trimmed === 'title_at:') currentSection = 'title';
-      else if (trimmed === 'prompt_at:') currentSection = 'prompt';
-      else if (trimmed === 'ladder:') currentSection = 'ladder';
-      else if (trimmed === 'line_at:') currentSection = 'factline';
-      
-      if (currentSection) {
-        map[idx.toString()] = currentSection;
-      }
-    });
-    
-    // Also map style sections
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('title:') && line.includes('color')) map[idx.toString()] = 'title';
-      if (trimmed.startsWith('text:') && line.includes('color')) map[idx.toString()] = 'text';
-      if (trimmed.startsWith('final:') && line.includes('color')) map[idx.toString()] = 'factline';
-    });
-    
-    return map;
-  }, [paramsContent]);
-  
-  // Build reverse map: element ID to line numbers
-  const elementToLinesMap = useMemo(() => {
-    const map: Record<string, number[]> = {};
-    Object.entries(yamlToElementMap).forEach(([lineNum, elementId]) => {
-      if (!map[elementId]) map[elementId] = [];
-      map[elementId].push(parseInt(lineNum));
-    });
-    return map;
-  }, [yamlToElementMap]);
   
   // Handle params changes by merging back into full YAML (from code editor)
   const handleParamsChange = (newParams: string) => {
@@ -219,18 +132,6 @@ export const App: React.FC = () => {
     }
   };
   
-  // Handle line click in YAML panel
-  const handleLineClick = (lineIndex: number) => {
-    const elementId = yamlToElementMap[lineIndex.toString()];
-    if (elementId) {
-      setSelectedElementId(elementId === selectedElementId ? null : elementId);
-    }
-  };
-  
-  // Handle element click in Anim panel
-  const handleElementClick = (elementId: string) => {
-    setSelectedElementId(elementId === selectedElementId ? null : elementId);
-  };
   
   // Parse and execute YAML whenever it changes
   useEffect(() => {
@@ -623,88 +524,84 @@ export const App: React.FC = () => {
       
       {/* Main Content */}
       <div className="flex-1 min-h-0">
-        <Tabs defaultValue="dsl-anim" className="h-full flex flex-col">
+        <Tabs defaultValue="editing" className="h-full flex flex-col">
           <div className="px-4 py-2 border-b border-border shrink-0">
             <TabsList className="bg-muted">
-              <TabsTrigger value="lo-desc" className="text-xs">LO-Desc</TabsTrigger>
-              <TabsTrigger value="desc-dsl" className="text-xs">Desc-DSL</TabsTrigger>
-              <TabsTrigger value="dsl-anim" className="text-xs">DSL-Anim</TabsTrigger>
-              <TabsTrigger value="dsl-runtime" className="text-xs">DSL-Runtime</TabsTrigger>
+              <TabsTrigger value="editing" className="text-xs">Editing</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
           </div>
           
-          <div className="flex-1 min-h-0 p-2 overflow-hidden">
-            {/* LO-Desc Tab: LO | Desc | Chat */}
-            <TabsContent value="lo-desc" className="h-full m-0">
-              <div className="grid grid-cols-3 gap-2 h-full">
-                <div className="h-full min-h-0 overflow-hidden">
-                  <LOPanel content={loContent} onChange={setLoContent} zoomLevel={zoomLevel} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <DescPanel content={descContent} onChange={setDescContent} zoomLevel={zoomLevel} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* Desc-DSL Tab: Desc | DSL | Chat */}
-            <TabsContent value="desc-dsl" className="h-full m-0">
-              <div className="grid grid-cols-3 gap-2 h-full">
-                <div className="h-full min-h-0 overflow-hidden">
-                  <DescPanel content={descContent} onChange={setDescContent} zoomLevel={zoomLevel} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel {...dslPanelProps} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* DSL-Anim Tab: DSL | Anim | Chat */}
-            <TabsContent value="dsl-anim" className="h-full m-0">
-              <div className="grid grid-cols-3 gap-2 h-full">
-                <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel
-                    {...dslPanelProps}
-                    onLineClick={handleLineClick}
-                    highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
-                  />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <AnimPanel {...animPanelProps} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* DSL-Runtime Tab: DSL | Runtime | Anim */}
-            <TabsContent value="dsl-runtime" className="h-full m-0">
-              <div className="grid grid-cols-3 gap-2 h-full">
-                <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel {...dslPanelProps} />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <RuntimePanel 
-                    steps={runtimeSteps} 
-                    elementCallChain={selectedElementCallChain} 
-                    zoomLevel={zoomLevel}
-                    onStepClick={handleRuntimeStepClick}
-                    selectedStepId={selectedRuntimeStepId}
-                    highlightedStepIds={combinedHighlightedStepIds}
-                    stepCallChains={stepCallChains}
-                  />
-                </div>
-                <div className="h-full min-h-0 overflow-hidden">
-                  <AnimPanel {...animPanelProps} />
-                </div>
-              </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {/* Editing Tab: 6 collapsible panels */}
+            <TabsContent value="editing" className="h-full m-0">
+              <CollapsiblePanelLayout
+                panels={[
+                  {
+                    id: 'lo',
+                    label: 'LO',
+                    render: () => (
+                      <CodePanel
+                        title="LO"
+                        content={loContent}
+                        onChange={setLoContent}
+                        language="text"
+                        zoomLevel={zoomLevel}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'desc',
+                    label: 'Desc',
+                    render: () => (
+                      <CodePanel
+                        title="Desc"
+                        content={descContent}
+                        onChange={setDescContent}
+                        language="text"
+                        zoomLevel={zoomLevel}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'dsl',
+                    label: 'DSLScript',
+                    render: () => (
+                      <YAMLScriptPanel {...dslPanelProps} />
+                    ),
+                  },
+                  {
+                    id: 'runtime',
+                    label: 'Runtime',
+                    render: () => (
+                      <RuntimePanel 
+                        steps={runtimeSteps} 
+                        elementCallChain={selectedElementCallChain} 
+                        zoomLevel={zoomLevel}
+                        onStepClick={handleRuntimeStepClick}
+                        selectedStepId={selectedRuntimeStepId}
+                        highlightedStepIds={combinedHighlightedStepIds}
+                        stepCallChains={stepCallChains}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'anim',
+                    label: 'Anim',
+                    render: () => (
+                      <AnimPanelWithControls {...animPanelProps} />
+                    ),
+                  },
+                  {
+                    id: 'chat',
+                    label: 'Chat',
+                    render: () => (
+                      <ChatPanel title="Chat" zoomLevel={zoomLevel} />
+                    ),
+                  },
+                ]}
+                initialExpanded={['dsl', 'runtime', 'anim']}
+              />
             </TabsContent>
 
             {/* Config Tab */}
