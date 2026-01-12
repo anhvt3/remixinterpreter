@@ -70,6 +70,16 @@ const getExplanation = (name: string): string | null => {
   return functionExplanations[name] || paramExplanations[name] || null;
 };
 
+// Semantic explanations for statement types
+const statementExplanations: Record<string, string> = {
+  call: "Invokes a function with arguments. The result can be stored in a variable using → output syntax.",
+  let: "Declares local variables. Values can be literals or expressions that compute results dynamically.",
+  foreach: "Iterates over a range or array, executing the body statements for each element.",
+  ir: "Intermediate Representation call - directly emits a low-level rendering command to the timeline.",
+  return: "Returns a value from the current function, making it available to the caller.",
+  params: "Input parameters passed to this function. Referenced using $paramName syntax in the body.",
+};
+
 interface YAMLTreePanelProps {
   spec: YAMLSpec | null;
   onFunctionSelect?: (fnName: string) => void;
@@ -260,8 +270,24 @@ const StatementRow: React.FC<StatementRowProps> = ({
           ) : (
             <span className="w-3" />
           )}
-          <span className="text-purple-400">call</span>
-          <span className="text-primary">{stmt.call.fn}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-purple-400 cursor-help">call</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              <p>{statementExplanations.call}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-primary cursor-help">{stmt.call.fn}</span>
+            </TooltipTrigger>
+            {getExplanation(stmt.call.fn) && (
+              <TooltipContent side="top" className="max-w-xs text-xs">
+                <p>{getExplanation(stmt.call.fn)}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           {!expanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
@@ -336,7 +362,14 @@ const StatementRow: React.FC<StatementRowProps> = ({
           ) : (
             <span className="w-3" />
           )}
-          <span className="text-yellow-400">let</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-yellow-400 cursor-help">let</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              <p>{statementExplanations.let}</p>
+            </TooltipContent>
+          </Tooltip>
           {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
         </div>
         {expanded && hasVars && (
@@ -416,7 +449,14 @@ const StatementRow: React.FC<StatementRowProps> = ({
           ) : (
             <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
           )}
-          <span className="text-pink-400">foreach</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-pink-400 cursor-help">foreach</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              <p>{statementExplanations.foreach}</p>
+            </TooltipContent>
+          </Tooltip>
           <span className="text-green-400">{stmt.foreach.var}</span>
           <span className="text-muted-foreground">in</span>
           <span className="text-foreground/80">{formatValue(stmt.foreach.range)}</span>
@@ -462,7 +502,14 @@ const StatementRow: React.FC<StatementRowProps> = ({
           ) : (
             <span className="w-3" />
           )}
-          <span className="text-orange-400">ir</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-orange-400 cursor-help">ir</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              <p>{statementExplanations.ir}</p>
+            </TooltipContent>
+          </Tooltip>
           <span className="text-primary">{stmt.ir.fn}</span>
           {!expanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
@@ -499,7 +546,14 @@ const StatementRow: React.FC<StatementRowProps> = ({
     return (
       <div className="py-1 flex items-center gap-1">
         <span className="w-3" />
-        <span className="text-red-400">return</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-red-400 cursor-help">return</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs">
+            <p>{statementExplanations.return}</p>
+          </TooltipContent>
+        </Tooltip>
         <span className="text-foreground/80">{formatValue(stmt.return)}</span>
       </div>
     );
