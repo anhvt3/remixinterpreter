@@ -140,9 +140,11 @@ function resolveArgValue(arg: string, providedArgs: Record<string, unknown>, env
     return parseFloat(arg);
   }
   
-  // Check if it's a string literal
+  // Check if it's a string literal - preserve backslashes for LaTeX
   if ((arg.startsWith("'") && arg.endsWith("'")) || (arg.startsWith('"') && arg.endsWith('"'))) {
-    return arg.slice(1, -1);
+    // Unescape common sequences: \\ -> \, but preserve single backslashes for LaTeX
+    const content = arg.slice(1, -1);
+    return content.replace(/\\\\/g, '\x00BACKSLASH\x00').replace(/\x00BACKSLASH\x00/g, '\\');
   }
   
   return arg;
