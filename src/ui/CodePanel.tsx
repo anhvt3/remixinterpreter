@@ -127,10 +127,14 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       ) : (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as editable textarea with syntax highlighting overlay */}
-          <div className="relative p-4 pr-10" style={{ zoom: zoomLevel / 100 }}>
+          <div 
+            className="relative p-4 pr-10 cursor-text" 
+            style={{ zoom: zoomLevel / 100 }}
+            onClick={() => textareaRef.current?.focus()}
+          >
             {/* Syntax highlighted layer (behind) */}
             <div
-              className="absolute inset-0 p-4 pr-10 pointer-events-none select-none"
+              className="absolute inset-0 p-4 pr-10 pointer-events-none select-none overflow-hidden"
               aria-hidden="true"
             >
               <SyntaxHighlighter content={content} language={language} />
@@ -142,7 +146,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               readOnly={readOnly}
-              className="relative w-full bg-transparent text-transparent caret-foreground text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground"
+              className="relative w-full bg-transparent text-transparent caret-foreground text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10"
               style={{
                 lineHeight: '1.6',
                 tabSize: 2,
