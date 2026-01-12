@@ -83,7 +83,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
               ${isSelected 
                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-black rounded' 
                 : isHighlighted
-                ? 'ring-2 ring-accent ring-offset-1 ring-offset-black rounded bg-accent/20'
+                ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-black rounded shadow-lg shadow-yellow-500/30'
                 : 'hover:ring-1 hover:ring-white/30 rounded'
               }
             `}

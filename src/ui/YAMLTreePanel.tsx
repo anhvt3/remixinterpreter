@@ -680,7 +680,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); } }}
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
         >
           {hasArgs ? (
             expanded ? (
@@ -769,10 +769,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div className="py-1">
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
         <div 
-          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
-          onClick={() => hasVars && setExpanded(!expanded)}
+          className="flex items-center gap-1 rounded px-1 -mx-1"
+          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
         >
           {hasVars ? (
             expanded ? (
@@ -860,10 +860,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
   
   if ('foreach' in stmt) {
     return (
-      <div className="py-1">
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
         <div 
-          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
-          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 rounded px-1 -mx-1"
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); onClick?.(); }}
         >
           {expanded ? (
             <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -909,10 +909,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
         <div 
-          className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
-          onClick={() => hasArgs && setExpanded(!expanded)}
+          className="flex items-center gap-1 rounded px-1 -mx-1"
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
         >
           {hasArgs ? (
             expanded ? (
