@@ -69,6 +69,12 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
     };
   }, []);
   
+  // Keep loopRange in a ref so animation loop doesn't restart on loopRange changes
+  const loopRangeRef = useRef(loopRange);
+  useEffect(() => {
+    loopRangeRef.current = loopRange;
+  }, [loopRange]);
+  
   useEffect(() => {
     if (!isPlaying) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -83,11 +89,12 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
       
       setCurrentTime((prev) => {
         const next = prev + delta;
+        const currentLoopRange = loopRangeRef.current;
         
-        // If we have a loop range, loop within it
-        if (loopRange) {
-          if (next >= loopRange.end) {
-            return loopRange.start;
+        // If we have a loop range, loop infinitely within it
+        if (currentLoopRange) {
+          if (next >= currentLoopRange.end) {
+            return currentLoopRange.start;
           }
           return next;
         }
@@ -108,7 +115,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, duration, loopRange]);
+  }, [isPlaying, duration]);
   
   const handlePlayPause = useCallback(() => {
     if (currentTime >= duration) setCurrentTime(0);
