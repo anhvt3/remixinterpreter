@@ -1,10 +1,38 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Save, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConfigData, type ConfigVersion } from '@/hooks/useConfigData';
+
+// Placeholder patterns with fuzzy matching support
+const PLACEHOLDER_PATTERNS = [
+  { key: 'ImportantNotes', regex: /\{[Ii]mportant[Nn]otes?\}/g },
+  { key: 'IRF', regex: /\{[Ii][Rr][Ff][-_]?[Ii]ntermediate[Rr]epresentation[Ff]unctions?\}/g },
+  { key: 'EDSL', regex: /\{[Ee][Dd][Ss][Ll][-_]?[Ee]xample[Dd]omain[Ss]pecific[Ll]anguage\}/g },
+  { key: 'LO', regex: /\{[Ll][Oo][-_]?[Ll]earning[Oo]bjective\}/g },
+  { key: 'SHD', regex: /\{[Ss][Hh][Dd][-_]?[Ss]hort[Dd]escription\}/g },
+  { key: 'DSL', regex: /\{[Dd][Ss][Ll][-_]?[Dd]omain[Ss]pecific[Ll]anguage\}/g },
+  { key: 'RTT', regex: /\{[Rr][Tt][Tt][-_]?[Rr]untime[Tt]race\}/g },
+];
+
+// Helper to replace placeholders with fuzzy matching
+const replacePlaceholders = (
+  template: string,
+  replacements: Record<string, string>
+): string => {
+  let result = template;
+  
+  for (const pattern of PLACEHOLDER_PATTERNS) {
+    const replacement = replacements[pattern.key];
+    if (replacement !== undefined) {
+      result = result.replace(pattern.regex, replacement);
+    }
+  }
+  
+  return result;
+};
 
 interface ConfigSubtabProps {
   versions: ConfigVersion[];
@@ -15,7 +43,13 @@ interface ConfigSubtabProps {
   onSystemPromptSave?: () => void;
   systemPrompt: string;
   importantNotes: string;
-  fullPrompt: string;
+  // Content from other panels for placeholder replacement
+  irfContent?: string;
+  edslContent?: string;
+  loContent?: string;
+  descContent?: string;
+  dslContent?: string;
+  runtimeContent?: string;
   zoomLevel?: number;
 }
 
@@ -28,10 +62,29 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   onSystemPromptSave,
   systemPrompt,
   importantNotes,
-  fullPrompt,
+  irfContent = '',
+  edslContent = '',
+  loContent = '',
+  descContent = '',
+  dslContent = '',
+  runtimeContent = '',
   zoomLevel = 100,
 }) => {
   const scale = zoomLevel / 100;
+
+  // Generate Full Prompt by replacing placeholders
+  const fullPrompt = useMemo(() => {
+    const replacements: Record<string, string> = {
+      ImportantNotes: importantNotes,
+      IRF: irfContent,
+      EDSL: edslContent,
+      LO: loContent,
+      SHD: descContent,
+      DSL: dslContent,
+      RTT: runtimeContent,
+    };
+    return replacePlaceholders(systemPrompt, replacements);
+  }, [systemPrompt, importantNotes, irfContent, edslContent, loContent, descContent, dslContent, runtimeContent]);
 
   return (
     <div className="grid grid-cols-5 gap-2 h-full">
@@ -698,7 +751,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
               onSystemPromptSave={() => handleSave(tab.id)}
               systemPrompt={getContent(tab.id, selectedVersions[tab.id] || null, '')}
               importantNotes={getNotes(tab.id, selectedVersions[tab.id] || null, '')}
-              fullPrompt={sampleFullPrompts[tab.id] || ''}
+              irfContent={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, '')}
+              edslContent={getContent('EDSL-EXAMPLE-DSL', selectedVersions['EDSL-EXAMPLE-DSL'] || null, '')}
               zoomLevel={zoomLevel}
             />
           </TabsContent>
