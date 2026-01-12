@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
@@ -571,9 +571,6 @@ export const App: React.FC = () => {
             <span>schema_version: 2</span>
             <span className="text-border">•</span>
             <span>dialect: AnimYAML-DSL</span>
-          </div>
-          <div className="border-l border-border pl-3">
-            <ThemeSwitcher />
           </div>
           <div className="flex items-center gap-1 border-l border-border pl-3">
             <Button
