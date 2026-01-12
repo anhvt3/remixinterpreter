@@ -84,12 +84,12 @@ const RuntimeStepRow: React.FC<{
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
 
-  // Auto-scroll primary highlighted step into view
+  // Auto-scroll highlighted step into view (from element selection or TreeView click)
   useEffect(() => {
-    if (highlightLevel === 'primary' && rowRef.current) {
+    if ((highlightLevel === 'primary' || isHighlightedFromTreeView) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel]);
+  }, [highlightLevel, isHighlightedFromTreeView]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
