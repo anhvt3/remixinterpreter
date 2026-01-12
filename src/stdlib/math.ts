@@ -69,3 +69,10 @@ export function countPowers(factors: number[]): Power[] {
   
   return powers;
 }
+
+/**
+ * Compute product of array of numbers
+ */
+export function product(arr: number[]): number {
+  return arr.reduce((acc, val) => acc * val, 1);
+}

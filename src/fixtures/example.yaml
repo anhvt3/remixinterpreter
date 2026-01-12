@@ -78,7 +78,7 @@ params:
     factorization:
       divisions_rel: { rel0: 0.00, rel1: 0.90 }
       pf_rel:        { rel0: 0.90, rel1: 1.00 }
-      first_left_rel:{ rel0: 0.00, rel1: 0.06, ease: "easeOutCubic" }
+      first_left_rel: { rel0: 0.00, rel1: 0.06, ease: "easeOutCubic" }
 
       # Slot parameters for row scheduling (Option A)
       # Each row i gets a window inside divisions span:
@@ -91,11 +91,11 @@ params:
 
     morphing:
       show_pf_rel: { rel0: 0.00, rel1: 0.08, ease: "easeOutCubic" }
-      to_root1_rel:{ rel0: 0.76, rel1: 0.80, ease: "easeOutCubic", transition: "crossFade" }
-      to_root2_rel:{ rel0: 0.92, rel1: 0.96, ease: "easeOutCubic", transition: "crossFade" }
+      to_root1_rel: { rel0: 0.76, rel1: 0.80, ease: "easeOutCubic", transition: "crossFade" }
+      to_root2_rel: { rel0: 0.92, rel1: 0.96, ease: "easeOutCubic", transition: "crossFade" }
 
     simplify:
-      to_final_rel:{ rel0: 0.70, rel1: 1.00, ease: "easeOutCubic", transition: "crossFade" }
+      to_final_rel: { rel0: 0.70, rel1: 1.00, ease: "easeOutCubic", transition: "crossFade" }
 
 # ----------------------------
 # 1) Deterministic stdlib (pure)
