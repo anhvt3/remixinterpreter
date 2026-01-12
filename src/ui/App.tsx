@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
-import { ConfigPanel } from './ConfigPanel';
+import { ConfigPanel, CONFIG_SUBTABS } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
@@ -78,6 +78,7 @@ export const App: React.FC = () => {
   const [selectedFunctionDefinition, setSelectedFunctionDefinition] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [activeTab, setActiveTab] = useState('editing');
+  const [activeConfigSubtab, setActiveConfigSubtab] = useState('IRF-IR-FUNCTIONS');
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 10, 150));
@@ -609,6 +610,27 @@ export const App: React.FC = () => {
                 onPanelClick={handlePanelClick}
               />
             )}
+            
+            {/* Config subtabs - shown inline only when Config is active and authenticated */}
+            {activeTab === 'config' && configAuthenticated && (
+              <div className="flex items-center gap-1">
+                {CONFIG_SUBTABS.map((subtab) => (
+                  <button
+                    key={subtab.id}
+                    onClick={() => setActiveConfigSubtab(subtab.id)}
+                    className={`
+                      px-2 py-1 rounded text-xs font-medium transition-all
+                      ${activeConfigSubtab === subtab.id
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }
+                    `}
+                  >
+                    {subtab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
           <div className="flex-1 min-h-0 overflow-hidden">
@@ -620,7 +642,11 @@ export const App: React.FC = () => {
             {/* Config Tab */}
             <TabsContent value="config" className="h-full m-0">
               {configAuthenticated ? (
-                <ConfigPanel zoomLevel={zoomLevel} />
+                <ConfigPanel 
+                  zoomLevel={zoomLevel} 
+                  activeSubtab={activeConfigSubtab}
+                  onSubtabChange={setActiveConfigSubtab}
+                />
               ) : (
                 <div className="h-full flex items-center justify-center bg-background">
                   <div className="p-6 bg-card border border-border rounded-lg shadow-lg max-w-sm w-full mx-4">

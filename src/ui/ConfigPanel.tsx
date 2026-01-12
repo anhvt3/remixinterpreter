@@ -591,9 +591,27 @@ defs:
 
 interface ConfigPanelProps {
   zoomLevel?: number;
+  activeSubtab?: string;
+  onSubtabChange?: (subtab: string) => void;
 }
 
-export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => {
+// Export subtabs list for use in App.tsx header
+export const CONFIG_SUBTABS = [
+  { id: 'IRF-IR-FUNCTIONS', label: 'IRF' },
+  { id: 'EDSL-EXAMPLE-DSL', label: 'EDSL' },
+  { id: 'VA1120-EXTRACT-DESC', label: 'VA1120' },
+  { id: 'VA1210-GENERATE-DSL', label: 'VA1210' },
+  { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210' },
+  { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220' },
+  { id: 'VA2310-GENERATE-DSL', label: 'VA2310' },
+  { id: 'VA2320-EDIT-DSL', label: 'VA2320' },
+];
+
+export const ConfigPanel: React.FC<ConfigPanelProps> = ({ 
+  zoomLevel = 100,
+  activeSubtab = 'IRF-IR-FUNCTIONS',
+  onSubtabChange,
+}) => {
   const {
     configs,
     loading,
@@ -693,21 +711,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
   };
 
   return (
-    <Tabs defaultValue="IRF-IR-FUNCTIONS" className="h-full flex flex-col">
-      <div className="shrink-0 border-b border-border/50 px-2 pt-1">
-        <TabsList className="bg-transparent h-auto flex-wrap gap-1 p-0">
-          {subtabs.map((tab) => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="text-[0.65rem] px-2 py-1 h-6 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
-            >
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </div>
-
+    <Tabs value={activeSubtab} onValueChange={onSubtabChange} className="h-full flex flex-col">
       <div className="flex-1 min-h-0 p-2 overflow-hidden">
         {/* IRF-IR Functions Tab */}
         <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
