@@ -31,7 +31,10 @@ export const ThemeSwitcher: React.FC = () => {
         {themes.map((t) => (
           <DropdownMenuItem
             key={t.name}
-            onClick={() => setTheme(t.name)}
+            onSelect={(e) => {
+              e.preventDefault();
+              setTheme(t.name as ThemeName);
+            }}
             className={`gap-3 cursor-pointer py-2.5 ${theme === t.name ? 'bg-primary/20 text-primary font-medium' : 'hover:bg-muted'}`}
           >
             <span className="text-lg">{t.icon}</span>

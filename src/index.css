@@ -89,68 +89,68 @@
 
   /* ===== WARM TERMINAL THEME ===== */
   .theme-warm-terminal {
-    --background: 20 14% 8%;
-    --foreground: 36 33% 88%;
+    --background: 28 22% 7%;
+    --foreground: 36 35% 90%;
 
-    --card: 20 14% 10%;
-    --card-foreground: 36 33% 88%;
+    --card: 28 22% 10%;
+    --card-foreground: 36 35% 90%;
 
-    --popover: 20 14% 12%;
-    --popover-foreground: 36 33% 88%;
+    --popover: 28 22% 12%;
+    --popover-foreground: 36 35% 90%;
 
-    --primary: 38 92% 50%;
-    --primary-foreground: 20 14% 5%;
+    --primary: 38 92% 52%;
+    --primary-foreground: 28 22% 6%;
 
-    --secondary: 20 12% 16%;
-    --secondary-foreground: 36 33% 82%;
+    --secondary: 28 18% 16%;
+    --secondary-foreground: 36 35% 84%;
 
-    --muted: 20 10% 18%;
-    --muted-foreground: 30 15% 50%;
+    --muted: 28 14% 18%;
+    --muted-foreground: 32 18% 55%;
 
-    --accent: 24 95% 53%;
-    --accent-foreground: 36 33% 98%;
+    --accent: 18 92% 52%;
+    --accent-foreground: 36 35% 98%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 36 33% 98%;
+    --destructive-foreground: 36 35% 98%;
 
-    --border: 20 12% 20%;
-    --input: 20 12% 15%;
-    --ring: 38 92% 50%;
+    --border: 28 16% 20%;
+    --input: 28 16% 15%;
+    --ring: 38 92% 52%;
 
     /* Custom tokens for editor */
-    --panel-bg: 20 14% 6%;
-    --panel-header: 20 14% 12%;
-    --panel-border: 20 12% 16%;
-    
+    --panel-bg: 28 22% 6%;
+    --panel-header: 28 22% 11%;
+    --panel-border: 28 16% 16%;
+
     /* Syntax highlighting - Warm colors */
     --syntax-keyword: 38 92% 58%;
-    --syntax-key: 24 95% 60%;
+    --syntax-key: 18 92% 58%;
     --syntax-string: 85 55% 50%;
     --syntax-number: 45 90% 55%;
     --syntax-boolean: 350 70% 60%;
     --syntax-null: 0 0% 50%;
-    --syntax-comment: 20 10% 45%;
-    --syntax-punctuation: 30 15% 55%;
-    --syntax-function: 24 95% 58%;
+    --syntax-comment: 28 12% 45%;
+    --syntax-punctuation: 32 18% 55%;
+    --syntax-function: 18 92% 56%;
     --syntax-variable: 45 80% 65%;
-    
+
     /* Animation colors */
     --anim-bg: 0 0% 0%;
-    --anim-text: 36 33% 95%;
-    --anim-accent: 38 92% 50%;
+    --anim-text: 36 35% 95%;
+    --anim-accent: 38 92% 52%;
 
     /* Glow effects */
-    --glow-primary: 38 92% 50%;
-    --glow-accent: 24 95% 53%;
+    --glow-primary: 38 92% 52%;
+    --glow-accent: 18 92% 52%;
 
-    --sidebar-background: 20 14% 8%;
-    --sidebar-foreground: 36 33% 82%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 20 14% 5%;
-    --sidebar-accent: 20 12% 16%;
-    --sidebar-accent-foreground: 36 33% 88%;
-    --sidebar-border: 20 10% 18%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-background: 28 22% 7%;
+    --sidebar-foreground: 36 35% 84%;
+    --sidebar-primary: 38 92% 52%;
+    --sidebar-primary-foreground: 28 22% 6%;
+    --sidebar-accent: 28 18% 16%;
+    --sidebar-accent-foreground: 36 35% 90%;
+    --sidebar-border: 28 16% 18%;
+    --sidebar-ring: 38 92% 52%;
 
     /* Font families */
     --font-mono: 'IBM Plex Mono', monospace;
@@ -159,68 +159,69 @@
 
   /* ===== MINIMAL FROST THEME ===== */
   .theme-minimal-frost {
-    --background: 215 28% 12%;
-    --foreground: 210 30% 92%;
+    /* Make this one intentionally LIGHT so switching is unmistakable */
+    --background: 210 40% 97%;
+    --foreground: 215 28% 14%;
 
-    --card: 215 28% 14%;
-    --card-foreground: 210 30% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 14%;
 
-    --popover: 215 28% 16%;
-    --popover-foreground: 210 30% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 14%;
 
-    --primary: 199 89% 48%;
-    --primary-foreground: 215 28% 5%;
+    --primary: 199 89% 40%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 215 22% 18%;
-    --secondary-foreground: 210 30% 85%;
+    --secondary: 210 30% 92%;
+    --secondary-foreground: 215 28% 18%;
 
-    --muted: 215 18% 20%;
-    --muted-foreground: 215 20% 52%;
+    --muted: 210 25% 93%;
+    --muted-foreground: 215 18% 42%;
 
-    --accent: 215 25% 35%;
-    --accent-foreground: 210 30% 98%;
+    --accent: 210 25% 90%;
+    --accent-foreground: 215 28% 18%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 30% 98%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 215 20% 22%;
-    --input: 215 20% 17%;
-    --ring: 199 89% 48%;
+    --border: 215 20% 85%;
+    --input: 215 20% 88%;
+    --ring: 199 89% 40%;
 
     /* Custom tokens for editor */
-    --panel-bg: 215 28% 10%;
-    --panel-header: 215 28% 15%;
-    --panel-border: 215 20% 18%;
-    
+    --panel-bg: 210 35% 95%;
+    --panel-header: 210 30% 92%;
+    --panel-border: 215 20% 85%;
+
     /* Syntax highlighting - Cool frost colors */
-    --syntax-keyword: 199 89% 55%;
-    --syntax-key: 215 60% 65%;
-    --syntax-string: 160 60% 50%;
-    --syntax-number: 199 70% 58%;
-    --syntax-boolean: 280 50% 60%;
-    --syntax-null: 0 0% 50%;
-    --syntax-comment: 215 15% 45%;
-    --syntax-punctuation: 215 20% 55%;
-    --syntax-function: 199 80% 58%;
-    --syntax-variable: 200 65% 65%;
-    
+    --syntax-keyword: 199 89% 38%;
+    --syntax-key: 215 60% 42%;
+    --syntax-string: 160 55% 34%;
+    --syntax-number: 199 70% 38%;
+    --syntax-boolean: 280 45% 42%;
+    --syntax-null: 0 0% 45%;
+    --syntax-comment: 215 10% 55%;
+    --syntax-punctuation: 215 12% 45%;
+    --syntax-function: 215 60% 42%;
+    --syntax-variable: 199 35% 30%;
+
     /* Animation colors */
-    --anim-bg: 215 28% 8%;
+    --anim-bg: 0 0% 0%;
     --anim-text: 0 0% 100%;
-    --anim-accent: 199 89% 48%;
+    --anim-accent: 199 89% 40%;
 
     /* Glow effects */
-    --glow-primary: 199 89% 48%;
-    --glow-accent: 215 60% 55%;
+    --glow-primary: 199 89% 40%;
+    --glow-accent: 215 60% 42%;
 
-    --sidebar-background: 215 28% 12%;
-    --sidebar-foreground: 210 30% 85%;
-    --sidebar-primary: 199 89% 48%;
-    --sidebar-primary-foreground: 215 28% 5%;
-    --sidebar-accent: 215 22% 18%;
-    --sidebar-accent-foreground: 210 30% 92%;
-    --sidebar-border: 215 18% 20%;
-    --sidebar-ring: 199 89% 48%;
+    --sidebar-background: 210 40% 97%;
+    --sidebar-foreground: 215 28% 18%;
+    --sidebar-primary: 199 89% 40%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 30% 92%;
+    --sidebar-accent-foreground: 215 28% 18%;
+    --sidebar-border: 215 20% 85%;
+    --sidebar-ring: 199 89% 40%;
 
     /* Font families */
     --font-mono: 'Fira Code', monospace;
