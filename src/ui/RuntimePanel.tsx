@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight } from 'lucide-react';
+import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { CallChainEntry } from '../core/runtimeTracer';
 
 export interface RuntimeStep {
@@ -33,6 +34,8 @@ interface RuntimePanelProps {
   selectedStepId?: string | null;
   // New: step IDs to highlight (from TreeView statement click)
   highlightedStepIds?: string[];
+  // New: step call chains for building ancestor list
+  stepCallChains?: Map<string, CallChainEntry[]>;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -75,21 +78,29 @@ const RuntimeStepRow: React.FC<{
   onStepClick?: (step: RuntimeStep) => void;
   selectedStepId?: string | null;
   highlightedStepIds?: string[];
-}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [] }) => {
+  // Navigation highlight: 'anchor' is starting point, 'current' is navigation position, 'chain' is rest of ancestors
+  navigationHighlight?: { type: 'anchor' | 'current' | 'chain'; stepId: string } | null;
+  currentNavigationStepId?: string | null;
+  anchorStepId?: string | null;
+  chainStepIds?: string[];
+}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], currentNavigationStepId, anchorStepId, chainStepIds = [] }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
+  const isAnchor = step.id === anchorStepId;
+  const isCurrentNav = step.id === currentNavigationStepId;
+  const isInChain = chainStepIds.includes(step.id);
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
 
-  // Auto-scroll highlighted step into view (from element selection or TreeView click)
+  // Auto-scroll highlighted step into view (from element selection, TreeView click, or navigation)
   useEffect(() => {
-    if ((highlightLevel === 'primary' || isHighlightedFromTreeView) && rowRef.current) {
+    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentNav) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel, isHighlightedFromTreeView]);
+  }, [highlightLevel, isHighlightedFromTreeView, isCurrentNav]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -100,8 +111,14 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',         // IR commands: cyan
   };
 
-  // Highlight styles based on call chain level OR selection OR treeview highlight
-  const highlightStyles = isSelected
+  // Highlight styles: navigation takes priority
+  const highlightStyles = isCurrentNav
+    ? 'bg-green-500/40 border-l-4 border-green-400 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
+    : isAnchor
+    ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
+    : isInChain
+    ? 'bg-yellow-500/10 border-l-2 border-yellow-400/40'
+    : isSelected
     ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
     : isHighlightedFromTreeView
     ? 'bg-yellow-500/20 border-l-2 border-yellow-400/60 ring-1 ring-yellow-400/40'
@@ -217,6 +234,9 @@ const RuntimeStepRow: React.FC<{
           onStepClick={onStepClick}
           selectedStepId={selectedStepId}
           highlightedStepIds={highlightedStepIds}
+          currentNavigationStepId={currentNavigationStepId}
+          anchorStepId={anchorStepId}
+          chainStepIds={chainStepIds}
         />
       ))}
     </>
@@ -230,8 +250,98 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   onStepClick,
   selectedStepId,
   highlightedStepIds = [],
+  stepCallChains,
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  
+  // Navigation state: anchor is the clicked step, navIndex is current position in chain
+  const [anchorStepId, setAnchorStepId] = useState<string | null>(null);
+  const [navIndex, setNavIndex] = useState<number>(0);
+  
+  // Build flat list of all steps for lookup
+  const allStepsMap = useMemo(() => {
+    const map = new Map<string, RuntimeStep>();
+    const addSteps = (items: RuntimeStep[]) => {
+      for (const step of items) {
+        map.set(step.id, step);
+        if (step.children) addSteps(step.children);
+      }
+    };
+    addSteps(steps);
+    return map;
+  }, [steps]);
+  
+  // Build ancestor chain for the anchor step (from anchor up to root)
+  const ancestorChain = useMemo(() => {
+    if (!anchorStepId || !stepCallChains) return [];
+    
+    const callChain = stepCallChains.get(anchorStepId);
+    if (!callChain || callChain.length === 0) return [];
+    
+    // Find steps that match each call chain entry
+    // callChain is ordered innermost first (closest to anchor) to outermost (entry point)
+    const ancestorStepIds: string[] = [];
+    
+    for (const entry of callChain) {
+      // Find a step that matches this call chain entry
+      for (const [stepId, step] of allStepsMap) {
+        if (step.type === 'call' && step.functionName === entry.fnName) {
+          if (!ancestorStepIds.includes(stepId)) {
+            ancestorStepIds.push(stepId);
+            break; // Take first match for each level
+          }
+        }
+      }
+    }
+    
+    return ancestorStepIds;
+  }, [anchorStepId, stepCallChains, allStepsMap]);
+  
+  // Current navigation position step ID
+  const currentNavStepId = useMemo(() => {
+    if (!anchorStepId) return null;
+    if (navIndex === 0) return null; // At anchor, no separate nav highlight
+    if (navIndex > 0 && navIndex <= ancestorChain.length) {
+      return ancestorChain[navIndex - 1];
+    }
+    return null;
+  }, [anchorStepId, navIndex, ancestorChain]);
+  
+  // Chain step IDs (excluding anchor and current nav position)
+  const chainStepIds = useMemo(() => {
+    if (!anchorStepId) return [];
+    return ancestorChain.filter((id, i) => i !== navIndex - 1);
+  }, [anchorStepId, ancestorChain, navIndex]);
+  
+  // Handle step click - set as anchor
+  const handleStepClick = useCallback((step: RuntimeStep) => {
+    if (anchorStepId === step.id) {
+      // Click same step - clear navigation
+      setAnchorStepId(null);
+      setNavIndex(0);
+    } else {
+      setAnchorStepId(step.id);
+      setNavIndex(0);
+    }
+    onStepClick?.(step);
+  }, [anchorStepId, onStepClick]);
+  
+  // Navigate up (to higher level / parent)
+  const navigateUp = useCallback(() => {
+    if (navIndex < ancestorChain.length) {
+      setNavIndex(navIndex + 1);
+    }
+  }, [navIndex, ancestorChain.length]);
+  
+  // Navigate down (back toward anchor)
+  const navigateDown = useCallback(() => {
+    if (navIndex > 0) {
+      setNavIndex(navIndex - 1);
+    }
+  }, [navIndex]);
+  
+  const canGoUp = anchorStepId && navIndex < ancestorChain.length;
+  const canGoDown = anchorStepId && navIndex > 0;
   
   // Build a map of step ID -> highlight level from the call chain
   const highlightMap = React.useMemo(() => {
@@ -278,8 +388,14 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       expandParents(steps);
     }
     
+    // Also expand ancestors when navigating
+    if (anchorStepId) {
+      topLevel.add(anchorStepId);
+      ancestorChain.forEach(id => topLevel.add(id));
+    }
+    
     setExpanded(topLevel);
-  }, [steps, elementCallChain, highlightMap]);
+  }, [steps, elementCallChain, highlightMap, anchorStepId, ancestorChain]);
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -294,7 +410,36 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     <div className="h-full flex flex-col bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
         <span className="text-xs font-medium text-foreground">Runtime Trace</span>
-        <span className="text-xs text-muted-foreground">{steps.length} steps</span>
+        <div className="flex items-center gap-2">
+          {anchorStepId && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={navigateUp}
+                disabled={!canGoUp}
+                title="Navigate up to parent caller"
+              >
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {navIndex}/{ancestorChain.length}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={navigateDown}
+                disabled={!canGoDown}
+                title="Navigate down toward anchor"
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          <span className="text-xs text-muted-foreground">{steps.length} steps</span>
+        </div>
       </div>
       
       <ScrollArea className="flex-1">
@@ -311,9 +456,12 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 expanded={expanded}
                 onToggle={toggleExpand}
                 getHighlightLevel={getHighlightLevel}
-                onStepClick={onStepClick}
+                onStepClick={handleStepClick}
                 selectedStepId={selectedStepId}
                 highlightedStepIds={highlightedStepIds}
+                currentNavigationStepId={currentNavStepId}
+                anchorStepId={anchorStepId}
+                chainStepIds={chainStepIds}
               />
             ))
           )}

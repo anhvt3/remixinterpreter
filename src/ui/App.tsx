@@ -513,6 +513,7 @@ export const App: React.FC = () => {
                     onStepClick={handleRuntimeStepClick}
                     selectedStepId={selectedRuntimeStepId}
                     highlightedStepIds={highlightedStepIdsFromStatement}
+                    stepCallChains={stepCallChains}
                   />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
