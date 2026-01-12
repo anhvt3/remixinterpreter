@@ -21,6 +21,7 @@ export type Database = {
           id: string
           important_notes: string | null
           is_active: boolean | null
+          is_deleted: boolean | null
           type: string
           updated_at: string
           version: string
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           important_notes?: string | null
           is_active?: boolean | null
+          is_deleted?: boolean | null
           type: string
           updated_at?: string
           version: string
@@ -41,6 +43,7 @@ export type Database = {
           id?: string
           important_notes?: string | null
           is_active?: boolean | null
+          is_deleted?: boolean | null
           type?: string
           updated_at?: string
           version?: string
