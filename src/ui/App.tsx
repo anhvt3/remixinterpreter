@@ -335,6 +335,28 @@ export const App: React.FC = () => {
     : highlightedElementIdsFromStatement;
   const activeCallChain = selectedStepCallChain || selectedElementCallChain;
 
+  // Compute loop range from selected runtime step's elements
+  const loopRange = useMemo(() => {
+    if (!selectedRuntimeStepId || combinedHighlightedElementIds.length === 0) return null;
+    
+    let minT0 = Infinity;
+    let maxT1 = -Infinity;
+    
+    // Find time range from all events related to highlighted elements
+    for (const event of events) {
+      const args = event.args as { id?: string; t0?: number; t1?: number };
+      if (args.id && combinedHighlightedElementIds.includes(args.id)) {
+        if (typeof args.t0 === 'number' && args.t0 < minT0) minT0 = args.t0;
+        if (typeof args.t1 === 'number' && args.t1 > maxT1) maxT1 = args.t1;
+      }
+    }
+    
+    if (minT0 === Infinity || maxT1 === -Infinity) return null;
+    
+    // Add a small buffer after for visibility
+    return { start: Math.max(0, minT0 - 0.2), end: maxT1 + 0.5 };
+  }, [selectedRuntimeStepId, combinedHighlightedElementIds, events]);
+
   // Handle runtime step click
   const handleRuntimeStepClick = useCallback((step: RuntimeStep) => {
     if (selectedRuntimeStepId === step.id) {
@@ -388,6 +410,7 @@ export const App: React.FC = () => {
     highlightedElementIds: combinedHighlightedElementIds,
     onElementClick: handleElementClickWithClear,
     zoomLevel,
+    loopRange,
   };
   
   return (
