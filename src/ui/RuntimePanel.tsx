@@ -97,16 +97,17 @@ const RuntimeStepRow: React.FC<{
             <div>
               <span className="text-purple-400">call </span>
               <span className="text-blue-400 font-medium">{step.functionName}</span>
-              <span className="text-muted-foreground">(</span>
-              {step.resolvedArgs && Object.entries(step.resolvedArgs).map(([k, v], i) => (
-                <span key={k}>
-                  {i > 0 && <span className="text-muted-foreground">, </span>}
-                  <span className="text-orange-400">{k}</span>
-                  <span className="text-muted-foreground">=</span>
-                  <span className="text-muted-foreground">{formatValue(v)}</span>
-                </span>
-              ))}
-              <span className="text-muted-foreground">)</span>
+              {step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
+                <div className="ml-4 mt-0.5">
+                  {Object.entries(step.resolvedArgs).map(([k, v]) => (
+                    <div key={k} className="flex gap-1">
+                      <span className="text-orange-400">{k}</span>
+                      <span className="text-muted-foreground">=</span>
+                      <span className="text-muted-foreground">{formatValue(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
@@ -141,19 +142,15 @@ const RuntimeStepRow: React.FC<{
               <span className="text-cyan-400">→ </span>
               <span className="text-blue-400">{step.functionName}</span>
               {step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
-                <>
-                  <span className="text-muted-foreground"> {`{`}</span>
-                  {Object.entries(step.resolvedArgs).slice(0, 3).map(([k, v], i) => (
-                    <span key={k}>
-                      {i > 0 && <span className="text-muted-foreground">, </span>}
+                <div className="ml-4 mt-0.5">
+                  {Object.entries(step.resolvedArgs).map(([k, v]) => (
+                    <div key={k} className="flex gap-1">
                       <span className="text-orange-400">{k}</span>
-                      <span className="text-muted-foreground">: </span>
+                      <span className="text-muted-foreground">:</span>
                       <span className="text-muted-foreground">{formatValue(v)}</span>
-                    </span>
+                    </div>
                   ))}
-                  {Object.keys(step.resolvedArgs).length > 3 && <span className="text-muted-foreground">, ...</span>}
-                  <span className="text-muted-foreground">{`}`}</span>
-                </>
+                </div>
               )}
             </div>
           )}
