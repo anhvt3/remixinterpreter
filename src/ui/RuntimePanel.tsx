@@ -87,15 +87,19 @@ const RuntimeStepRow: React.FC<{
   onNavigateDown?: () => void;
   navIndex?: number;
   chainLength?: number;
+  // ID of the deepest highlighted step (for auto-scroll)
+  deepestHighlightedStepId?: string | null;
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
   currentNavigationStepId, chainStepIds = [],
-  canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
+  canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
+  deepestHighlightedStepId
 }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
   const isCurrentNav = step.id === currentNavigationStepId;
   const isInChain = chainStepIds.includes(step.id);
+  const isDeepestHighlighted = step.id === deepestHighlightedStepId;
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
@@ -105,12 +109,12 @@ const RuntimeStepRow: React.FC<{
   // Show nav buttons only on the current navigation position
   const showNavButtons = isCurrentNav;
 
-  // Auto-scroll highlighted step into view
+  // Auto-scroll to the deepest highlighted step, or current nav position
   useEffect(() => {
-    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentNav) && rowRef.current) {
+    if ((isDeepestHighlighted || highlightLevel === 'primary' || isCurrentNav) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel, isHighlightedFromTreeView, isCurrentNav]);
+  }, [isDeepestHighlighted, highlightLevel, isCurrentNav]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -278,6 +282,7 @@ const RuntimeStepRow: React.FC<{
           onNavigateDown={onNavigateDown}
           navIndex={navIndex}
           chainLength={chainLength}
+          deepestHighlightedStepId={deepestHighlightedStepId}
         />
       ))}
     </>
@@ -442,6 +447,67 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     setExpanded(topLevel);
   }, [steps, elementCallChain, highlightMap, anchorStepId, ancestorChain]);
 
+  // Auto-expand ancestors and scroll to deepest highlighted step when highlightedStepIds changes
+  // This is triggered when clicking a TreeView statement or function definition
+  const deepestHighlightedStepRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (highlightedStepIds.length === 0) {
+      deepestHighlightedStepRef.current = null;
+      return;
+    }
+    
+    // Build parent map: step ID -> parent step ID
+    const parentMap = new Map<string, string>();
+    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
+      for (const step of items) {
+        if (parentId) {
+          parentMap.set(step.id, parentId);
+        }
+        if (step.children) {
+          buildParentMap(step.children, step.id);
+        }
+      }
+    };
+    buildParentMap(steps);
+    
+    // Find all ancestors of highlighted steps and expand them
+    const toExpand = new Set<string>();
+    let deepestStep: { id: string; depth: number } | null = null;
+    
+    for (const stepId of highlightedStepIds) {
+      const step = allStepsMap.get(stepId);
+      if (step) {
+        // Track deepest (highest depth) highlighted step for scrolling
+        if (!deepestStep || step.depth > deepestStep.depth) {
+          deepestStep = { id: stepId, depth: step.depth };
+        }
+        
+        // Walk up parent chain and expand each ancestor
+        let currentId: string | undefined = stepId;
+        while (currentId) {
+          const parentId = parentMap.get(currentId);
+          if (parentId) {
+            toExpand.add(parentId);
+          }
+          currentId = parentId;
+        }
+      }
+    }
+    
+    // Update expanded set
+    if (toExpand.size > 0) {
+      setExpanded(prev => {
+        const next = new Set(prev);
+        toExpand.forEach(id => next.add(id));
+        return next;
+      });
+    }
+    
+    // Set the deepest step for auto-scroll
+    deepestHighlightedStepRef.current = deepestStep?.id || null;
+  }, [highlightedStepIds, steps, allStepsMap]);
+
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
@@ -528,6 +594,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 onNavigateDown={navigateDown}
                 navIndex={navIndex}
                 chainLength={ancestorChain.length}
+                deepestHighlightedStepId={deepestHighlightedStepRef.current}
               />
             ))
           )}
