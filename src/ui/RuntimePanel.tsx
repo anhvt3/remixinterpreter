@@ -104,15 +104,18 @@ const RuntimeStepRow: React.FC<{
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
   
-  // Show nav buttons on anchor or current nav position
-  const showNavButtons = isAnchor || isCurrentNav;
+  // Current position is: anchor when navIndex=0, otherwise the currentNavigationStepId
+  const isCurrentPosition = isCurrentNav || (isAnchor && !currentNavigationStepId);
+  
+  // Show nav buttons on current position only
+  const showNavButtons = isCurrentPosition;
 
   // Auto-scroll highlighted step into view (from element selection, TreeView click, or navigation)
   useEffect(() => {
-    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentNav) && rowRef.current) {
+    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentPosition) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel, isHighlightedFromTreeView, isCurrentNav]);
+  }, [highlightLevel, isHighlightedFromTreeView, isCurrentPosition]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -123,12 +126,10 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',
   };
 
-  // Highlight styles: navigation takes priority
-  const highlightStyles = isCurrentNav
+  // Highlight styles: current position is bright, anchor and chain are dim
+  const highlightStyles = isCurrentPosition
     ? 'bg-green-500/40 border-l-4 border-green-400 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
-    : isAnchor
-    ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
-    : isInChain
+    : (isAnchor || isInChain)
     ? 'bg-yellow-500/10 border-l-2 border-yellow-400/40'
     : isSelected
     ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
