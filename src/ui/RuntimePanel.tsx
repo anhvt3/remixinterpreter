@@ -71,8 +71,9 @@ const RuntimeStepRow: React.FC<{
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
-  isSelected?: boolean;
-}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, isSelected }) => {
+  selectedStepId?: string | null;
+}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId }) => {
+  const isSelected = step.id === selectedStepId;
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
@@ -208,7 +209,7 @@ const RuntimeStepRow: React.FC<{
           onToggle={onToggle} 
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
-          isSelected={isSelected}
+          selectedStepId={selectedStepId}
         />
       ))}
     </>
@@ -247,10 +248,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   };
   
-  // Check if a step matches the selected step ID (recursively)
-  const isStepSelected = (step: RuntimeStep): boolean => {
-    return step.id === selectedStepId;
-  };
   
   // Auto-expand top-level items and items in call chain
   useEffect(() => {
@@ -307,7 +304,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 onToggle={toggleExpand}
                 getHighlightLevel={getHighlightLevel}
                 onStepClick={onStepClick}
-                isSelected={isStepSelected(step)}
+                selectedStepId={selectedStepId}
               />
             ))
           )}
