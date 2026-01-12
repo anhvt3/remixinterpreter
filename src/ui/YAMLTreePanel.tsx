@@ -505,6 +505,10 @@ interface YAMLTreePanelProps {
   onStatementClick?: (fnName: string, stmtIndex: number) => void;
   // Currently selected statement for highlighting
   selectedStatement?: { fnName: string; stmtIndex: number } | null;
+  // Callback when a function definition is clicked (to highlight all calls)
+  onFunctionDefinitionClick?: (fnName: string) => void;
+  // Currently selected function definition for highlighting
+  selectedFunctionDefinition?: string | null;
 }
 
 interface FunctionNode {
@@ -1027,6 +1031,10 @@ interface TreeNodeProps {
   onStatementClick?: (fnName: string, stmtIndex: number) => void;
   // Currently selected statement for highlighting
   selectedStatement?: { fnName: string; stmtIndex: number } | null;
+  // Callback when a function definition header is clicked
+  onFunctionDefinitionClick?: (fnName: string) => void;
+  // Currently selected function definition for highlighting
+  selectedFunctionDefinition?: string | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1043,6 +1051,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   elementCallChain,
   onStatementClick,
   selectedStatement,
+  onFunctionDefinitionClick,
+  selectedFunctionDefinition,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -1113,16 +1123,22 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     return false;
   };
   
+  // Check if this function definition is selected for highlighting
+  const isFnDefSelected = selectedFunctionDefinition === node.name;
+  
   return (
     <div>
       {/* Function header */}
       <div
         className={`
           flex items-center gap-1.5 px-2 py-1.5 cursor-pointer rounded transition-colors
-          ${isSelected ? 'bg-primary/20 ring-1 ring-primary/40' : 'hover:bg-muted/50'}
+          ${isFnDefSelected ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70' : isSelected ? 'bg-primary/20 ring-1 ring-primary/40' : 'hover:bg-muted/50'}
         `}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        onClick={() => onSelect(node.name)}
+        onClick={() => {
+          onSelect(node.name);
+          onFunctionDefinitionClick?.(node.name);
+        }}
       >
         {/* Expand/collapse button */}
         <button
@@ -1410,6 +1426,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   zoomLevel = 100,
   onStatementClick,
   selectedStatement,
+  onFunctionDefinitionClick,
+  selectedFunctionDefinition,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -1589,6 +1607,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               elementCallChain={elementCallChain}
               onStatementClick={onStatementClick}
               selectedStatement={selectedStatement}
+              onFunctionDefinitionClick={onFunctionDefinitionClick}
+              selectedFunctionDefinition={selectedFunctionDefinition}
             />
           ))}
           </div>

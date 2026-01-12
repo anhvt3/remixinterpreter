@@ -35,6 +35,10 @@ interface YAMLScriptPanelProps {
   onStatementClick?: (fnName: string, stmtIndex: number) => void;
   // Currently selected statement for highlighting
   selectedStatement?: { fnName: string; stmtIndex: number } | null;
+  // Callback when a function definition is clicked in tree view
+  onFunctionDefinitionClick?: (fnName: string) => void;
+  // Currently selected function definition for highlighting
+  selectedFunctionDefinition?: string | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -52,6 +56,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   zoomLevel = 100,
   onStatementClick,
   selectedStatement,
+  onFunctionDefinitionClick,
+  selectedFunctionDefinition,
 }) => {
   const setViewMode = (mode: 'code' | 'tree') => {
     onPanelStateChange?.({ ...panelState, viewMode: mode });
@@ -99,6 +105,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             zoomLevel={zoomLevel}
             onStatementClick={onStatementClick}
             selectedStatement={selectedStatement}
+            onFunctionDefinitionClick={onFunctionDefinitionClick}
+            selectedFunctionDefinition={selectedFunctionDefinition}
           />
         ) : (
           <CodePanel
