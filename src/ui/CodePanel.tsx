@@ -137,19 +137,21 @@ export const CodePanel: React.FC<CodePanelProps> = ({
             >
               <SyntaxHighlighter content={content} language={language} />
             </div>
-            {/* Transparent textarea (front, for editing) */}
+            {/* Editable textarea (front, for editing) - text visible on selection */}
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               readOnly={readOnly}
-              className="relative w-full bg-transparent text-transparent caret-foreground text-sm font-mono resize-none focus:outline-none border-none"
+              className="relative w-full bg-transparent text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground"
               style={{
                 lineHeight: '1.6',
                 tabSize: 2,
                 minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
                 caretColor: 'hsl(var(--foreground))',
+                color: 'transparent',
+                WebkitTextFillColor: 'transparent',
               }}
               spellCheck={false}
             />
