@@ -1,13 +1,40 @@
 import React from 'react';
 
 interface Token {
-  type: 'key' | 'string' | 'number' | 'boolean' | 'null' | 'comment' | 'punctuation' | 'reference' | 'expression' | 'text';
+  type: 
+    | 'keyword-call' 
+    | 'keyword-let' 
+    | 'keyword-foreach' 
+    | 'keyword-ir' 
+    | 'keyword-return'
+    | 'keyword-fn'
+    | 'keyword-out'
+    | 'keyword-params'
+    | 'keyword-defs'
+    | 'keyword-program'
+    | 'function-name'
+    | 'param-key'
+    | 'variable-name'
+    | 'string' 
+    | 'number' 
+    | 'boolean' 
+    | 'null' 
+    | 'comment' 
+    | 'punctuation' 
+    | 'reference' 
+    | 'expression' 
+    | 'text';
   value: string;
 }
 
-function tokenizeYamlLine(line: string): Token[] {
+// Keywords that define DSL structure
+const DSL_KEYWORDS = new Set(['call', 'let', 'foreach', 'ir', 'return', 'fn', 'out', 'params', 'defs', 'program', 'entry', 'body', 'var', 'range', 'do', 'args', 'expr']);
+const STATEMENT_KEYWORDS = new Set(['call', 'let', 'foreach', 'ir', 'return']);
+
+function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Token[], context?: string } {
   const tokens: Token[] = [];
   let remaining = line;
+  let context = prevLineContext;
 
   // Comment line
   if (remaining.trimStart().startsWith('#')) {
@@ -16,7 +43,7 @@ function tokenizeYamlLine(line: string): Token[] {
       tokens.push({ type: 'text', value: leadingSpaces });
     }
     tokens.push({ type: 'comment', value: remaining.trimStart() });
-    return tokens;
+    return { tokens, context };
   }
 
   // Match leading whitespace
@@ -29,9 +56,47 @@ function tokenizeYamlLine(line: string): Token[] {
   // Try to match key: value pattern
   const keyMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_-]*)(\s*:\s*)/);
   if (keyMatch) {
-    tokens.push({ type: 'key', value: keyMatch[1] });
+    const keyName = keyMatch[1];
+    
+    // Determine key type based on DSL semantics
+    let keyType: Token['type'] = 'param-key';
+    
+    if (keyName === 'call') {
+      keyType = 'keyword-call';
+      context = 'call';
+    } else if (keyName === 'let') {
+      keyType = 'keyword-let';
+      context = 'let';
+    } else if (keyName === 'foreach') {
+      keyType = 'keyword-foreach';
+      context = 'foreach';
+    } else if (keyName === 'ir') {
+      keyType = 'keyword-ir';
+      context = 'ir';
+    } else if (keyName === 'return') {
+      keyType = 'keyword-return';
+    } else if (keyName === 'fn') {
+      keyType = 'keyword-fn';
+    } else if (keyName === 'out') {
+      keyType = 'keyword-out';
+    } else if (keyName === 'params' || keyName === 'defs' || keyName === 'program') {
+      keyType = 'keyword-program';
+    } else if (keyName === 'args' || keyName === 'body' || keyName === 'var' || keyName === 'range' || keyName === 'do' || keyName === 'entry' || keyName === 'expr') {
+      keyType = 'keyword-fn';
+    }
+    
+    tokens.push({ type: keyType, value: keyName });
     tokens.push({ type: 'punctuation', value: keyMatch[2] });
     remaining = remaining.slice(keyMatch[0].length);
+    
+    // Check if the value after colon is a function name (after fn:)
+    if (keyName === 'fn' && remaining.trim()) {
+      const fnNameMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_.]*)/);
+      if (fnNameMatch) {
+        tokens.push({ type: 'function-name', value: fnNameMatch[1] });
+        remaining = remaining.slice(fnNameMatch[1].length);
+      }
+    }
   }
 
   // Match list item marker
@@ -43,7 +108,26 @@ function tokenizeYamlLine(line: string): Token[] {
     // Check for key after list marker
     const listKeyMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_-]*)(\s*:\s*)/);
     if (listKeyMatch) {
-      tokens.push({ type: 'key', value: listKeyMatch[1] });
+      const keyName = listKeyMatch[1];
+      let keyType: Token['type'] = 'param-key';
+      
+      if (keyName === 'call') {
+        keyType = 'keyword-call';
+        context = 'call';
+      } else if (keyName === 'let') {
+        keyType = 'keyword-let';
+        context = 'let';
+      } else if (keyName === 'foreach') {
+        keyType = 'keyword-foreach';
+        context = 'foreach';
+      } else if (keyName === 'ir') {
+        keyType = 'keyword-ir';
+        context = 'ir';
+      } else if (keyName === 'return') {
+        keyType = 'keyword-return';
+      }
+      
+      tokens.push({ type: keyType, value: keyName });
       tokens.push({ type: 'punctuation', value: listKeyMatch[2] });
       remaining = remaining.slice(listKeyMatch[0].length);
     }
@@ -123,11 +207,28 @@ function tokenizeYamlLine(line: string): Token[] {
       continue;
     }
 
-    // Any other character (unquoted string or word)
-    const wordMatch = remaining.match(/^([^\s:\[\]\{\},#"'$]+)/);
+    // Function name (PascalCase identifier, likely a function)
+    const funcMatch = remaining.match(/^([A-Z][a-zA-Z0-9_]*)/);
+    if (funcMatch) {
+      tokens.push({ type: 'function-name', value: funcMatch[1] });
+      remaining = remaining.slice(funcMatch[1].length);
+      continue;
+    }
+
+    // Any other identifier (variable name in let context, or just text)
+    const wordMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
     if (wordMatch) {
+      // If we're in a 'let' context, this might be a variable name
       tokens.push({ type: 'text', value: wordMatch[1] });
       remaining = remaining.slice(wordMatch[1].length);
+      continue;
+    }
+
+    // Any other non-space character
+    const otherMatch = remaining.match(/^([^\s]+)/);
+    if (otherMatch) {
+      tokens.push({ type: 'text', value: otherMatch[1] });
+      remaining = remaining.slice(otherMatch[1].length);
       continue;
     }
 
@@ -144,20 +245,32 @@ function tokenizeYamlLine(line: string): Token[] {
     remaining = remaining.slice(1);
   }
 
-  return tokens;
+  return { tokens, context };
 }
 
 const tokenStyles: Record<Token['type'], string> = {
-  key: 'text-syntax-key',
-  string: 'text-syntax-string',
-  number: 'text-syntax-number',
-  boolean: 'text-syntax-boolean',
-  null: 'text-syntax-null',
-  comment: 'text-syntax-comment italic',
-  punctuation: 'text-syntax-punctuation',
-  reference: 'text-cyan-400 italic',
-  expression: 'text-blue-400 italic',
-  text: 'text-foreground',
+  'keyword-call': 'text-purple-400 font-medium',
+  'keyword-let': 'text-yellow-400 font-medium',
+  'keyword-foreach': 'text-pink-400 font-medium',
+  'keyword-ir': 'text-orange-400 font-medium',
+  'keyword-return': 'text-red-400 font-medium',
+  'keyword-fn': 'text-muted-foreground',
+  'keyword-out': 'text-green-400',
+  'keyword-params': 'text-primary font-medium',
+  'keyword-defs': 'text-primary font-medium',
+  'keyword-program': 'text-primary font-medium',
+  'function-name': 'text-blue-400',
+  'param-key': 'text-orange-400',
+  'variable-name': 'text-green-400',
+  'string': 'text-amber-400',
+  'number': 'text-amber-400',
+  'boolean': 'text-amber-400',
+  'null': 'text-muted-foreground italic',
+  'comment': 'text-muted-foreground/60 italic',
+  'punctuation': 'text-muted-foreground/80',
+  'reference': 'text-cyan-400 italic',
+  'expression': 'text-blue-400/80 italic',
+  'text': 'text-foreground',
 };
 
 interface SyntaxHighlighterProps {
@@ -180,16 +293,24 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
     );
   }
 
+  // Process lines with context tracking
+  let context: string | undefined;
+  const processedLines = lines.map((line) => {
+    const result = tokenizeYamlLine(line, context);
+    context = result.context;
+    return result.tokens;
+  });
+
   return (
     <pre className="font-mono text-sm whitespace-pre">
-      {lines.map((line, lineIdx) => (
+      {processedLines.map((lineTokens, lineIdx) => (
         <div key={lineIdx} style={{ lineHeight: '1.6' }}>
-          {tokenizeYamlLine(line).map((token, tokenIdx) => (
+          {lineTokens.map((token, tokenIdx) => (
             <span key={tokenIdx} className={tokenStyles[token.type]}>
               {token.value}
             </span>
           ))}
-          {line === '' && ' '}
+          {lineTokens.length === 0 && ' '}
         </div>
       ))}
     </pre>
