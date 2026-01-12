@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
@@ -202,39 +201,39 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-0 p-2 overflow-hidden">
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <ScrollArea className="h-full">
+                <div className="h-full min-h-0 overflow-hidden">
                   <CodePanel
                     title="LO"
                     content={loContent}
                     onChange={setLoContent}
                     language="text"
                   />
-                </ScrollArea>
-                <ScrollArea className="h-full">
+                </div>
+                <div className="h-full min-h-0 overflow-hidden">
                   <CodePanel
                     title="Desc"
                     content={descContent}
                     onChange={setDescContent}
                     language="text"
                   />
-                </ScrollArea>
-                <ScrollArea className="h-full">
+                </div>
+                <div className="h-full min-h-0 overflow-hidden">
                   <ChatPanel title="Chat" />
-                </ScrollArea>
+                </div>
               </div>
             </TabsContent>
             
             <TabsContent value="desc-dsl" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <ScrollArea className="h-full">
+                <div className="h-full min-h-0 overflow-hidden">
                   <CodePanel
                     title="Desc"
                     content={descContent}
                     onChange={setDescContent}
                     language="text"
                   />
-                </ScrollArea>
-                <ScrollArea className="h-full">
+                </div>
+                <div className="h-full min-h-0 overflow-hidden">
                   <YAMLScriptPanel
                     spec={parsedSpec}
                     content={paramsContent}
@@ -242,16 +241,16 @@ export const App: React.FC = () => {
                     onParamsChange={handleParamsObjectChange}
                     onFunctionArgsChange={handleFunctionArgsChange}
                   />
-                </ScrollArea>
-                <ScrollArea className="h-full">
+                </div>
+                <div className="h-full min-h-0 overflow-hidden">
                   <ChatPanel title="Chat" />
-                </ScrollArea>
+                </div>
               </div>
             </TabsContent>
             
             <TabsContent value="dsl-anim" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <ScrollArea className="h-full">
+                <div className="h-full min-h-0 overflow-hidden">
                   <YAMLScriptPanel
                     spec={parsedSpec}
                     content={paramsContent}
@@ -261,7 +260,7 @@ export const App: React.FC = () => {
                     onLineClick={handleLineClick}
                     highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
                   />
-                </ScrollArea>
+                </div>
                 
                 <AnimPanelWithControls 
                   events={events} 
@@ -269,19 +268,19 @@ export const App: React.FC = () => {
                   onElementClick={handleElementClick}
                 />
                 <div className="flex flex-col gap-2 h-full overflow-hidden">
-                  <ScrollArea className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     <ChatPanel title="Chat" />
-                  </ScrollArea>
-                  <ScrollArea className="h-1/3 min-h-0">
+                  </div>
+                  <div className="h-1/3 min-h-0 overflow-hidden">
                     <TimelineDebugPanel events={events} />
-                  </ScrollArea>
+                  </div>
                 </div>
               </div>
             </TabsContent>
             
             <TabsContent value="dsl-runtime" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <ScrollArea className="h-full">
+                <div className="h-full min-h-0 overflow-hidden">
                   <YAMLScriptPanel
                     spec={parsedSpec}
                     content={paramsContent}
@@ -289,12 +288,12 @@ export const App: React.FC = () => {
                     onParamsChange={handleParamsObjectChange}
                     onFunctionArgsChange={handleFunctionArgsChange}
                   />
-                </ScrollArea>
+                </div>
                 
                 {/* Runtime Trace Panel */}
-                <ScrollArea className="h-full">
+                <div className="h-full min-h-0 overflow-hidden">
                   <RuntimePanel steps={runtimeSteps} />
-                </ScrollArea>
+                </div>
                 
                 {/* Anim Panel */}
                 <AnimPanelWithControls 
