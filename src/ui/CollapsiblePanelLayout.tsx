@@ -32,9 +32,17 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
 
   const handlePanelClick = useCallback((panelId: PanelId) => {
     setExpandedOrder(prev => {
-      // If already in the list, move it to the front
-      const filtered = prev.filter(id => id !== panelId);
-      return [panelId, ...filtered];
+      const isCurrentlyVisible = prev.slice(0, 3).includes(panelId);
+      
+      if (isCurrentlyVisible) {
+        // Close the panel by moving it to the end
+        const filtered = prev.filter(id => id !== panelId);
+        return [...filtered, panelId];
+      } else {
+        // Open the panel by moving it to the front
+        const filtered = prev.filter(id => id !== panelId);
+        return [panelId, ...filtered];
+      }
     });
   }, []);
 
