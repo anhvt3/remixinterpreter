@@ -51,22 +51,20 @@ export const CodePanel: React.FC<CodePanelProps> = ({
     }
   }, [undo, redo]);
 
-  // Scroll to first highlighted line when selection changes
+  // Scroll to first highlighted line when highlights change (works in both modes)
   useEffect(() => {
-    if (!hasLineInteraction) return;
+    if (highlightedLines.length === 0 || !containerRef.current) return;
 
-    if (highlightedLines.length > 0 && containerRef.current) {
-      const viewport = containerRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]',
-      ) as HTMLDivElement | null;
+    const viewport = containerRef.current.querySelector(
+      '[data-radix-scroll-area-viewport]',
+    ) as HTMLDivElement | null;
 
-      const scrollEl = viewport ?? containerRef.current;
+    const scrollEl = viewport ?? containerRef.current;
 
-      const firstLine = Math.min(...highlightedLines);
-      const lineHeight = 25.6; // Approximate line height
-      scrollEl.scrollTop = Math.max(0, firstLine * lineHeight - 50);
-    }
-  }, [highlightedLines, hasLineInteraction]);
+    const firstLine = Math.min(...highlightedLines);
+    const lineHeight = 25.6; // Approximate line height
+    scrollEl.scrollTop = Math.max(0, firstLine * lineHeight - 50);
+  }, [highlightedLines]);
 
   return (
     <div className="flex flex-col h-full min-h-0 panel">
@@ -130,31 +128,29 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as editable textarea with syntax highlighting overlay */}
           <div className="relative p-4 pr-10" style={{ zoom: zoomLevel / 100 }}>
-            {/* Editable textarea (behind, for editing) */}
+            {/* Syntax highlighted layer (behind) */}
+            <div
+              className="absolute inset-0 p-4 pr-10 pointer-events-none select-none"
+              aria-hidden="true"
+            >
+              <SyntaxHighlighter content={content} language={language} />
+            </div>
+            {/* Transparent textarea (front, for editing) */}
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               readOnly={readOnly}
-              className="absolute inset-0 w-full h-full p-4 pr-10 bg-transparent text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40"
+              className="relative w-full bg-transparent text-transparent caret-foreground text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground"
               style={{
                 lineHeight: '1.6',
                 tabSize: 2,
+                minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
                 caretColor: 'hsl(var(--foreground))',
-                color: 'transparent',
-                zIndex: 1,
               }}
               spellCheck={false}
             />
-            {/* Syntax highlighted layer (front, visual only) */}
-            <div 
-              className="relative pointer-events-none select-none"
-              aria-hidden="true"
-              style={{ minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em` }}
-            >
-              <SyntaxHighlighter content={content} language={language} />
-            </div>
           </div>
         </ScrollArea>
       )}
