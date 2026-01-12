@@ -73,11 +73,20 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   
   // --- Code view state ---
   const [codeDraft, setCodeDraft] = useState(content);
+  const codeDraftRef = useRef(codeDraft);
+
+  useEffect(() => {
+    codeDraftRef.current = codeDraft;
+  }, [codeDraft]);
+
   const [codeError, setCodeError] = useState<string | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [pendingViewMode, setPendingViewMode] = useState<'tree' | null>(null);
   const dirtyRef = useRef(false);
+
+  // Prevent a "save" click from being overwritten by a sync that runs before the parent updates `content`.
+  const saveFromContentRef = useRef<string | null>(null);
 
   // Undo/redo for code view
   const { setValue: setUndoValue, undo, redo, canUndo, canRedo, reset: resetUndo } = useUndoRedo(
@@ -86,16 +95,23 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   );
 
   // Keep draft in sync with external content (after save / external update)
-  // Only reset if content actually changed from external source
+  // Important: ONLY run when `content` changes (not when `codeDraft` changes), otherwise a save click can get reverted.
   useEffect(() => {
-    if (!dirtyRef.current && content !== codeDraft) {
-      setCodeDraft(content);
-      setCodeError(null);
-      resetUndo(content);
-      setIsDirty(false);
-      setPendingViewMode(null);
+    if (dirtyRef.current) return;
+
+    // If we just saved, wait until parent content changes away from the pre-save value.
+    if (saveFromContentRef.current !== null && content === saveFromContentRef.current) {
+      return;
     }
-  }, [content, resetUndo, codeDraft]);
+
+    saveFromContentRef.current = null;
+    codeDraftRef.current = content;
+    setCodeDraft(content);
+    setCodeError(null);
+    resetUndo(content);
+    setIsDirty(false);
+    setPendingViewMode(null);
+  }, [content, resetUndo]);
 
   // "Recent changes not saved" should track user edits since last save, not string formatting differences.
   const hasUnsavedChanges = isDirty;
@@ -124,6 +140,9 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   }, []);
 
   const handleCodeDraftChange = useCallback((next: string) => {
+    // Keep an always-up-to-date value for "save" clicks that happen before React state commits.
+    codeDraftRef.current = next;
+
     dirtyRef.current = true;
     setIsDirty(true);
     setUndoValue(next);
@@ -132,7 +151,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   }, [setUndoValue, validateParamsYaml]);
 
   const handleSave = useCallback((draft?: string): boolean => {
-    const text = draft ?? codeDraft;
+    const text = draft ?? codeDraftRef.current;
 
     const err = validateParamsYaml(text);
     if (err) {
@@ -140,7 +159,12 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       return false;
     }
 
-    // Ensure state reflects exactly what we saved (important for Ctrl/Cmd+S flows)
+    // Mark the current prop-content so our sync effect won't immediately overwrite the draft
+    // before the parent applies `onChange`.
+    saveFromContentRef.current = content;
+
+    // Ensure state reflects exactly what we saved
+    codeDraftRef.current = text;
     setCodeDraft(text);
     onChange(text);
 
@@ -151,9 +175,10 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     setPendingViewMode(null);
 
     return true;
-  }, [codeDraft, onChange, validateParamsYaml]);
+  }, [content, onChange, validateParamsYaml]);
 
   const handleDiscard = useCallback(() => {
+    codeDraftRef.current = content;
     setCodeDraft(content);
     resetUndo(content);
     dirtyRef.current = false;
