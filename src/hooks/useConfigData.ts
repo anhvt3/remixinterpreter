@@ -9,6 +9,7 @@ export interface ConfigRecord {
   content: string | null;
   important_notes: string | null;
   is_active: boolean;
+  is_deleted: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +32,7 @@ export const useConfigData = () => {
       const { data, error } = await supabase
         .from('config')
         .select('*')
+        .eq('is_deleted', false)
         .order('type')
         .order('created_at', { ascending: false });
 
@@ -155,19 +157,19 @@ export const useConfigData = () => {
     return saveConfig(type, newVersion, content, importantNotes);
   }, [getLatestVersionNumber, saveConfig]);
 
-  // Delete config
+  // Soft delete config (disable instead of delete)
   const deleteConfig = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('config')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', id);
 
       if (error) throw error;
       
       toast({
-        title: 'Deleted',
-        description: 'Configuration deleted successfully',
+        title: 'Disabled',
+        description: 'Configuration disabled successfully',
       });
       
       await fetchConfigs();
