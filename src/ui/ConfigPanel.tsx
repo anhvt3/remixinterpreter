@@ -350,8 +350,9 @@ defs:
 
 // Sample data for each subtab
 const createSampleVersions = (prefix: string, displayPrefix: string): ConfigVersion[] => [
-  { id: `${prefix}-v3`, name: `${displayPrefix} v3.0`, timestamp: '2024-01-12 14:30', isActive: true },
-  { id: `${prefix}-v2`, name: `${displayPrefix} v2.1`, timestamp: '2024-01-10 09:15' },
+  { id: `${prefix}-v3`, name: `${displayPrefix} v3`, timestamp: '2024-01-12 14:30', isActive: true },
+  { id: `${prefix}-v2`, name: `${displayPrefix} v2`, timestamp: '2024-01-10 09:15' },
+  { id: `${prefix}-v1`, name: `${displayPrefix} v1`, timestamp: '2024-01-08 16:45' },
   { id: `${prefix}-v1`, name: `${displayPrefix} v1.0`, timestamp: '2024-01-08 16:45' },
 ];
 
