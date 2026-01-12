@@ -30,6 +30,7 @@ interface YAMLScriptPanelProps {
   onPanelStateChange?: (state: DSLPanelState) => void;
   highlightedElementId?: string | null;
   elementCallChain?: CallChainEntry[] | null;
+  zoomLevel?: number;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -44,6 +45,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onPanelStateChange,
   highlightedElementId,
   elementCallChain,
+  zoomLevel = 100,
 }) => {
   const setViewMode = (mode: 'code' | 'tree') => {
     onPanelStateChange?.({ ...panelState, viewMode: mode });
@@ -88,6 +90,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             onExpandedFunctionsChange={(expanded) => onPanelStateChange?.({ ...panelState, expandedFunctions: expanded })}
             highlightedElementId={highlightedElementId}
             elementCallChain={elementCallChain}
+            zoomLevel={zoomLevel}
           />
         ) : (
           <CodePanel
@@ -97,6 +100,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             language="yaml"
             onLineClick={onLineClick}
             highlightedLines={highlightedLines}
+            zoomLevel={zoomLevel}
           />
         )}
       </div>
