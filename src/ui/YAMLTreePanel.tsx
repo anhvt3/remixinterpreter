@@ -640,6 +640,12 @@ const StatementRow: React.FC<StatementRowProps> = ({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
+  // Debug: check if onClick is passed
+  const handleRowClick = () => {
+    console.log('StatementRow clicked, onClick defined:', !!onClick);
+    onClick?.();
+  };
+  
   // Selection highlight (yellow, like RuntimePanel) takes priority over call chain highlight
   const highlightClass = isSelected
     ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70 rounded cursor-pointer'
@@ -677,10 +683,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const hasArgs = args.length > 0;
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
         >
           {hasArgs ? (
             expanded ? (
@@ -769,10 +775,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
+          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
         >
           {hasVars ? (
             expanded ? (
@@ -860,10 +866,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
   
   if ('foreach' in stmt) {
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); onClick?.(); }}
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); }}
         >
           {expanded ? (
             <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -909,10 +915,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={onClick}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); onClick?.(); } }}
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
         >
           {hasArgs ? (
             expanded ? (

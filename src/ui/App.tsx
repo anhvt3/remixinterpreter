@@ -295,6 +295,10 @@ export const App: React.FC = () => {
     
     const matchingStepIds: string[] = [];
     
+    // Debug: log what we're looking for
+    console.log('Looking for statement:', selectedStatement);
+    console.log('stepCallChains size:', stepCallChains.size);
+    
     // Check each step's call chain to see if it was created by the selected statement
     stepCallChains.forEach((callChain, stepId) => {
       // callChain is ordered innermost first - check if any entry matches
@@ -303,9 +307,11 @@ export const App: React.FC = () => {
       );
       if (matches) {
         matchingStepIds.push(stepId);
+        console.log('Match found:', stepId, 'chain:', callChain);
       }
     });
     
+    console.log('Total matches:', matchingStepIds.length);
     return matchingStepIds;
   }, [selectedStatement, stepCallChains]);
 
@@ -351,6 +357,7 @@ export const App: React.FC = () => {
 
   // Handle statement click in TreeView
   const handleStatementClick = useCallback((fnName: string, stmtIndex: number) => {
+    console.log('handleStatementClick called:', fnName, stmtIndex);
     if (selectedStatement?.fnName === fnName && selectedStatement?.stmtIndex === stmtIndex) {
       setSelectedStatement(null);
     } else {
