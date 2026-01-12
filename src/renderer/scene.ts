@@ -27,11 +27,28 @@ export interface Scene {
 
 /**
  * Compute scene state at a given time t
+ * @param staticElementIds - Elements to render at their final state (t1) regardless of current time
  */
-export function computeScene(events: TimelineEvent[], t: number): Scene {
+export function computeScene(
+  events: TimelineEvent[], 
+  t: number,
+  staticElementIds: string[] = []
+): Scene {
   const scene: Scene = {
     elements: new Map(),
   };
+  
+  // Build a map of element t1 times for static rendering
+  const elementT1Map = new Map<string, number>();
+  for (const event of events) {
+    if (event.type === 'text.create' || event.type === 'text.update') {
+      const args = event.args as { id?: string; t1?: number };
+      if (args.id && typeof args.t1 === 'number') {
+        const existing = elementT1Map.get(args.id) || 0;
+        elementT1Map.set(args.id, Math.max(existing, args.t1));
+      }
+    }
+  }
   
   // Process events in order
   for (const event of events) {
@@ -43,11 +60,22 @@ export function computeScene(events: TimelineEvent[], t: number): Scene {
     }
     
     if (event.type === 'text.create') {
-      processTextCreate(scene, event, t);
+      const args = event.args as { id?: string };
+      const elementId = args.id;
+      // Use t1 time for static elements so they appear fully visible
+      const effectiveTime = elementId && staticElementIds.includes(elementId)
+        ? (elementT1Map.get(elementId) || t) + 0.1
+        : t;
+      processTextCreate(scene, event, effectiveTime);
     }
     
     if (event.type === 'text.update') {
-      processTextUpdate(scene, event, t);
+      const args = event.args as { id?: string };
+      const elementId = args.id;
+      const effectiveTime = elementId && staticElementIds.includes(elementId)
+        ? (elementT1Map.get(elementId) || t) + 0.1
+        : t;
+      processTextUpdate(scene, event, effectiveTime);
     }
   }
   

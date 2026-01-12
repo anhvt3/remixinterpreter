@@ -10,6 +10,7 @@ interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
   highlightedElementIds?: string[];
+  staticElementIds?: string[];
   onElementClick?: (elementId: string) => void;
   zoomLevel?: number;
   loopRange?: { start: number; end: number } | null;
@@ -19,6 +20,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
   events,
   selectedElementId,
   highlightedElementIds = [],
+  staticElementIds = [],
   onElementClick,
   zoomLevel = 100,
   loopRange = null,
@@ -194,6 +196,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
               height={dimensions.height / (zoomLevel / 100)}
               selectedElementId={selectedElementId}
               highlightedElementIds={highlightedElementIds}
+              staticElementIds={staticElementIds}
               onElementClick={onElementClick}
             />
           </div>

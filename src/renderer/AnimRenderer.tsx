@@ -11,6 +11,7 @@ interface AnimRendererProps {
   height: number;
   selectedElementId?: string | null;
   highlightedElementIds?: string[];
+  staticElementIds?: string[];
   onElementClick?: (elementId: string) => void;
 }
 
@@ -21,10 +22,11 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
   height,
   selectedElementId,
   highlightedElementIds = [],
+  staticElementIds = [],
   onElementClick,
 }) => {
-  // Compute scene at current time
-  const scene = computeScene(events, currentTime);
+  // Compute scene at current time, with static elements at their final state
+  const scene = computeScene(events, currentTime, staticElementIds);
   
   // Default viewbox if not set
   const viewbox = scene.boardConfig?.viewbox || [-6, 10, 6, -10];

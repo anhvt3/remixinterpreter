@@ -357,6 +357,30 @@ export const App: React.FC = () => {
     return { start: Math.max(0, minT0 - 0.2), end: maxT1 + 0.5 };
   }, [selectedRuntimeStepId, combinedHighlightedElementIds, events]);
 
+  // Compute static elements: all elements created BEFORE the loopRange starts
+  // These are shown at their final state while the selected step loops
+  const staticElementIds = useMemo(() => {
+    if (!selectedRuntimeStepId || !loopRange) return [];
+    
+    const staticIds: string[] = [];
+    const loopStart = loopRange.start + 0.2; // Account for the buffer we added
+    
+    // Find all elements whose animations complete before the loop starts
+    for (const event of events) {
+      if (event.type === 'text.create' || event.type === 'text.update') {
+        const args = event.args as { id?: string; t1?: number };
+        if (args.id && typeof args.t1 === 'number') {
+          // If this element completes before the loop and is NOT part of the highlighted set
+          if (args.t1 <= loopStart && !combinedHighlightedElementIds.includes(args.id)) {
+            staticIds.push(args.id);
+          }
+        }
+      }
+    }
+    
+    return [...new Set(staticIds)];
+  }, [selectedRuntimeStepId, loopRange, events, combinedHighlightedElementIds]);
+
   // Handle runtime step click
   const handleRuntimeStepClick = useCallback((step: RuntimeStep) => {
     if (selectedRuntimeStepId === step.id) {
@@ -408,6 +432,7 @@ export const App: React.FC = () => {
     events,
     selectedElementId,
     highlightedElementIds: combinedHighlightedElementIds,
+    staticElementIds,
     onElementClick: handleElementClickWithClear,
     zoomLevel,
     loopRange,
