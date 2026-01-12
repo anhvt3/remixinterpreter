@@ -75,28 +75,34 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   const [codeDraft, setCodeDraft] = useState(content);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [pendingViewMode, setPendingViewMode] = useState<'tree' | null>(null);
   const dirtyRef = useRef(false);
 
   // Undo/redo for code view
   const { setValue: setUndoValue, undo, redo, canUndo, canRedo, reset: resetUndo } = useUndoRedo(
-    codeDraft, 
-    (val) => setCodeDraft(val)
+    codeDraft,
+    (val) => setCodeDraft(val),
   );
 
-  // Keep draft in sync with external content
+  // Keep draft in sync with external content (after save / external update)
   useEffect(() => {
     if (!dirtyRef.current) {
       setCodeDraft(content);
       setCodeError(null);
       resetUndo(content);
+      setIsDirty(false);
+      setPendingViewMode(null);
     }
   }, [content, resetUndo]);
 
-  const hasUnsavedChanges = codeDraft !== content;
+  // "Recent changes not saved" should track user edits since last save, not string formatting differences.
+  const hasUnsavedChanges = isDirty;
 
   const setViewMode = (mode: 'code' | 'tree') => {
     // If switching away from code view with unsaved changes, prompt
     if (panelState.viewMode === 'code' && mode === 'tree' && hasUnsavedChanges) {
+      setPendingViewMode('tree');
       setShowSaveDialog(true);
       return;
     }
@@ -118,49 +124,63 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
 
   const handleCodeDraftChange = useCallback((next: string) => {
     dirtyRef.current = true;
+    setIsDirty(true);
     setUndoValue(next);
     const err = validateParamsYaml(next);
     setCodeError(err);
   }, [setUndoValue, validateParamsYaml]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback((): boolean => {
     const err = validateParamsYaml(codeDraft);
     if (err) {
       setCodeError(err);
-      return;
+      return false;
     }
+
     onChange(codeDraft);
+
     dirtyRef.current = false;
+    setIsDirty(false);
     setCodeError(null);
+    setShowSaveDialog(false);
+    setPendingViewMode(null);
+
+    return true;
   }, [codeDraft, onChange, validateParamsYaml]);
 
   const handleDiscard = useCallback(() => {
     setCodeDraft(content);
     resetUndo(content);
     dirtyRef.current = false;
+    setIsDirty(false);
     setCodeError(null);
     setShowSaveDialog(false);
+    setPendingViewMode(null);
   }, [content, resetUndo]);
 
-  const handleSaveAndSwitch = useCallback(() => {
-    handleSave();
+  const handleDialogCancel = useCallback(() => {
     setShowSaveDialog(false);
-    onPanelStateChange?.({ ...panelState, viewMode: 'tree' });
-  }, [handleSave, onPanelStateChange, panelState]);
+    setPendingViewMode(null);
+  }, []);
 
-  const handleDiscardAndSwitch = useCallback(() => {
-    handleDiscard();
-    onPanelStateChange?.({ ...panelState, viewMode: 'tree' });
-  }, [handleDiscard, onPanelStateChange, panelState]);
+  const handleDialogSave = useCallback(() => {
+    const ok = handleSave();
+    if (!ok) return;
+
+    if (pendingViewMode) {
+      onPanelStateChange?.({ ...panelState, viewMode: pendingViewMode });
+    }
+  }, [handleSave, onPanelStateChange, panelState, pendingViewMode]);
 
   // Handle panel blur for save prompt
   const handlePanelBlur = useCallback((e: React.FocusEvent) => {
     if (panelState.viewMode !== 'code') return;
-    
+
     const relatedTarget = e.relatedTarget as HTMLElement | null;
     const isInsidePanel = panelRef.current?.contains(relatedTarget);
-    
+
     if (!isInsidePanel && hasUnsavedChanges) {
+      setPendingViewMode(null);
       setShowSaveDialog(true);
     }
   }, [hasUnsavedChanges, panelState.viewMode]);
