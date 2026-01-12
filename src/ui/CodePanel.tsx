@@ -64,7 +64,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   // Undo/redo for editable mode
   const { setValue, undo, redo, canUndo, canRedo } = useUndoRedo(localContent, (val) => {
     setLocalContent(val);
-    // Don't call onChange here - only on save
+    onChange?.(val); // Notify parent of changes for tracking
   });
 
   // Handle keyboard shortcuts
