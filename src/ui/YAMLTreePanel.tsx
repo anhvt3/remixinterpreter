@@ -850,13 +850,30 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const functionWithHighlightedElement = useMemo(() => {
     if (!highlightedElementId || !spec?.defs) return null;
     
+    console.log(`[FIND] Searching for element: "${highlightedElementId}"`);
+    
+    // For pattern-based IDs like L1, R2, etc., check which functions have matching patterns
     for (const [fnName, fnDef] of Object.entries(spec.defs)) {
-      for (const stmt of fnDef.body) {
+      for (let i = 0; i < fnDef.body.length; i++) {
+        const stmt = fnDef.body[i];
+        // Log call statements with id arg
+        if ('call' in stmt) {
+          const idArg = stmt.call.args.id;
+          if (idArg) {
+            console.log(`[FIND] ${fnName}[${i}]: call ${stmt.call.fn}, id=`, idArg);
+            if (typeof idArg === 'object' && 'expr' in idArg) {
+              console.log(`[FIND]   -> expr: "${(idArg as {expr:string}).expr}"`);
+            }
+          }
+        }
+        
         if (statementHasElementId(stmt, highlightedElementId)) {
+          console.log(`[FIND] ✓ MATCH in ${fnName}[${i}]`);
           return fnName;
         }
       }
     }
+    console.log(`[FIND] ✗ No match found`);
     return null;
   }, [highlightedElementId, spec]);
   
