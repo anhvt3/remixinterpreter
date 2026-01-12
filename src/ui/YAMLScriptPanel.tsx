@@ -340,7 +340,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveAndSwitch} disabled={!!codeError}>
+            <AlertDialogAction onClick={handleDialogSave} disabled={!!codeError}>
               Save
             </AlertDialogAction>
           </AlertDialogFooter>
