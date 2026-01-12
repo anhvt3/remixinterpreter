@@ -4,6 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
+import type { CallChainEntry } from '@/core/runtimeTracer';
 
 // Giải thích ngữ nghĩa cho các hàm - bao gồm mô tả và ví dụ cụ thể
 interface Explanation {
@@ -113,97 +114,303 @@ const functionExplanations: Record<string, Explanation> = {
   },
 };
 
-// Giải thích ngữ nghĩa cho các tham số
+// Giải thích ngữ nghĩa cho các tham số - bao gồm cả nested params
 const paramExplanations: Record<string, Explanation> = {
   number: {
     description: "Số đầu vào cần đơn giản hóa căn bậc hai.",
-    example: "number: 720 → √720 = 12√5; number: 48 → √48 = 4√3"
+    example: `number: 720
+→ √720 = 12√5
+
+number: 48
+→ √48 = 4√3`
   },
   limits: {
     description: "Ràng buộc an toàn ngăn hoạt ảnh quá dài.",
-    example: "limits: {max_factors: 10, desired_rows_for_scale: 6}"
+    example: `limits:
+  max_factors: 10
+  desired_rows_for_scale: 6`
   },
   max_factors: {
     description: "Số lượng thừa số nguyên tố tối đa cho phép.",
-    example: "max_factors: 10 → 720 có 7 thừa số (OK), 2^15 có 15 (bị cắt)"
+    example: `max_factors: 10
+→ 720 có 7 thừa số (OK)
+→ 2^15 có 15 thừa số (bị cắt)`
   },
   desired_rows_for_scale: {
     description: "Số hàng mục tiêu để tự động scale cỡ chữ.",
-    example: "desired_rows_for_scale: 6 → 7 hàng thì scale = 6/7 ≈ 0.86"
+    example: `desired_rows_for_scale: 6
+→ 7 hàng: scale = 6/7 ≈ 0.86
+→ 5 hàng: scale = 6/5 = 1.2`
   },
   text: {
     description: "Chuỗi nội dung: tiêu đề và mẫu câu hỏi.",
-    example: "text: {title: 'Đơn Giản Hóa Căn', prompt_template: '√${N} = ?'}"
+    example: `text:
+  title: "Đơn Giản Hóa Căn"
+  prompt_template: "√\${N} = ?"`
   },
   title: {
     description: "Tiêu đề hiển thị ở đầu hoạt ảnh.",
-    example: "title: 'Đơn Giản Hóa Căn' → text lớn ở y=7"
+    example: `title: "Đơn Giản Hóa Căn"
+→ Hiển thị text lớn tại y=7`
   },
   prompt_template: {
     description: "Mẫu LaTeX cho câu hỏi, ${N} được thay thế.",
-    example: "prompt_template: '√${N} = ?' với N=720 → '√720 = ?'"
+    example: `prompt_template: "√\${N} = ?"
+với N=720 → "√720 = ?"
+với N=48 → "√48 = ?"`
   },
   style: {
     description: "Style trực quan: màu sắc, tỷ lệ, độ đậm font.",
-    example: "style: {title_color: '#FFD700', scale: 1.2, weight: 'bold'}"
+    example: `style:
+  title_color: "#FFD700"
+  scale: 1.2
+  weight: "bold"`
+  },
+  title_color: {
+    description: "Màu của tiêu đề (hex hoặc tên màu).",
+    example: `title_color: "#FFD700"  → vàng gold
+title_color: "#FF6B6B"  → đỏ coral`
+  },
+  text_color: {
+    description: "Màu chữ mặc định cho các phần tử văn bản.",
+    example: `text_color: "#FFFFFF"  → trắng
+text_color: "#E0E0E0"  → xám nhạt`
+  },
+  final_color: {
+    description: "Màu của kết quả cuối cùng (highlight).",
+    example: `final_color: "#4ADE80"  → xanh lá
+→ Làm nổi bật "12√5" khi hoàn thành`
   },
   board: {
     description: "Cài đặt canvas: viewbox và theme màu nền.",
-    example: "board: {viewbox: [-10, 8, 10, -8], theme: 'dark'}"
+    example: `board:
+  viewbox: [-10, 8, 10, -8]
+  theme: "dark"`
   },
   viewbox: {
     description: "Giới hạn tọa độ [xMin, yMax, xMax, yMin].",
-    example: "viewbox: [-10, 8, 10, -8] → x: -10→10, y: -8→8"
+    example: `viewbox: [-10, 8, 10, -8]
+→ x: -10 đến 10 (rộng 20)
+→ y: -8 đến 8 (cao 16)`
+  },
+  theme: {
+    description: "Theme màu nền và phong cách.",
+    example: `theme: "dark"   → nền đen #000000
+theme: "light"  → nền trắng #FFFFFF`
   },
   layout: {
     description: "Định vị các phần tử: tiêu đề, câu hỏi, thang, phương trình.",
-    example: "layout: {title_at: [0,7], ladder: {x_left: -2, x_right: 2, y0: 5}}"
+    example: `layout:
+  title_at: {pos: [0, 7], anchor: "middle"}
+  ladder: {x_left: -2, x_right: 2, y0: 5}`
   },
   title_at: {
     description: "Vị trí văn bản tiêu đề với điểm neo.",
-    example: "title_at: {pos: [0, 7], anchor: 'middle'} → giữa trên"
+    example: `title_at:
+  pos: [0, 7]      → tọa độ (0, 7)
+  anchor: "middle" → căn giữa`
   },
   prompt_at: {
     description: "Vị trí câu hỏi √N = ? bên dưới tiêu đề.",
-    example: "prompt_at: {pos: [0, 5.5], anchor: 'middle'}"
+    example: `prompt_at:
+  pos: [0, 5.5]
+  anchor: "middle"`
+  },
+  pos: {
+    description: "Tọa độ [x, y] của phần tử.",
+    example: `pos: [0, 7]    → giữa, trên
+pos: [-5, 0]   → bên trái, giữa
+pos: [3, -4]   → phải dưới`
+  },
+  anchor: {
+    description: "Điểm neo văn bản: left, middle, right.",
+    example: `anchor: "middle" → căn giữa
+anchor: "left"   → căn trái
+anchor: "right"  → căn phải`
   },
   ladder: {
     description: "Định vị thang chia: tọa độ x cột, y bắt đầu, khoảng cách.",
-    example: "ladder: {x_left: -2, x_right: 2, y0: 4, dy: -1.2}"
+    example: `ladder:
+  x_left: -2   → cột thương ở x=-2
+  x_right: 2   → cột thừa số ở x=2
+  y0: 4        → hàng đầu ở y=4
+  dy: -1.2     → mỗi hàng cách 1.2`
+  },
+  x_left: {
+    description: "Tọa độ x của cột bên trái (thương số).",
+    example: `x_left: -2 → thương ở x=-2
+x_left: -3 → dịch trái thêm`
+  },
+  x_right: {
+    description: "Tọa độ x của cột bên phải (thừa số).",
+    example: `x_right: 2 → thừa số ở x=2
+x_right: 3 → dịch phải thêm`
+  },
+  y0: {
+    description: "Tọa độ y của hàng đầu tiên.",
+    example: `y0: 4 → hàng đầu ở y=4
+y0: 6 → bắt đầu cao hơn`
+  },
+  dy: {
+    description: "Khoảng cách y giữa các hàng (thường âm để đi xuống).",
+    example: `dy: -1.2 → mỗi hàng cách 1.2 đơn vị
+dy: -1.5 → giãn rộng hơn`
   },
   line_at: {
     description: "Vị trí dòng phương trình phân tích thừa số.",
-    example: "line_at: {pos: [0, -5], anchor: 'middle'}"
+    example: `line_at:
+  pos: [0, -5]
+  anchor: "middle"`
   },
   time: {
     description: "Cấu hình thời gian xuất hiện và chuyển đổi.",
-    example: "time: {intro: 0, factorization: [2, 8], morphing: [9, 12]}"
+    example: `time:
+  intro: 0
+  scene_spans:
+    factorization: [2, 8]
+    morphing: [9, 12]`
+  },
+  intro: {
+    description: "Thời điểm bắt đầu phần giới thiệu (giây).",
+    example: `intro: 0     → bắt đầu ngay
+intro: 0.5   → delay 0.5 giây`
   },
   scene_spans: {
     description: "Khoảng thời gian tuyệt đối cho mỗi cảnh chính.",
-    example: "scene_spans: {factorization: [2,8], morphing: [9,12], simplify: [13,16]}"
+    example: `scene_spans:
+  factorization: [2, 8]   → 2s-8s
+  morphing: [9, 12]       → 9s-12s
+  simplify: [13, 16]      → 13s-16s`
   },
   factorization: {
     description: "Thời gian cho cảnh phân tích thừa số.",
-    example: "factorization: {start: 2, end: 8, row_delay: 0.8}"
+    example: `factorization: [2, 8]
+→ Bắt đầu: 2s, Kết thúc: 8s
+→ 6 giây cho 7 hàng thang`
   },
   morphing: {
     description: "Thời gian cho biến đổi phương trình.",
-    example: "morphing: {start: 9, end: 12, fade_duration: 0.8}"
+    example: `morphing: [9, 12]
+→ Cross-fade từ "720 = ..." 
+→ thành "√720 = √(...)"`
   },
   simplify: {
     description: "Thời gian cho đơn giản hóa cuối cùng.",
-    example: "simplify: {start: 13, end: 16, final_hold: 2.0}"
+    example: `simplify: [13, 16]
+→ Biến đổi "√(2⁴×3²×5)"
+→ thành "12√5"`
   },
+  fade_duration: {
+    description: "Thời gian chuyển đổi fade (giây).",
+    example: `fade_duration: 0.8
+→ Fade out: 0.4s
+→ Fade in: 0.4s`
+  },
+  row_delay: {
+    description: "Độ trễ giữa các hàng trong thang (giây).",
+    example: `row_delay: 0.8
+→ Hàng 0: t=2.0s
+→ Hàng 1: t=2.8s
+→ Hàng 2: t=3.6s`
+  },
+};
+
+// Tokenize and highlight code examples
+const highlightCode = (code: string): React.ReactNode[] => {
+  const lines = code.split('\n');
+  return lines.map((line, lineIdx) => {
+    const tokens: React.ReactNode[] = [];
+    let remaining = line;
+    let key = 0;
+    
+    while (remaining.length > 0) {
+      // Match keywords
+      const keywordMatch = remaining.match(/^(call|let|foreach|ir|return|params|fn|args|expr|range|var|do)(?=\s|:|$)/);
+      if (keywordMatch) {
+        tokens.push(<span key={key++} className="text-purple-400">{keywordMatch[0]}</span>);
+        remaining = remaining.slice(keywordMatch[0].length);
+        continue;
+      }
+      
+      // Match property keys (before colon)
+      const propMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*:)/);
+      if (propMatch) {
+        tokens.push(<span key={key++} className="text-orange-400">{propMatch[0]}</span>);
+        remaining = remaining.slice(propMatch[0].length);
+        continue;
+      }
+      
+      // Match strings (double or single quoted)
+      const stringMatch = remaining.match(/^("[^"]*"|'[^']*')/);
+      if (stringMatch) {
+        tokens.push(<span key={key++} className="text-green-400">{stringMatch[0]}</span>);
+        remaining = remaining.slice(stringMatch[0].length);
+        continue;
+      }
+      
+      // Match numbers
+      const numMatch = remaining.match(/^-?[\d.]+/);
+      if (numMatch) {
+        tokens.push(<span key={key++} className="text-cyan-400">{numMatch[0]}</span>);
+        remaining = remaining.slice(numMatch[0].length);
+        continue;
+      }
+      
+      // Match variables ($name)
+      const varMatch = remaining.match(/^\$[a-zA-Z_][a-zA-Z0-9_]*/);
+      if (varMatch) {
+        tokens.push(<span key={key++} className="text-cyan-300 italic">{varMatch[0]}</span>);
+        remaining = remaining.slice(varMatch[0].length);
+        continue;
+      }
+      
+      // Match function names (like Scene_Factorization, core.format)
+      const fnMatch = remaining.match(/^[A-Z][a-zA-Z0-9_]*|^[a-z]+\.[a-z]+/);
+      if (fnMatch) {
+        tokens.push(<span key={key++} className="text-primary">{fnMatch[0]}</span>);
+        remaining = remaining.slice(fnMatch[0].length);
+        continue;
+      }
+      
+      // Match arrows and special operators
+      const arrowMatch = remaining.match(/^(→|=|:|\[|\]|\{|\}|,)/);
+      if (arrowMatch) {
+        tokens.push(<span key={key++} className="text-muted-foreground">{arrowMatch[0]}</span>);
+        remaining = remaining.slice(arrowMatch[0].length);
+        continue;
+      }
+      
+      // Match comments (after →)
+      const commentMatch = remaining.match(/^(#.*)$/);
+      if (commentMatch) {
+        tokens.push(<span key={key++} className="text-muted-foreground italic">{commentMatch[0]}</span>);
+        remaining = '';
+        continue;
+      }
+      
+      // Default: take one character
+      tokens.push(<span key={key++}>{remaining[0]}</span>);
+      remaining = remaining.slice(1);
+    }
+    
+    return (
+      <div key={lineIdx} className="leading-relaxed">
+        {tokens.length > 0 ? tokens : <span>&nbsp;</span>}
+      </div>
+    );
+  });
 };
 
 // Helper component to render explanation tooltip content
 const ExplanationContent: React.FC<{ explanation: Explanation }> = ({ explanation }) => (
-  <div className="space-y-1.5">
-    <p className="font-medium">{explanation.description}</p>
-    <p className="text-muted-foreground border-t border-border/50 pt-1.5">
-      <span className="text-primary/80">VD:</span> <code className="text-[10px] bg-muted/50 px-1 py-0.5 rounded">{explanation.example}</code>
-    </p>
+  <div className="space-y-2">
+    <p className="font-medium text-foreground">{explanation.description}</p>
+    <div className="border-t border-border/50 pt-2">
+      <span className="text-primary/80 text-[10px] uppercase tracking-wide">Ví dụ:</span>
+      <div className="mt-1 font-mono text-[10px] bg-muted/30 p-2 rounded border border-border/30">
+        {highlightCode(explanation.example)}
+      </div>
+    </div>
   </div>
 );
 
@@ -215,27 +422,66 @@ const getExplanation = (name: string): Explanation | null => {
 const statementExplanations: Record<string, Explanation> = {
   call: {
     description: "Gọi một hàm với các đối số. Kết quả lưu bằng cú pháp → output.",
-    example: "call: {fn: Scene_Factorization, args: {N: 720}} → result"
+    example: `call:
+  fn: Scene_Factorization
+  args:
+    N: 720
+    scale: 1.0
+→ result
+
+# Gọi Scene_Factorization(N=720)`
   },
   let: {
     description: "Khai báo biến cục bộ với giá trị literal hoặc biểu thức.",
-    example: "let: {scale: 1.5, offset: {expr: 'core.mul($i, 1.2)'}}"
+    example: `let:
+  scale: 1.5
+  offset:
+    expr: "core.mul($i, 1.2)"
+    args: {i: $i}
+
+# scale = 1.5
+# offset = i * 1.2 (tính động)`
   },
   foreach: {
     description: "Lặp qua range hoặc mảng, thực thi body cho mỗi phần tử.",
-    example: "foreach: {var: i, range: [0, 7], body: [...]} → i = 0,1,2,...,6"
+    example: `foreach:
+  var: i
+  range: [0, 7]
+  do:
+    - call: {fn: ShowRow, args: {idx: $i}}
+
+# i = 0 → ShowRow(idx=0)
+# i = 1 → ShowRow(idx=1)
+# ...
+# i = 6 → ShowRow(idx=6)`
   },
   ir: {
     description: "Lệnh IR phát trực tiếp lệnh render cấp thấp đến timeline.",
-    example: "ir: {fn: showText, args: {text: '720', pos: [0,5], t: 2.0}}"
+    example: `ir:
+  fn: text.show
+  args:
+    id: "title"
+    text: "Đơn Giản Hóa"
+    pos: [0, 7]
+    t: 0.5
+
+# Emit timeline event: showText tại t=0.5s`
   },
   return: {
     description: "Trả về giá trị từ hàm, làm giá trị khả dụng cho caller.",
-    example: "return: {expr: '$result'} → trả về biến result cho hàm gọi"
+    example: `return:
+  expr: "$result"
+
+# Trả về biến result
+# Caller có thể dùng: → myVar`
   },
   params: {
     description: "Tham số đầu vào cho hàm, tham chiếu bằng $paramName.",
-    example: "params: {N: 720, scale: 1.0} → dùng $N, $scale trong body"
+    example: `params: [N, scale]
+
+# Trong body:
+# $N → 720
+# $scale → 1.0`
   },
 };
 
@@ -245,15 +491,15 @@ interface YAMLTreePanelProps {
   selectedFunction?: string | null;
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  // Controlled state props for persistence
   paramsExpanded?: boolean;
   expandedParams?: Set<string>;
   expandedFunctions?: Set<string>;
   onParamsExpandedChange?: (expanded: boolean) => void;
   onExpandedParamsChange?: (expanded: Set<string>) => void;
   onExpandedFunctionsChange?: (expanded: Set<string>) => void;
-  // Highlight element by ID (for Anim -> Tree linking)
   highlightedElementId?: string | null;
+  // Call chain for primary/secondary highlighting
+  elementCallChain?: CallChainEntry[] | null;
 }
 
 interface FunctionNode {
@@ -372,7 +618,7 @@ interface StatementRowProps {
   defaultExpanded?: boolean;
   editable?: boolean;
   onArgsChange?: (newArgs: Record<string, unknown>) => void;
-  isHighlighted?: boolean;
+  highlightLevel?: 'primary' | 'secondary' | null;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
@@ -380,19 +626,24 @@ const StatementRow: React.FC<StatementRowProps> = ({
   defaultExpanded = false,
   editable = false,
   onArgsChange,
-  isHighlighted = false,
+  highlightLevel = null,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
-  const highlightClass = isHighlighted ? 'bg-primary/20 ring-1 ring-primary/40 rounded' : '';
+  // Primary = bright highlight, Secondary = dimmer highlight
+  const highlightClass = highlightLevel === 'primary' 
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+    : highlightLevel === 'secondary' 
+    ? 'bg-primary/10 ring-1 ring-primary/20 rounded' 
+    : '';
   
-  // Auto-scroll into view when highlighted
+  // Auto-scroll into view when highlighted (primary only)
   useEffect(() => {
-    if (isHighlighted && rowRef.current) {
+    if (highlightLevel === 'primary' && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isHighlighted]);
+  }, [highlightLevel]);
   
   const handleArgChange = (key: string, value: string, originalValue: unknown) => {
     if (!onArgsChange || !('call' in stmt)) return;
