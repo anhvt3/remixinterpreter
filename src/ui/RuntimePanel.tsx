@@ -78,12 +78,21 @@ const RuntimeStepRow: React.FC<{
   onStepClick?: (step: RuntimeStep) => void;
   selectedStepId?: string | null;
   highlightedStepIds?: string[];
-  // Navigation highlight: 'anchor' is starting point, 'current' is navigation position, 'chain' is rest of ancestors
-  navigationHighlight?: { type: 'anchor' | 'current' | 'chain'; stepId: string } | null;
   currentNavigationStepId?: string | null;
   anchorStepId?: string | null;
   chainStepIds?: string[];
-}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], currentNavigationStepId, anchorStepId, chainStepIds = [] }) => {
+  // Navigation controls
+  canGoUp?: boolean;
+  canGoDown?: boolean;
+  onNavigateUp?: () => void;
+  onNavigateDown?: () => void;
+  navIndex?: number;
+  chainLength?: number;
+}> = ({ 
+  step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
+  currentNavigationStepId, anchorStepId, chainStepIds = [],
+  canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
+}) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
   const isAnchor = step.id === anchorStepId;
@@ -94,6 +103,9 @@ const RuntimeStepRow: React.FC<{
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
+  
+  // Show nav buttons on anchor or current nav position
+  const showNavButtons = isAnchor || isCurrentNav;
 
   // Auto-scroll highlighted step into view (from element selection, TreeView click, or navigation)
   useEffect(() => {
@@ -104,11 +116,11 @@ const RuntimeStepRow: React.FC<{
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
-    call: 'text-purple-400',     // call statements: purple
-    let: 'text-purple-400',      // let statements: purple  
-    foreach: 'text-purple-400',  // foreach statements: purple
-    return: 'text-purple-400',   // return: purple
-    ir: 'text-cyan-400',         // IR commands: cyan
+    call: 'text-purple-400',
+    let: 'text-purple-400',
+    foreach: 'text-purple-400',
+    return: 'text-purple-400',
+    ir: 'text-cyan-400',
   };
 
   // Highlight styles: navigation takes priority
@@ -133,7 +145,6 @@ const RuntimeStepRow: React.FC<{
     if (hasChildren) {
       onToggle(step.id);
     }
-    // Always trigger step click for selection
     onStepClick?.(step);
   };
 
@@ -221,6 +232,35 @@ const RuntimeStepRow: React.FC<{
             </div>
           )}
         </div>
+        
+        {/* Navigation buttons - shown inline on anchor or current nav */}
+        {showNavButtons && (
+          <div className="flex items-center gap-0.5 shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 hover:bg-muted"
+              onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
+              disabled={!canGoUp}
+              title="Navigate up to parent caller"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground w-6 text-center">
+              {navIndex}/{chainLength}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 hover:bg-muted"
+              onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
+              disabled={!canGoDown}
+              title="Navigate down toward anchor"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
       
       {/* Children */}
@@ -237,6 +277,12 @@ const RuntimeStepRow: React.FC<{
           currentNavigationStepId={currentNavigationStepId}
           anchorStepId={anchorStepId}
           chainStepIds={chainStepIds}
+          canGoUp={canGoUp}
+          canGoDown={canGoDown}
+          onNavigateUp={onNavigateUp}
+          onNavigateDown={onNavigateDown}
+          navIndex={navIndex}
+          chainLength={chainLength}
         />
       ))}
     </>
@@ -410,36 +456,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     <div className="h-full flex flex-col bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
         <span className="text-xs font-medium text-foreground">Runtime Trace</span>
-        <div className="flex items-center gap-2">
-          {anchorStepId && (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={navigateUp}
-                disabled={!canGoUp}
-                title="Navigate up to parent caller"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {navIndex}/{ancestorChain.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={navigateDown}
-                disabled={!canGoDown}
-                title="Navigate down toward anchor"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-          <span className="text-xs text-muted-foreground">{steps.length} steps</span>
-        </div>
+        <span className="text-xs text-muted-foreground">{steps.length} steps</span>
       </div>
       
       <ScrollArea className="flex-1">
@@ -462,6 +479,12 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 currentNavigationStepId={currentNavStepId}
                 anchorStepId={anchorStepId}
                 chainStepIds={chainStepIds}
+                canGoUp={!!canGoUp}
+                canGoDown={!!canGoDown}
+                onNavigateUp={navigateUp}
+                onNavigateDown={navigateDown}
+                navIndex={navIndex}
+                chainLength={ancestorChain.length}
               />
             ))
           )}
