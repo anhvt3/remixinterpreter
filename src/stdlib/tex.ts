@@ -89,3 +89,10 @@ export function extractSquares(n: number, powers: Power[]): string {
   
   return `\\sqrt{${n}} = ${outsideProduct}\\sqrt{${insideProduct}}`;
 }
+
+/**
+ * Final simplified root form (same as extractSquares but named for the DSL)
+ */
+export function finalRootSimplified(n: number, powers: Power[]): string {
+  return extractSquares(n, powers);
+}

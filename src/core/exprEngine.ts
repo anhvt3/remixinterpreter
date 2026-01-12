@@ -168,24 +168,50 @@ function evaluateParsed(
   
   // Execute the function
   switch (fn) {
+    // Core functions (also available with core. prefix)
     case 'index':
+    case 'core.index':
       return doIndex(resolvedExprArgs);
     case 'len':
+    case 'core.len':
       return doLen(resolvedExprArgs);
     case 'add':
+    case 'core.add':
       return doAdd(resolvedExprArgs);
     case 'mul':
+    case 'core.mul':
       return doMul(resolvedExprArgs);
+    case 'core.div':
+      return doDiv(resolvedExprArgs);
+    case 'core.min':
+      return doMin(resolvedExprArgs);
+    case 'core.max':
+      return doMax(resolvedExprArgs);
+    case 'core.clamp':
+      return doClamp(resolvedExprArgs);
     case 'format':
+    case 'core.format':
       return doFormat(resolvedExprArgs);
     case 'concat':
+    case 'core.concat':
       return doConcat(resolvedExprArgs);
     case 'range':
+    case 'core.range':
       return doRange(resolvedExprArgs);
     case 'map':
+    case 'core.map':
       return doMap(resolvedExprArgs);
     case 'reduce':
+    case 'core.reduce':
       return doReduce(resolvedExprArgs);
+    case 'core.subspan':
+      return doSubspan(resolvedExprArgs);
+    case 'core.win':
+      return doWin(resolvedExprArgs);
+    case 'core.slot':
+      return doSlot(resolvedExprArgs);
+    case 'core.assert_le':
+      return doAssertLe(resolvedExprArgs);
     case 'math.prime_factors':
       return mathStdlib.primeFactors(resolvedExprArgs[0] as number);
     case 'math.quotient_chain':
@@ -195,6 +221,8 @@ function evaluateParsed(
       );
     case 'math.count_powers':
       return mathStdlib.countPowers(resolvedExprArgs[0] as number[]);
+    case 'math.product':
+      return mathStdlib.product(resolvedExprArgs[0] as number[]);
     case 'tex.prime_factor_expr':
       return texStdlib.primeFactorExpr(
         resolvedExprArgs[0] as number,
@@ -214,6 +242,11 @@ function evaluateParsed(
       );
     case 'tex.extract_squares':
       return texStdlib.extractSquares(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as Power[]
+      );
+    case 'tex.final_root_simplified':
+      return texStdlib.finalRootSimplified(
         resolvedExprArgs[0] as number,
         resolvedExprArgs[1] as Power[]
       );
@@ -289,6 +322,99 @@ function doMap(args: unknown[]): unknown[] {
 
 function doReduce(args: unknown[]): unknown {
   return args[2]; // Return initial value as fallback
+}
+
+function doDiv(args: unknown[]): number {
+  const a = Number(args[0]) || 0;
+  const b = Number(args[1]) || 1;
+  return a / b;
+}
+
+function doMin(args: unknown[]): number {
+  return Math.min(...args.map(Number));
+}
+
+function doMax(args: unknown[]): number {
+  return Math.max(...args.map(Number));
+}
+
+function doClamp(args: unknown[]): number {
+  const val = Number(args[0]);
+  const min = Number(args[1]);
+  const max = Number(args[2]);
+  return Math.min(Math.max(val, min), max);
+}
+
+interface Span {
+  t0: number;
+  t1: number;
+  ease?: string;
+  transition?: string;
+}
+
+interface RelWindow {
+  rel0: number;
+  rel1: number;
+  ease?: string;
+  transition?: string;
+}
+
+/**
+ * Computes absolute span from parent span + relative allocation
+ */
+function doSubspan(args: unknown[]): Span {
+  const parentSpan = args[0] as Span;
+  const rel = args[1] as RelWindow;
+  const duration = parentSpan.t1 - parentSpan.t0;
+  return {
+    t0: parentSpan.t0 + duration * rel.rel0,
+    t1: parentSpan.t0 + duration * rel.rel1,
+    ease: rel.ease || parentSpan.ease,
+    transition: rel.transition,
+  };
+}
+
+/**
+ * Computes absolute window from span + relative window
+ */
+function doWin(args: unknown[]): Span {
+  return doSubspan(args);
+}
+
+/**
+ * Option A slot: evenly partition span into k slots, return window for slot i
+ */
+function doSlot(args: unknown[]): Span {
+  const span = args[0] as Span;
+  const i = Number(args[1]);
+  const k = Number(args[2]);
+  const padStart = Number(args[3]) || 0;
+  const active = Number(args[4]) || 1;
+  const ease = args[5] as string | undefined;
+  
+  const duration = span.t1 - span.t0;
+  const slotDuration = duration / k;
+  const slotStart = span.t0 + i * slotDuration;
+  
+  return {
+    t0: slotStart + slotDuration * padStart,
+    t1: slotStart + slotDuration * (padStart + active),
+    ease: ease || 'easeOutCubic',
+  };
+}
+
+/**
+ * Assert value <= limit, throw error with message if not
+ */
+function doAssertLe(args: unknown[]): boolean {
+  const val = Number(args[0]);
+  const limit = Number(args[1]);
+  const msg = String(args[2] || 'Assertion failed');
+  
+  if (val > limit) {
+    throw new Error(`${msg}: ${val} > ${limit}`);
+  }
+  return true;
 }
 
 /**
