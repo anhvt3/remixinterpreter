@@ -20,7 +20,8 @@ export function useUndoRedo(
   onChange?: (value: string) => void,
   options: UseUndoRedoOptions = {}
 ): UseUndoRedoReturn {
-  const { maxHistory = 100, debounceMs = 300 } = options;
+  // maxHistory: undefined or Infinity means unlimited
+  const { maxHistory, debounceMs = 300 } = options;
   
   const [history, setHistory] = useState<string[]>([initialValue]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,13 +35,14 @@ export function useUndoRedo(
       setHistory(prev => {
         const newHistory = prev.slice(0, currentIndex + 1);
         newHistory.push(initialValue);
-        if (newHistory.length > maxHistory) {
+        // Only limit if maxHistory is defined
+        if (maxHistory && newHistory.length > maxHistory) {
           newHistory.shift();
           return newHistory;
         }
         return newHistory;
       });
-      setCurrentIndex(prev => Math.min(prev + 1, maxHistory - 1));
+      setCurrentIndex(prev => maxHistory ? Math.min(prev + 1, maxHistory - 1) : prev + 1);
       lastPushedRef.current = initialValue;
     }
   }, [initialValue, currentIndex, history, maxHistory]);
@@ -61,13 +63,14 @@ export function useUndoRedo(
         setHistory(prev => {
           const newHistory = prev.slice(0, currentIndex + 1);
           newHistory.push(newValue);
-          if (newHistory.length > maxHistory) {
+          // Only limit if maxHistory is defined
+          if (maxHistory && newHistory.length > maxHistory) {
             newHistory.shift();
             return newHistory;
           }
           return newHistory;
         });
-        setCurrentIndex(prev => Math.min(prev + 1, maxHistory - 1));
+        setCurrentIndex(prev => maxHistory ? Math.min(prev + 1, maxHistory - 1) : prev + 1);
         lastPushedRef.current = newValue;
       }
     }, debounceMs);
