@@ -295,22 +295,19 @@ export const App: React.FC = () => {
     
     const matchingStepIds: string[] = [];
     
-    // Recursively find steps that match the statement
-    const findMatchingSteps = (steps: RuntimeStep[]) => {
-      for (const step of steps) {
-        // Match by fnName and check if it's from the right function
-        if (step.fnName === selectedStatement.fnName) {
-          matchingStepIds.push(step.id);
-        }
-        if (step.children) {
-          findMatchingSteps(step.children);
-        }
+    // Check each step's call chain to see if it was created by the selected statement
+    stepCallChains.forEach((callChain, stepId) => {
+      // callChain is ordered innermost first - check if any entry matches
+      const matches = callChain.some(
+        entry => entry.fnName === selectedStatement.fnName && entry.stmtIndex === selectedStatement.stmtIndex
+      );
+      if (matches) {
+        matchingStepIds.push(stepId);
       }
-    };
+    });
     
-    findMatchingSteps(runtimeSteps);
     return matchingStepIds;
-  }, [selectedStatement, runtimeSteps]);
+  }, [selectedStatement, stepCallChains]);
 
   // Collect element IDs from highlighted steps (for TreeView → Anim highlighting)
   const highlightedElementIdsFromStatement = useMemo(() => {
@@ -508,6 +505,7 @@ export const App: React.FC = () => {
                     zoomLevel={zoomLevel}
                     onStepClick={handleRuntimeStepClick}
                     selectedStepId={selectedRuntimeStepId}
+                    highlightedStepIds={highlightedStepIdsFromStatement}
                   />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
