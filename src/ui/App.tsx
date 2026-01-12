@@ -255,10 +255,38 @@ export const App: React.FC = () => {
   }, [selectedRuntimeStepId, stepCallChains]);
 
   // Get element IDs created by selected runtime step (for Anim panel highlighting)
+  // Recursively collect elements from the step and all its children
   const highlightedElementIds = useMemo(() => {
     if (!selectedRuntimeStepId) return [];
-    return stepCreatedElements.get(selectedRuntimeStepId) || [];
-  }, [selectedRuntimeStepId, stepCreatedElements]);
+    
+    // Find the step by ID recursively
+    const findStep = (steps: RuntimeStep[], id: string): RuntimeStep | null => {
+      for (const step of steps) {
+        if (step.id === id) return step;
+        if (step.children) {
+          const found = findStep(step.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    // Collect all element IDs from a step and its descendants
+    const collectElements = (step: RuntimeStep): string[] => {
+      const ids: string[] = [...(step.createdElementIds || [])];
+      if (step.children) {
+        for (const child of step.children) {
+          ids.push(...collectElements(child));
+        }
+      }
+      return ids;
+    };
+    
+    const selectedStep = findStep(runtimeSteps, selectedRuntimeStepId);
+    if (!selectedStep) return [];
+    
+    return collectElements(selectedStep);
+  }, [selectedRuntimeStepId, runtimeSteps]);
 
   // Combined call chain: prioritize runtime step selection, fall back to element selection
   const activeCallChain = selectedStepCallChain || selectedElementCallChain;
