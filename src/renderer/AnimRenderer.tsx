@@ -10,6 +10,7 @@ interface AnimRendererProps {
   width: number;
   height: number;
   selectedElementId?: string | null;
+  highlightedElementIds?: string[];
   onElementClick?: (elementId: string) => void;
 }
 
@@ -19,6 +20,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
   width,
   height,
   selectedElementId,
+  highlightedElementIds = [],
   onElementClick,
 }) => {
   // Compute scene at current time
@@ -70,6 +72,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         const color = element.style?.color || '#FFFFFF';
         
         const isSelected = selectedElementId === element.id;
+        const isHighlighted = highlightedElementIds.includes(element.id);
         
         return (
           <div
@@ -79,6 +82,8 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
               absolute cursor-pointer transition-all duration-150
               ${isSelected 
                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-black rounded' 
+                : isHighlighted
+                ? 'ring-2 ring-accent ring-offset-1 ring-offset-black rounded bg-accent/20'
                 : 'hover:ring-1 hover:ring-white/30 rounded'
               }
             `}

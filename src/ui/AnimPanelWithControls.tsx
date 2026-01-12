@@ -9,6 +9,7 @@ import { AnimRenderer } from '../renderer/AnimRenderer';
 interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
+  highlightedElementIds?: string[];
   onElementClick?: (elementId: string) => void;
   zoomLevel?: number;
 }
@@ -16,6 +17,7 @@ interface AnimPanelWithControlsProps {
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
   events,
   selectedElementId,
+  highlightedElementIds = [],
   onElementClick,
   zoomLevel = 100,
 }) => {
@@ -156,6 +158,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
               width={dimensions.width / (zoomLevel / 100)}
               height={dimensions.height / (zoomLevel / 100)}
               selectedElementId={selectedElementId}
+              highlightedElementIds={highlightedElementIds}
               onElementClick={onElementClick}
             />
           </div>

@@ -26,6 +26,10 @@ export interface TracedExecutionResult {
   returnValue: unknown;
   steps: RuntimeStep[];
   elementCallChains: ElementCallChainMap;
+  // Map from step ID to call chain (for reverse lookup when clicking runtime steps)
+  stepCallChains: Map<string, CallChainEntry[]>;
+  // Map from step ID to element IDs created by that step (including children)
+  stepCreatedElements: Map<string, string[]>;
 }
 
 let eventCounter = 0;
@@ -43,6 +47,8 @@ export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
   const timeline: TimelineEvent[] = [];
   const steps: RuntimeStep[] = [];
   const elementCallChains: ElementCallChainMap = new Map();
+  const stepCallChains = new Map<string, CallChainEntry[]>();
+  const stepCreatedElements = new Map<string, string[]>();
   const callStack: CallStackFrame[] = [];
   const globalEnv: Environment = new Map();
   
@@ -58,9 +64,9 @@ export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
     resolvedArgs[key] = resolveValue(val, globalEnv, spec);
   }
   
-  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0, callStack, elementCallChains);
+  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0, callStack, elementCallChains, stepCallChains, stepCreatedElements);
   
-  return { timeline, returnValue: result, steps, elementCallChains };
+  return { timeline, returnValue: result, steps, elementCallChains, stepCallChains, stepCreatedElements };
 }
 
 function executeFunctionTraced(
@@ -73,21 +79,31 @@ function executeFunctionTraced(
   parentEnv: Environment,
   depth: number,
   callStack: CallStackFrame[],
-  elementCallChains: ElementCallChainMap
+  elementCallChains: ElementCallChainMap,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  stepCreatedElements: Map<string, string[]>
 ): unknown {
   const env: Environment = new Map(parentEnv);
+  
+  // Capture current call chain for this function step
+  const currentChain = [...callStack].reverse();
   
   // Create step for this function call
   const fnStep: RuntimeStep = {
     id: `step_${stepCounter++}`,
     type: 'call',
     functionName: fnName,
+    fnName: fnName,
     args: { ...args },
     resolvedArgs: { ...args },
     depth,
     children: [],
+    createdElementIds: [],
   };
   steps.push(fnStep);
+  
+  // Store the call chain for this step
+  stepCallChains.set(fnStep.id, currentChain);
   
   for (const param of fn.params) {
     if (args[param] !== undefined) {
@@ -100,15 +116,20 @@ function executeFunctionTraced(
     // Push current frame onto call stack
     callStack.push({ fnName, stmtIndex: stmtIdx });
     
-    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1, callStack, elementCallChains);
+    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1, callStack, elementCallChains, stepCallChains, stepCreatedElements, fnStep);
     
     // Pop the frame
     callStack.pop();
     
     if (result !== undefined && 'return' in stmt) {
+      // Propagate created elements to parent
+      stepCreatedElements.set(fnStep.id, fnStep.createdElementIds || []);
       return result;
     }
   }
+  
+  // Store created elements for this step
+  stepCreatedElements.set(fnStep.id, fnStep.createdElementIds || []);
   
   return undefined;
 }
@@ -121,22 +142,27 @@ function executeStatementTraced(
   env: Environment,
   depth: number,
   callStack: CallStackFrame[],
-  elementCallChains: ElementCallChainMap
+  elementCallChains: ElementCallChainMap,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  stepCreatedElements: Map<string, string[]>,
+  parentStep?: RuntimeStep
 ): unknown {
-  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth, callStack, elementCallChains);
-  if ('let' in stmt) return executeLetTraced(stmt.let, spec, steps, env, depth);
-  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth, callStack, elementCallChains);
+  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
+  if ('let' in stmt) return executeLetTraced(stmt.let, spec, steps, env, depth, stepCallChains, callStack);
+  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
   if ('return' in stmt) {
     const value = resolveValue(stmt.return, env, spec);
-    steps.push({
+    const returnStep: RuntimeStep = {
       id: `step_${stepCounter++}`,
       type: 'return',
       returnValue: value,
       depth,
-    });
+    };
+    steps.push(returnStep);
+    stepCallChains.set(returnStep.id, [...callStack].reverse());
     return value;
   }
-  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth, callStack, elementCallChains);
+  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
   return undefined;
 }
 
@@ -148,13 +174,16 @@ function executeCallTraced(
   env: Environment,
   depth: number,
   callStack: CallStackFrame[],
-  elementCallChains: ElementCallChainMap
+  elementCallChains: ElementCallChainMap,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  stepCreatedElements: Map<string, string[]>,
+  parentStep?: RuntimeStep
 ): unknown {
   const fnDef = spec.defs[call.fn];
   
   if (!fnDef) {
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
-      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, callStack, elementCallChains);
+      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
     }
     throw new Error(`Function "${call.fn}" not found`);
   }
@@ -164,7 +193,7 @@ function executeCallTraced(
     resolvedArgs[key] = resolveValue(val, env, spec);
   }
   
-  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, callStack, elementCallChains);
+  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements);
   if (call.out) env.set(call.out, result);
   return result;
 }
@@ -174,18 +203,22 @@ function executeLetTraced(
   spec: YAMLSpec, 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number
+  depth: number,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  callStack: CallStackFrame[]
 ): void {
   for (const [varName, value] of Object.entries(letStmt)) {
     const resolved = resolveValue(value, env, spec);
     env.set(varName, resolved);
-    steps.push({
+    const letStep: RuntimeStep = {
       id: `step_${stepCounter++}`,
       type: 'let',
       variable: varName,
       value: resolved,
       depth,
-    });
+    };
+    steps.push(letStep);
+    stepCallChains.set(letStep.id, [...callStack].reverse());
   }
 }
 
@@ -197,7 +230,10 @@ function executeForeachTraced(
   env: Environment,
   depth: number,
   callStack: CallStackFrame[],
-  elementCallChains: ElementCallChainMap
+  elementCallChains: ElementCallChainMap,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  stepCreatedElements: Map<string, string[]>,
+  parentStep?: RuntimeStep
 ): void {
   const rangeValue = resolveValue(foreach.range, env, spec);
   if (!Array.isArray(rangeValue)) throw new Error(`Foreach range must be array`);
@@ -213,12 +249,22 @@ function executeForeachTraced(
       iteration: { var: foreach.var, value, index: i },
       depth,
       children: [],
+      createdElementIds: [],
     };
     steps.push(iterStep);
+    stepCallChains.set(iterStep.id, [...callStack].reverse());
     
     for (let stmtIdx = 0; stmtIdx < foreach.do.length; stmtIdx++) {
       const stmt = foreach.do[stmtIdx];
-      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1, callStack, elementCallChains);
+      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1, callStack, elementCallChains, stepCallChains, stepCreatedElements, iterStep);
+    }
+    
+    // Store created elements for this iteration
+    stepCreatedElements.set(iterStep.id, iterStep.createdElementIds || []);
+    
+    // Propagate to parent
+    if (parentStep && parentStep.createdElementIds) {
+      parentStep.createdElementIds.push(...(iterStep.createdElementIds || []));
     }
   }
 }
@@ -231,7 +277,10 @@ function executeIRTraced(
   env: Environment,
   depth: number,
   callStack: CallStackFrame[],
-  elementCallChains: ElementCallChainMap
+  elementCallChains: ElementCallChainMap,
+  stepCallChains: Map<string, CallChainEntry[]>,
+  stepCreatedElements: Map<string, string[]>,
+  parentStep?: RuntimeStep
 ): void {
   const resolvedArgs: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(ir.args)) {
@@ -240,20 +289,31 @@ function executeIRTraced(
   
   // Track element creation - if this IR creates an element with an id
   const elementId = resolvedArgs.id;
+  const createdIds: string[] = [];
   if (typeof elementId === 'string') {
     // Save the current call chain for this element
     // Clone the stack and reverse it so innermost is first
     const chain = [...callStack].reverse();
     elementCallChains.set(elementId, chain);
+    createdIds.push(elementId);
+    
+    // Propagate to parent step
+    if (parentStep && parentStep.createdElementIds) {
+      parentStep.createdElementIds.push(elementId);
+    }
   }
   
-  steps.push({
+  const irStep: RuntimeStep = {
     id: `step_${stepCounter++}`,
     type: 'ir',
     functionName: ir.fn,
     resolvedArgs,
     depth,
-  });
+    createdElementIds: createdIds,
+  };
+  steps.push(irStep);
+  stepCallChains.set(irStep.id, [...callStack].reverse());
+  stepCreatedElements.set(irStep.id, createdIds);
   
   timeline.push({
     id: `event_${eventCounter++}`,
