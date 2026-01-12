@@ -1548,10 +1548,10 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   };
   
   return (
-    <div className="flex flex-col h-full panel">
+    <div className="flex flex-col h-full min-h-0 panel">
       <div className="panel-header sr-only">YAMLScript Tree</div>
       
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div style={{ zoom: zoomLevel / 100 }}>
           {/* Editable Parameters */}
           {spec?.params && onParamsChange && (

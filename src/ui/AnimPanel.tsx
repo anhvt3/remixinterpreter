@@ -97,8 +97,8 @@ export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
   }, []);
   
   return (
-    <div className="flex flex-col h-full w-full">
-      <div ref={containerRef} className="flex-1 min-h-0 relative">
+    <div className="flex flex-col h-full min-h-0 w-full">
+      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden">
         <AnimRenderer
           events={events}
           currentTime={currentTime}

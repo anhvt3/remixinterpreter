@@ -133,9 +133,9 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
   const formatTime = (t: number) => `${t.toFixed(1)}s`;
   
   return (
-    <div className="panel flex flex-col h-full overflow-hidden">
+    <div className="panel flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header with controls */}
-      <div className="panel-header flex items-center gap-2">
+      <div className="panel-header flex items-center gap-2 shrink-0">
         <span className="font-medium">Anim</span>
         {loopRange && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary flex items-center gap-1">

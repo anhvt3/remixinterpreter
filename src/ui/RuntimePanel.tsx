@@ -541,7 +541,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-card border border-border rounded-lg overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
         <span className="text-xs font-medium text-foreground">Runtime Trace</span>
         <div className="flex items-center gap-2">
@@ -569,7 +569,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
         </div>
       </div>
       
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="py-1" style={{ zoom: zoomLevel / 100 }}>
           {steps.length === 0 ? (
             <div className="text-xs text-muted-foreground text-center py-8">

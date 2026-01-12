@@ -9,11 +9,13 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
-    className={cn("relative h-full w-full overflow-hidden", className)}
-    type="always"
+    className={cn("relative overflow-hidden", className)}
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] overflow-y-scroll overscroll-contain">
+    <ScrollAreaPrimitive.Viewport 
+      className="h-full w-full rounded-[inherit]"
+      style={{ overflowY: 'scroll' }}
+    >
       {children}
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar forceMount />
@@ -31,14 +33,13 @@ const ScrollBar = React.forwardRef<
     orientation={orientation}
     className={cn(
       "pointer-events-auto flex touch-none select-none transition-colors",
-      "data-[state=hidden]:opacity-100 data-[state=visible]:opacity-100",
-      orientation === "vertical" && "h-full w-4 bg-primary/10 p-1",
-      orientation === "horizontal" && "h-4 flex-col bg-primary/10 p-1",
+      orientation === "vertical" && "h-full w-3 border-l border-l-transparent p-[2px]",
+      orientation === "horizontal" && "h-3 flex-col border-t border-t-transparent p-[2px]",
       className,
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-primary/80 hover:bg-primary" />
+    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-muted-foreground/40 hover:bg-muted-foreground/60" />
   </ScrollAreaPrimitive.ScrollAreaScrollbar>
 ));
 ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName;
