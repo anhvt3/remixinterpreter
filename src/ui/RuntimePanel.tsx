@@ -231,7 +231,7 @@ const RuntimeStepRow: React.FC<{
         
         {/* Navigation buttons - shown inline on anchor or current nav */}
         {showNavButtons && (
-          <div className="flex items-center gap-0.5 shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5 shrink-0 ml-1 mr-3" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
               size="icon"
