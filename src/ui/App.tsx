@@ -619,15 +619,15 @@ export const App: React.FC = () => {
                     key={subtab.id}
                     onClick={() => setActiveConfigSubtab(subtab.id)}
                     className={`
-                      px-2 py-1 rounded font-medium transition-all flex flex-col items-center leading-tight
+                      px-2 py-1 rounded text-xs font-medium transition-all flex items-baseline gap-0.5
                       ${activeConfigSubtab === subtab.id
                         ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
                       }
                     `}
                   >
-                    <span className="text-xs">{subtab.code}</span>
-                    <span className="text-[0.55rem] opacity-70">{subtab.suffix}</span>
+                    <span>{subtab.code}</span>
+                    <span className="text-[0.6rem] opacity-70">{subtab.suffix}</span>
                   </button>
                 ))}
               </div>
