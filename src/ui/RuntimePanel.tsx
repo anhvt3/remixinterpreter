@@ -63,12 +63,13 @@ const RuntimeStepRow: React.FC<{
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
 
+  // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
-    call: 'text-blue-400',
-    let: 'text-green-400',
-    foreach: 'text-purple-400',
-    return: 'text-orange-400',
-    ir: 'text-cyan-400',
+    call: 'text-purple-400',     // call statements: purple
+    let: 'text-purple-400',      // let statements: purple  
+    foreach: 'text-purple-400',  // foreach statements: purple
+    return: 'text-purple-400',   // return: purple
+    ir: 'text-cyan-400',         // IR commands: cyan
   };
 
   return (
@@ -94,13 +95,15 @@ const RuntimeStepRow: React.FC<{
         <div className="flex-1 min-w-0">
           {step.type === 'call' && (
             <div>
-              <span className="text-foreground font-medium">{step.functionName}</span>
+              <span className="text-purple-400">call </span>
+              <span className="text-blue-400 font-medium">{step.functionName}</span>
               <span className="text-muted-foreground">(</span>
               {step.resolvedArgs && Object.entries(step.resolvedArgs).map(([k, v], i) => (
                 <span key={k}>
                   {i > 0 && <span className="text-muted-foreground">, </span>}
-                  <span className="text-muted-foreground">{k}=</span>
-                  <span className="text-amber-400">{formatValue(v)}</span>
+                  <span className="text-orange-400">{k}</span>
+                  <span className="text-muted-foreground">=</span>
+                  <span className="text-muted-foreground">{formatValue(v)}</span>
                 </span>
               ))}
               <span className="text-muted-foreground">)</span>
@@ -109,42 +112,43 @@ const RuntimeStepRow: React.FC<{
           
           {step.type === 'let' && (
             <div>
-              <span className="text-green-400">let </span>
-              <span className="text-foreground">{step.variable}</span>
+              <span className="text-purple-400">let </span>
+              <span className="text-orange-400">{step.variable}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-amber-400">{formatValue(step.value)}</span>
+              <span className="text-muted-foreground">{formatValue(step.value)}</span>
             </div>
           )}
           
           {step.type === 'foreach' && step.iteration && (
             <div>
               <span className="text-purple-400">foreach </span>
-              <span className="text-foreground">{step.iteration.var}</span>
+              <span className="text-orange-400">{step.iteration.var}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-amber-400">{formatValue(step.iteration.value)}</span>
+              <span className="text-muted-foreground">{formatValue(step.iteration.value)}</span>
               <span className="text-muted-foreground/60"> (iter {step.iteration.index})</span>
             </div>
           )}
           
           {step.type === 'return' && (
             <div>
-              <span className="text-orange-400">return </span>
-              <span className="text-amber-400">{formatValue(step.returnValue)}</span>
+              <span className="text-purple-400">return </span>
+              <span className="text-muted-foreground">{formatValue(step.returnValue)}</span>
             </div>
           )}
           
           {step.type === 'ir' && (
             <div>
               <span className="text-cyan-400">→ </span>
-              <span className="text-foreground">{step.functionName}</span>
+              <span className="text-blue-400">{step.functionName}</span>
               {step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
                 <>
                   <span className="text-muted-foreground"> {`{`}</span>
                   {Object.entries(step.resolvedArgs).slice(0, 3).map(([k, v], i) => (
                     <span key={k}>
                       {i > 0 && <span className="text-muted-foreground">, </span>}
-                      <span className="text-muted-foreground">{k}:</span>
-                      <span className="text-amber-400">{formatValue(v)}</span>
+                      <span className="text-orange-400">{k}</span>
+                      <span className="text-muted-foreground">: </span>
+                      <span className="text-muted-foreground">{formatValue(v)}</span>
                     </span>
                   ))}
                   {Object.keys(step.resolvedArgs).length > 3 && <span className="text-muted-foreground">, ...</span>}
