@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import yaml from 'js-yaml';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
 import type { YAMLSpec, Params } from '../core/types';
@@ -66,6 +67,58 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     onPanelStateChange?.({ ...panelState, viewMode: mode });
   };
 
+  // --- Code view: keep a local draft so editing works even while YAML is temporarily invalid
+  const [codeDraft, setCodeDraft] = useState(content);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const dirtyRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep draft in sync with external content (tree edits / successful merges)
+  useEffect(() => {
+    if (!dirtyRef.current) {
+      setCodeDraft(content);
+      setCodeError(null);
+    }
+  }, [content]);
+
+  const validateParamsYaml = useMemo(() => {
+    return (text: string): string | null => {
+      try {
+        const obj = yaml.load(text) as unknown;
+        if (!obj || typeof obj !== 'object') return 'YAML must be an object.';
+        if (!('params' in (obj as Record<string, unknown>))) return 'Missing top-level "params:" key.';
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Invalid YAML.';
+      }
+    };
+  }, []);
+
+  const handleCodeDraftChange = (next: string) => {
+    dirtyRef.current = true;
+    setCodeDraft(next);
+
+    const err = validateParamsYaml(next);
+    setCodeError(err);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // Only propagate to parent when YAML parses (so it doesn't immediately revert while typing)
+    if (!err) {
+      debounceRef.current = setTimeout(() => {
+        onChange(next);
+        // We'll mark clean once parent accepts & echoes the same content back
+      }, 250);
+    }
+  };
+
+  // When parent catches up, clear dirty flag
+  useEffect(() => {
+    if (dirtyRef.current && codeError === null && content === codeDraft) {
+      dirtyRef.current = false;
+    }
+  }, [content, codeDraft, codeError]);
+
   // Get all function names from spec for expand/collapse
   const allFunctionNames = spec?.defs ? Object.keys(spec.defs) : [];
 
@@ -103,9 +156,9 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             Code View
           </button>
         </div>
-        
+
         {/* Expand/Collapse buttons - only show in tree view */}
-        {panelState.viewMode === 'tree' && (
+        {panelState.viewMode === 'tree' ? (
           <div className="flex items-center gap-0.5 ml-auto">
             <button
               onClick={expandAll}
@@ -122,9 +175,17 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
               <ChevronsDownUp className="w-4 h-4" />
             </button>
           </div>
+        ) : (
+          <div className="ml-auto text-[10px] text-muted-foreground truncate max-w-[50%]">
+            {codeError ? (
+              <span className="text-destructive">Invalid YAML: {codeError}</span>
+            ) : (
+              <span>Editable</span>
+            )}
+          </div>
         )}
       </div>
-      
+
       <div className="flex-1 min-h-0">
         {panelState.viewMode === 'tree' ? (
           <YAMLTreePanel 
@@ -148,11 +209,12 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
         ) : (
           <CodePanel
             title="YAMLScript"
-            content={content}
-            onChange={onChange}
+            content={codeDraft}
+            onChange={handleCodeDraftChange}
             language="yaml"
             highlightedLines={highlightedLines}
             zoomLevel={zoomLevel}
+            onLineClick={onLineClick}
           />
         )}
       </div>
