@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Code, Play, Layers, Wand2, Settings } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -148,8 +148,16 @@ const StatementRow: React.FC<StatementRowProps> = ({
   isHighlighted = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const rowRef = useRef<HTMLDivElement>(null);
   
   const highlightClass = isHighlighted ? 'bg-primary/20 ring-1 ring-primary/40 rounded' : '';
+  
+  // Auto-scroll into view when highlighted
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isHighlighted]);
   
   const handleArgChange = (key: string, value: string, originalValue: unknown) => {
     if (!onArgsChange || !('call' in stmt)) return;
@@ -172,7 +180,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const hasArgs = args.length > 0;
     
     return (
-      <div className={`py-1 ${highlightClass}`}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`}>
         <div 
           className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
           onClick={() => hasArgs && setExpanded(!expanded)}
@@ -374,7 +382,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div className={`py-1 ${highlightClass}`}>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`}>
         <div 
           className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
           onClick={() => hasArgs && setExpanded(!expanded)}
