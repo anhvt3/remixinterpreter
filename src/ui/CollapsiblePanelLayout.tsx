@@ -3,6 +3,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export type PanelId = 'lo' | 'desc' | 'dsl' | 'runtime' | 'anim' | 'chat';
 
+// Canonical order of panels
+const PANEL_ORDER: PanelId[] = ['lo', 'desc', 'dsl', 'runtime', 'anim', 'chat'];
+
 interface PanelConfig {
   id: PanelId;
   label: string;
@@ -21,8 +24,11 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
   // Track the order of expanded panels (most recently expanded first)
   const [expandedOrder, setExpandedOrder] = useState<PanelId[]>(initialExpanded);
 
-  // The 3 visible panels are the first 3 in expandedOrder
-  const visiblePanels = expandedOrder.slice(0, 3);
+  // The 3 visible panels are the first 3 in expandedOrder, but sorted by canonical order for display
+  const visiblePanelIds = expandedOrder.slice(0, 3);
+  const sortedVisiblePanelIds = [...visiblePanelIds].sort(
+    (a, b) => PANEL_ORDER.indexOf(a) - PANEL_ORDER.indexOf(b)
+  );
 
   const handlePanelClick = useCallback((panelId: PanelId) => {
     setExpandedOrder(prev => {
@@ -32,7 +38,7 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
     });
   }, []);
 
-  const isPanelVisible = (panelId: PanelId) => visiblePanels.includes(panelId);
+  const isPanelVisible = (panelId: PanelId) => visiblePanelIds.includes(panelId);
 
   return (
     <div className="h-full flex flex-col">
@@ -67,7 +73,7 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
 
       {/* Panel content area - 3 columns */}
       <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 p-2">
-        {visiblePanels.map((panelId) => {
+        {sortedVisiblePanelIds.map((panelId) => {
           const panel = panels.find(p => p.id === panelId);
           if (!panel) return null;
           
