@@ -81,7 +81,8 @@ function executeFunctionTraced(
   callStack: CallStackFrame[],
   elementCallChains: ElementCallChainMap,
   stepCallChains: Map<string, CallChainEntry[]>,
-  stepCreatedElements: Map<string, string[]>
+  stepCreatedElements: Map<string, string[]>,
+  grandParentStep?: RuntimeStep
 ): unknown {
   const env: Environment = new Map(parentEnv);
   
@@ -124,12 +125,21 @@ function executeFunctionTraced(
     if (result !== undefined && 'return' in stmt) {
       // Propagate created elements to parent
       stepCreatedElements.set(fnStep.id, fnStep.createdElementIds || []);
+      // Also propagate to grandparent if exists
+      if (grandParentStep && grandParentStep.createdElementIds) {
+        grandParentStep.createdElementIds.push(...(fnStep.createdElementIds || []));
+      }
       return result;
     }
   }
   
   // Store created elements for this step
   stepCreatedElements.set(fnStep.id, fnStep.createdElementIds || []);
+  
+  // Propagate created elements to grandparent (caller's parentStep)
+  if (grandParentStep && grandParentStep.createdElementIds) {
+    grandParentStep.createdElementIds.push(...(fnStep.createdElementIds || []));
+  }
   
   return undefined;
 }
@@ -193,7 +203,7 @@ function executeCallTraced(
     resolvedArgs[key] = resolveValue(val, env, spec);
   }
   
-  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements);
+  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
   if (call.out) env.set(call.out, result);
   return result;
 }
