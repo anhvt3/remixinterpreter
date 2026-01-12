@@ -1529,7 +1529,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       </div>
       
       <ScrollArea className="flex-1">
-        <div style={{ fontSize: `${zoomLevel}%` }}>
+        <div style={{ zoom: zoomLevel / 100 }}>
           {/* Editable Parameters */}
           {spec?.params && onParamsChange && (
             <ParamsEditor 

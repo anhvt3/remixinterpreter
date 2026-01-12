@@ -99,7 +99,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       {hasLineInteraction ? (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as clickable lines with syntax highlighting */}
-          <div className="p-4 pr-10 font-mono" style={{ fontSize: `${zoomLevel}%` }}>
+          <div className="p-4 pr-10 text-sm font-mono" style={{ zoom: zoomLevel / 100 }}>
             {lines.map((line, idx) => {
               const isHighlighted = highlightedLines.includes(idx);
               return (
@@ -129,7 +129,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       ) : (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as editable textarea with syntax highlighting overlay */}
-          <div className="relative p-4 pr-10" style={{ fontSize: `${zoomLevel}%` }}>
+          <div className="relative p-4 pr-10" style={{ zoom: zoomLevel / 100 }}>
             {/* Syntax highlighted layer (behind) */}
             <div 
               className="absolute inset-0 p-4 pr-10 pointer-events-none select-none"
