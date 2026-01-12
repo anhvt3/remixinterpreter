@@ -5,79 +5,79 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
 
-// Semantic explanations for functions (20-30 words each)
+// Giải thích ngữ nghĩa cho các hàm (20-30 từ mỗi hàm)
 const functionExplanations: Record<string, string> = {
   // Entry
-  SimplifyRoot: "Main entry point that orchestrates the entire square root simplification animation, coordinating factorization, morphing, and final simplification scenes.",
+  SimplifyRoot: "Điểm vào chính điều phối toàn bộ hoạt ảnh đơn giản hóa căn bậc hai, phối hợp các cảnh phân tích, biến đổi và đơn giản hóa cuối cùng.",
   
   // Init
-  InitScene: "Initializes the animation canvas with the specified viewbox dimensions and background color theme.",
-  Present_Intro: "Displays the opening title and mathematical prompt (√N = ?) with timed fade-in animations.",
+  InitScene: "Khởi tạo canvas hoạt ảnh với kích thước viewbox và màu nền theme đã chỉ định.",
+  Present_Intro: "Hiển thị tiêu đề mở đầu và câu hỏi toán học (√N = ?) với hiệu ứng fade-in theo thời gian.",
   
   // Scenes
-  Scene_Factorization: "Computes prime factorization of N and displays the division ladder showing step-by-step factor extraction.",
-  Scene_MorphToEquation: "Transforms the prime factorization into root notation, morphing between equation representations.",
-  Scene_SimplifyEquation: "Simplifies the root expression to its final form by extracting perfect squares.",
+  Scene_Factorization: "Tính phân tích thừa số nguyên tố của N và hiển thị thang chia thể hiện từng bước trích xuất thừa số.",
+  Scene_MorphToEquation: "Biến đổi phân tích thừa số nguyên tố thành ký hiệu căn, chuyển đổi giữa các biểu diễn phương trình.",
+  Scene_SimplifyEquation: "Đơn giản hóa biểu thức căn về dạng cuối cùng bằng cách trích xuất các bình phương hoàn hảo.",
   
   // Subscenes
-  Subscene_Divisions: "Calculates the division chain: repeatedly divides N by its prime factors to build the ladder.",
-  Subscene_CountPowers: "Counts how many times each prime factor appears, producing power representations like 2⁴.",
-  Subscene_FormatPrimeFactorExpr: "Formats the prime factorization as LaTeX (e.g., '720 = 2⁴ × 3² × 5').",
-  Subscene_RootRewrite: "Rewrites the equation with the square root applied to the prime factorization.",
-  Subscene_SplitRoots: "Splits the root into separate terms for each prime factor power.",
-  Subscene_SimplifyFinalLatex: "Produces the final simplified form by extracting factors with even powers from the root.",
+  Subscene_Divisions: "Tính chuỗi phép chia: chia lặp lại N cho các thừa số nguyên tố để xây dựng thang.",
+  Subscene_CountPowers: "Đếm số lần xuất hiện của mỗi thừa số nguyên tố, tạo biểu diễn lũy thừa như 2⁴.",
+  Subscene_FormatPrimeFactorExpr: "Định dạng phân tích thừa số nguyên tố thành LaTeX (ví dụ: '720 = 2⁴ × 3² × 5').",
+  Subscene_RootRewrite: "Viết lại phương trình với căn bậc hai áp dụng cho phân tích thừa số nguyên tố.",
+  Subscene_SplitRoots: "Tách căn thành các hạng tử riêng biệt cho mỗi lũy thừa thừa số nguyên tố.",
+  Subscene_SimplifyFinalLatex: "Tạo dạng đơn giản cuối cùng bằng cách trích xuất các thừa số có lũy thừa chẵn ra khỏi căn.",
   
   // Presentation functions
-  Present_Scene_Factorization: "Animates the factorization scene: shows division ladder rows with computed timing.",
-  Present_Subscene_Divisions: "Renders each ladder row (left quotient, right factor) with staggered timing.",
-  Present_Micro_LadderRow: "Displays a single ladder row: the factor on the right and quotient on the left.",
-  Present_Subscene_PrimeFactorExpr: "Shows the complete prime factorization equation at the bottom.",
-  Present_Scene_MorphToEquation: "Animates cross-fade transitions between equation representations.",
-  Present_Scene_SimplifyEquation: "Animates the final simplification with a smooth cross-fade to the answer.",
+  Present_Scene_Factorization: "Tạo hoạt ảnh cảnh phân tích: hiển thị các hàng thang chia với thời gian được tính toán.",
+  Present_Subscene_Divisions: "Render từng hàng thang (thương bên trái, thừa số bên phải) với thời gian so le.",
+  Present_Micro_LadderRow: "Hiển thị một hàng thang đơn: thừa số bên phải và thương bên trái.",
+  Present_Subscene_PrimeFactorExpr: "Hiển thị phương trình phân tích thừa số nguyên tố hoàn chỉnh ở phía dưới.",
+  Present_Scene_MorphToEquation: "Tạo hoạt ảnh chuyển đổi cross-fade giữa các biểu diễn phương trình.",
+  Present_Scene_SimplifyEquation: "Tạo hoạt ảnh đơn giản hóa cuối cùng với hiệu ứng cross-fade mượt mà đến đáp án.",
   
   // Primitives
-  IR_BoardInit: "Low-level IR call to initialize the rendering board with viewbox and theme.",
-  ShowTextTimed: "Primitive that creates a text element with position, style, and fade-in timing.",
-  ShowMathTimed: "Primitive that creates a LaTeX math element with position, style, and fade-in timing.",
-  CrossFadeMathTimed: "Primitive that smoothly transitions math content from one expression to another.",
+  IR_BoardInit: "Lệnh IR cấp thấp để khởi tạo bảng render với viewbox và theme.",
+  ShowTextTimed: "Primitive tạo phần tử văn bản với vị trí, style và thời gian fade-in.",
+  ShowMathTimed: "Primitive tạo phần tử toán LaTeX với vị trí, style và thời gian fade-in.",
+  CrossFadeMathTimed: "Primitive chuyển đổi mượt mà nội dung toán từ biểu thức này sang biểu thức khác.",
 };
 
-// Semantic explanations for parameters
+// Giải thích ngữ nghĩa cho các tham số
 const paramExplanations: Record<string, string> = {
-  number: "The input number to simplify. Change this to see different square root simplifications.",
-  limits: "Safety constraints: max_factors prevents runaway animations, desired_rows_for_scale controls text sizing.",
-  max_factors: "Maximum number of prime factors allowed. Prevents very long animations for highly composite numbers.",
-  desired_rows_for_scale: "Target row count for auto-scaling text. More rows = smaller text to fit.",
-  text: "Content strings: the title shown at top and the prompt template for the question.",
-  title: "The heading displayed at the top of the animation (e.g., 'Root Simplification').",
-  prompt_template: "LaTeX template for the question. ${N} is replaced with the actual number.",
-  style: "Visual styling: colors, scales, and font weights for different text elements.",
-  board: "Canvas settings: viewbox defines coordinate system, theme sets background color.",
-  viewbox: "Coordinate bounds [xMin, yMax, xMax, yMin] defining the visible area.",
-  layout: "Positioning: anchor points and coordinates for title, prompt, ladder, and equation.",
-  title_at: "Position of the title text. Anchor defines alignment point.",
-  prompt_at: "Position of the √N = ? prompt below the title.",
-  ladder: "Ladder positioning: x coordinates for left/right columns, y0 start, dy row spacing.",
-  line_at: "Position of the prime factorization equation line.",
-  time: "Timing configuration: when each element appears and how long transitions take.",
-  scene_spans: "Absolute time ranges for each major scene (factorization, morphing, simplify).",
-  factorization: "Timing for the factorization scene: division reveals and prime factor display.",
-  morphing: "Timing for equation morphing: cross-fade transitions between representations.",
-  simplify: "Timing for final simplification: transition to the simplified answer.",
+  number: "Số đầu vào cần đơn giản hóa. Thay đổi giá trị này để xem các phép đơn giản hóa căn bậc hai khác nhau.",
+  limits: "Ràng buộc an toàn: max_factors ngăn hoạt ảnh quá dài, desired_rows_for_scale điều khiển cỡ chữ.",
+  max_factors: "Số lượng thừa số nguyên tố tối đa cho phép. Ngăn hoạt ảnh quá dài cho các số có nhiều thừa số.",
+  desired_rows_for_scale: "Số hàng mục tiêu để tự động scale chữ. Nhiều hàng hơn = chữ nhỏ hơn để vừa khung.",
+  text: "Chuỗi nội dung: tiêu đề hiển thị ở trên và mẫu câu hỏi.",
+  title: "Tiêu đề hiển thị ở đầu hoạt ảnh (ví dụ: 'Đơn Giản Hóa Căn').",
+  prompt_template: "Mẫu LaTeX cho câu hỏi. ${N} được thay thế bằng số thực tế.",
+  style: "Style trực quan: màu sắc, tỷ lệ và độ đậm font cho các phần tử văn bản khác nhau.",
+  board: "Cài đặt canvas: viewbox định nghĩa hệ tọa độ, theme đặt màu nền.",
+  viewbox: "Giới hạn tọa độ [xMin, yMax, xMax, yMin] xác định vùng hiển thị.",
+  layout: "Định vị: điểm neo và tọa độ cho tiêu đề, câu hỏi, thang và phương trình.",
+  title_at: "Vị trí văn bản tiêu đề. Anchor định nghĩa điểm căn chỉnh.",
+  prompt_at: "Vị trí câu hỏi √N = ? bên dưới tiêu đề.",
+  ladder: "Định vị thang: tọa độ x cho cột trái/phải, y0 bắt đầu, dy khoảng cách hàng.",
+  line_at: "Vị trí dòng phương trình phân tích thừa số nguyên tố.",
+  time: "Cấu hình thời gian: khi nào mỗi phần tử xuất hiện và chuyển đổi kéo dài bao lâu.",
+  scene_spans: "Khoảng thời gian tuyệt đối cho mỗi cảnh chính (phân tích, biến đổi, đơn giản hóa).",
+  factorization: "Thời gian cho cảnh phân tích: hiển thị phép chia và thừa số nguyên tố.",
+  morphing: "Thời gian cho biến đổi phương trình: chuyển đổi cross-fade giữa các biểu diễn.",
+  simplify: "Thời gian cho đơn giản hóa cuối cùng: chuyển đổi đến đáp án đã đơn giản hóa.",
 };
 
 const getExplanation = (name: string): string | null => {
   return functionExplanations[name] || paramExplanations[name] || null;
 };
 
-// Semantic explanations for statement types
+// Giải thích ngữ nghĩa cho các loại câu lệnh
 const statementExplanations: Record<string, string> = {
-  call: "Invokes a function with arguments. The result can be stored in a variable using → output syntax.",
-  let: "Declares local variables. Values can be literals or expressions that compute results dynamically.",
-  foreach: "Iterates over a range or array, executing the body statements for each element.",
-  ir: "Intermediate Representation call - directly emits a low-level rendering command to the timeline.",
-  return: "Returns a value from the current function, making it available to the caller.",
-  params: "Input parameters passed to this function. Referenced using $paramName syntax in the body.",
+  call: "Gọi một hàm với các đối số. Kết quả có thể được lưu vào biến bằng cú pháp → output.",
+  let: "Khai báo biến cục bộ. Giá trị có thể là literal hoặc biểu thức tính toán kết quả động.",
+  foreach: "Lặp qua một range hoặc mảng, thực thi các câu lệnh trong body cho mỗi phần tử.",
+  ir: "Lệnh Intermediate Representation - phát trực tiếp lệnh render cấp thấp đến timeline.",
+  return: "Trả về giá trị từ hàm hiện tại, làm cho giá trị đó khả dụng cho caller.",
+  params: "Tham số đầu vào được truyền cho hàm này. Tham chiếu bằng cú pháp $paramName trong body.",
 };
 
 interface YAMLTreePanelProps {
