@@ -14,7 +14,8 @@ interface ConfigSubtabProps {
   versions: ConfigVersion[];
   selectedVersionId: string | null;
   onVersionSelect: (id: string) => void;
-  content: string;
+  systemPrompt: string;
+  fullPrompt: string;
   zoomLevel?: number;
 }
 
@@ -22,14 +23,15 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   versions,
   selectedVersionId,
   onVersionSelect,
-  content,
+  systemPrompt,
+  fullPrompt,
   zoomLevel = 100,
 }) => {
   const scale = zoomLevel / 100;
 
   return (
-    <div className="grid grid-cols-3 gap-2 h-full">
-      {/* Versions Panel - Left 1/3 */}
+    <div className="grid grid-cols-5 gap-2 h-full">
+      {/* Versions Panel - 1/5 */}
       <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
           <span className="text-xs font-medium text-muted-foreground">Versions</span>
@@ -65,17 +67,32 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Content Panel - Right 2/3 */}
+      {/* System Prompt Panel - 2/5 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">Content</span>
+          <span className="text-xs font-medium text-muted-foreground">System Prompt</span>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
             className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
             style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
           >
-            {content || 'No content selected'}
+            {systemPrompt || 'No system prompt configured'}
+          </pre>
+        </ScrollArea>
+      </div>
+
+      {/* Full Prompt Panel - 2/5 */}
+      <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
+        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+          <span className="text-xs font-medium text-muted-foreground">Full Prompt</span>
+        </div>
+        <ScrollArea className="h-[calc(100%-2rem)]">
+          <pre
+            className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
+            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
+          >
+            {fullPrompt || 'No full prompt available'}
           </pre>
         </ScrollArea>
       </div>
@@ -90,96 +107,156 @@ const createSampleVersions = (prefix: string): ConfigVersion[] => [
   { id: `${prefix}-v1`, name: `${prefix} v1.0`, timestamp: '2024-01-08 16:45' },
 ];
 
-const sampleContent: Record<string, string> = {
-  'VA1120-EXTRACT-DESC': `# VA1120 - Extract Description Configuration
+const sampleSystemPrompts: Record<string, string> = {
+  'VA1120-EXTRACT-DESC': `You are an expert at extracting structured descriptions from learning objectives.
 
-## Purpose
-Extracts natural language descriptions from learning objectives.
-
-## Parameters
-- input_format: text/markdown
-- output_format: structured_json
-- max_tokens: 2048
-- temperature: 0.3
-
-## Pipeline Steps
-1. Parse input LO content
-2. Identify key concepts and relationships
-3. Generate structured description
-4. Validate output schema`,
-
-  'VA1210-GENERATE-DSL': `# VA1210 - Generate DSL Configuration
-
-## Purpose
-Converts descriptions to AnimYAML DSL format.
-
-## Parameters
-- dsl_version: 2.0
-- strict_mode: true
-- include_comments: true
-
-## Transformation Rules
-1. Map concepts to visual elements
-2. Define animation sequences
-3. Set timing parameters
-4. Generate function definitions`,
-
-  'VA2210-GENERATE-SHORT-DESC': `# VA2210 - Generate Short Description
-
-## Purpose
-Creates concise summaries from full descriptions.
-
-## Parameters
-- max_length: 280
-- preserve_keywords: true
-- style: technical
+## Task
+Parse the provided learning objective and extract:
+1. Core concept being taught
+2. Key relationships and dependencies
+3. Expected learning outcomes
+4. Prerequisite knowledge
 
 ## Output Format
-Single paragraph, action-oriented language`,
+Return a structured JSON with the extracted information.
 
-  'VA2220-EDIT-SHORT-DESC': `# VA2220 - Edit Short Description
+## Guidelines
+- Be precise and technical
+- Preserve mathematical notation
+- Identify implicit assumptions`,
 
-## Purpose
-Refine and edit generated short descriptions.
+  'VA1210-GENERATE-DSL': `You are an AnimYAML DSL generator.
 
-## Editing Guidelines
-- Maintain technical accuracy
-- Improve readability
-- Ensure consistency with source material
+## Task
+Convert the provided description into valid AnimYAML DSL code.
 
-## Validation
-- Character limit check
-- Keyword preservation verification`,
+## DSL Requirements
+- Use schema_version: 2
+- Define reusable functions in defs section
+- Use proper timing with t0/t1 parameters
+- Include easing functions for smooth animations
 
-  'VA2310-GENERATE-DSL': `# VA2310 - Generate DSL (Advanced)
+## Output
+Valid YAML that can be parsed by the AnimYAML interpreter.`,
 
-## Purpose
-Advanced DSL generation with extended features.
+  'VA2210-GENERATE-SHORT-DESC': `You are a technical writer specializing in concise descriptions.
 
-## Parameters
-- dsl_version: 2.0
-- enable_macros: true
-- optimization_level: 2
+## Task
+Create a short description (max 280 characters) that captures the essence of the animation.
 
-## Features
-- Template expansion
-- Macro definitions
-- Conditional compilation`,
+## Guidelines
+- Use action-oriented language
+- Highlight the key visual transformation
+- Maintain technical accuracy`,
 
-  'VA2320-EDIT-DSL': `# VA2320 - Edit DSL
+  'VA2220-EDIT-SHORT-DESC': `You are an editor refining short descriptions.
 
-## Purpose
-Manual editing and refinement of generated DSL.
+## Task
+Review and improve the provided short description.
 
-## Editor Features
-- Syntax highlighting
-- Real-time validation
-- Auto-completion
+## Focus Areas
+- Clarity and readability
+- Technical precision
+- Engagement factor`,
 
-## Validation Rules
-- Schema compliance
-- Reference resolution
-- Type checking`,
+  'VA2310-GENERATE-DSL': `You are an advanced AnimYAML DSL generator with macro support.
+
+## Task
+Generate optimized DSL with advanced features.
+
+## Features to Use
+- Macro definitions for repetitive patterns
+- Conditional compilation directives
+- Optimization hints`,
+
+  'VA2320-EDIT-DSL': `You are a DSL code reviewer and editor.
+
+## Task
+Review and improve the provided AnimYAML DSL code.
+
+## Focus Areas
+- Code efficiency
+- Readability
+- Animation smoothness
+- Timing optimization`,
+};
+
+const sampleFullPrompts: Record<string, string> = {
+  'VA1120-EXTRACT-DESC': `[SYSTEM]
+You are an expert at extracting structured descriptions from learning objectives.
+...
+
+[USER]
+Please analyze the following learning objective and extract a structured description:
+
+Learning Objective: "Students will understand how prime factorization works by visualizing the factor tree decomposition of composite numbers."
+
+[CONTEXT]
+- Target audience: Middle school students
+- Animation style: Step-by-step visual breakdown
+- Duration: 30-60 seconds`,
+
+  'VA1210-GENERATE-DSL': `[SYSTEM]
+You are an AnimYAML DSL generator.
+...
+
+[USER]
+Generate AnimYAML DSL for the following description:
+
+Description: "Show a number being broken down into its prime factors using a tree structure. Each level of the tree reveals one factorization step."
+
+[CONTEXT]
+- Canvas size: 800x600
+- Color scheme: Dark theme with accent colors
+- Animation duration: 45 seconds`,
+
+  'VA2210-GENERATE-SHORT-DESC': `[SYSTEM]
+You are a technical writer specializing in concise descriptions.
+...
+
+[USER]
+Create a short description for this animation:
+
+Full Description: "This animation demonstrates prime factorization through an interactive factor tree visualization..."`,
+
+  'VA2220-EDIT-SHORT-DESC': `[SYSTEM]
+You are an editor refining short descriptions.
+...
+
+[USER]
+Please improve this short description:
+
+Current: "Factor tree animation showing prime factorization"
+
+[FEEDBACK]
+- Make it more engaging
+- Add action words`,
+
+  'VA2310-GENERATE-DSL': `[SYSTEM]
+You are an advanced AnimYAML DSL generator with macro support.
+...
+
+[USER]
+Generate optimized DSL with macros for:
+
+Description: "Create a reusable animation pattern for displaying mathematical expressions with step-by-step highlighting."`,
+
+  'VA2320-EDIT-DSL': `[SYSTEM]
+You are a DSL code reviewer and editor.
+...
+
+[USER]
+Please review and optimize this DSL code:
+
+\`\`\`yaml
+schema_version: 2
+params:
+  title: "Example"
+defs:
+  main:
+    body:
+      - call: { fn: show_title }
+\`\`\``,
 };
 
 interface ConfigPanelProps {
@@ -232,7 +309,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
               versions={createSampleVersions(tab.id)}
               selectedVersionId={selectedVersions[tab.id]}
               onVersionSelect={(id) => handleVersionSelect(tab.id, id)}
-              content={sampleContent[tab.id] || ''}
+              systemPrompt={sampleSystemPrompts[tab.id] || ''}
+              fullPrompt={sampleFullPrompts[tab.id] || ''}
               zoomLevel={zoomLevel}
             />
           </TabsContent>
