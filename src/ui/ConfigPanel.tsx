@@ -554,22 +554,25 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
   const [editableNotes, setEditableNotes] = useState<Record<string, string>>({});
 
   const subtabs = [
-    { id: 'IRF-IR-FUNCTIONS', label: 'IRF-IR Functions', isSpecial: 'irf' },
-    { id: 'EDSL-EXAMPLE-DSL', label: 'EDSL-ExampleDSL', isSpecial: 'edsl' },
-    { id: 'VA1120-EXTRACT-DESC', label: 'VA1120-EXTRACT-DESC', isSpecial: false },
-    { id: 'VA1210-GENERATE-DSL', label: 'VA1210-GENERATE-DSL', isSpecial: false },
-    { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210-GENERATE-SHORT DESC', isSpecial: false },
-    { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220-EDIT-SHORT DESC', isSpecial: false },
-    { id: 'VA2310-GENERATE-DSL', label: 'VA2310-GENERATE-DSL', isSpecial: false },
-    { id: 'VA2320-EDIT-DSL', label: 'VA2320-EDIT-DSL', isSpecial: false },
+    { id: 'IRF-IR-FUNCTIONS', label: 'IRF-IR Functions', isSpecial: 'irf', prefix: 'IRF' },
+    { id: 'EDSL-EXAMPLE-DSL', label: 'EDSL-ExampleDSL', isSpecial: 'edsl', prefix: 'EDSL' },
+    { id: 'VA1120-EXTRACT-DESC', label: 'VA1120-EXTRACT-DESC', isSpecial: false, prefix: 'VA1120-EXTRACT-DESC' },
+    { id: 'VA1210-GENERATE-DSL', label: 'VA1210-GENERATE-DSL', isSpecial: false, prefix: 'VA1210-GENERATE-DSL' },
+    { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210-GENERATE-SHORT DESC', isSpecial: false, prefix: 'VA2210-GENERATE-SHORT DESC' },
+    { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220-EDIT-SHORT DESC', isSpecial: false, prefix: 'VA2220-EDIT-SHORT DESC' },
+    { id: 'VA2310-GENERATE-DSL', label: 'VA2310-GENERATE-DSL', isSpecial: false, prefix: 'VA2310-GENERATE-DSL' },
+    { id: 'VA2320-EDIT-DSL', label: 'VA2320-EDIT-DSL', isSpecial: false, prefix: 'VA2320-EDIT-DSL' },
   ];
 
-  // Get versions from DB or fallback to sample data
-  const getVersions = (type: string, displayPrefix: string): ConfigVersion[] => {
-    const dbVersions = getVersionsForType(type);
-    if (dbVersions.length > 0) return dbVersions;
-    // Fallback to sample versions
-    return createSampleVersions(type, displayPrefix);
+  // Get prefix for a type
+  const getPrefix = (type: string): string => {
+    const tab = subtabs.find(t => t.id === type);
+    return tab?.prefix || type;
+  };
+
+  // Get versions from DB only (sample data is now in DB)
+  const getVersions = (type: string): ConfigVersion[] => {
+    return getVersionsForType(type);
   };
 
   // Get content for selected version
@@ -610,22 +613,24 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
   const handleSave = async (type: string) => {
     const selectedId = selectedVersions[type];
     const config = selectedId ? getConfigById(selectedId) : null;
-    const content = getContent(type, selectedId, sampleSystemPrompts[type] || sampleIRFunctionsList);
-    const notes = getNotes(type, selectedId, sampleImportantNotes[type] || '');
+    const content = getContent(type, selectedId, '');
+    const notes = getNotes(type, selectedId, '');
+    const prefix = getPrefix(type);
     
     if (config) {
-      await saveConfig(type, config.version, content, notes, config.id);
+      await saveConfig(type, config.version_name, content, notes, config.id);
     } else {
       // Create first version if none exists
-      await createNewVersion(type, content, notes);
+      await createNewVersion(type, content, notes, prefix);
     }
   };
 
   const handleCreate = async (type: string) => {
     const selectedId = selectedVersions[type];
-    const content = getContent(type, selectedId, sampleSystemPrompts[type] || sampleIRFunctionsList);
-    const notes = getNotes(type, selectedId, sampleImportantNotes[type] || '');
-    await createNewVersion(type, content, notes);
+    const content = getContent(type, selectedId, '');
+    const notes = getNotes(type, selectedId, '');
+    const prefix = getPrefix(type);
+    await createNewVersion(type, content, notes, prefix);
   };
 
   const handleDelete = async (id: string) => {
@@ -652,7 +657,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {/* IRF-IR Functions Tab */}
         <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
           <SimpleSubtab
-            versions={getVersions('IRF-IR-FUNCTIONS', 'IRF')}
+            versions={getVersions('IRF-IR-FUNCTIONS')}
             selectedVersionId={selectedVersions['IRF-IR-FUNCTIONS'] || null}
             onVersionSelect={(id) => handleVersionSelect('IRF-IR-FUNCTIONS', id)}
             onVersionDelete={handleDelete}
@@ -660,7 +665,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
             onContentSave={() => handleSave('IRF-IR-FUNCTIONS')}
             versionsTitle="IRF Versions"
             contentTitle="#IRF-IntermediateRepresentationFunctions"
-            content={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, sampleIRFunctionsList)}
+            content={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, '')}
             zoomLevel={zoomLevel}
           />
         </TabsContent>
@@ -668,7 +673,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {/* EDSL-ExampleDSL Tab */}
         <TabsContent value="EDSL-EXAMPLE-DSL" className="h-full m-0">
           <SimpleSubtab
-            versions={getVersions('EDSL-EXAMPLE-DSL', 'EDSL')}
+            versions={getVersions('EDSL-EXAMPLE-DSL')}
             selectedVersionId={selectedVersions['EDSL-EXAMPLE-DSL'] || null}
             onVersionSelect={(id) => handleVersionSelect('EDSL-EXAMPLE-DSL', id)}
             onVersionDelete={handleDelete}
@@ -676,7 +681,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
             onContentSave={() => handleSave('EDSL-EXAMPLE-DSL')}
             versionsTitle="EDSL Versions"
             contentTitle="#EDSL-ExampleDomainSpecificLanguage"
-            content={getContent('EDSL-EXAMPLE-DSL', selectedVersions['EDSL-EXAMPLE-DSL'] || null, sampleExampleDSLContent)}
+            content={getContent('EDSL-EXAMPLE-DSL', selectedVersions['EDSL-EXAMPLE-DSL'] || null, '')}
             zoomLevel={zoomLevel}
           />
         </TabsContent>
@@ -685,14 +690,14 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
         {subtabs.filter(tab => !tab.isSpecial).map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="h-full m-0">
             <ConfigSubtab
-              versions={getVersions(tab.id, tab.id)}
+              versions={getVersions(tab.id)}
               selectedVersionId={selectedVersions[tab.id] || null}
               onVersionSelect={(id) => handleVersionSelect(tab.id, id)}
               onVersionDelete={handleDelete}
               onVersionCreate={() => handleCreate(tab.id)}
               onSystemPromptSave={() => handleSave(tab.id)}
-              systemPrompt={getContent(tab.id, selectedVersions[tab.id] || null, sampleSystemPrompts[tab.id] || '')}
-              importantNotes={getNotes(tab.id, selectedVersions[tab.id] || null, sampleImportantNotes[tab.id] || '')}
+              systemPrompt={getContent(tab.id, selectedVersions[tab.id] || null, '')}
+              importantNotes={getNotes(tab.id, selectedVersions[tab.id] || null, '')}
               fullPrompt={sampleFullPrompts[tab.id] || ''}
               zoomLevel={zoomLevel}
             />
