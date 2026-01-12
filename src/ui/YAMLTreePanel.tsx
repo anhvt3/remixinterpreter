@@ -778,22 +778,22 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
         </div>
       </div>
       
-      {/* Editable Parameters */}
-      {spec?.params && onParamsChange && (
-        <ParamsEditor params={spec.params} onChange={handleParamsChange} />
-      )}
-      
-      {/* Legend */}
-      <div className="flex gap-3 px-3 py-2 border-b border-border/50 text-[10px]">
-        {(['entry', 'logic', 'presentation', 'primitive'] as const).map(cat => (
-          <div key={cat} className={`flex items-center gap-1 ${categoryColors[cat]}`}>
-            {categoryIcons[cat]}
-            <span>{categoryLabels[cat]}</span>
-          </div>
-        ))}
-      </div>
-      
       <ScrollArea className="flex-1">
+        {/* Editable Parameters */}
+        {spec?.params && onParamsChange && (
+          <ParamsEditor params={spec.params} onChange={handleParamsChange} />
+        )}
+        
+        {/* Legend */}
+        <div className="flex gap-3 px-3 py-2 border-b border-border/50 text-[10px]">
+          {(['entry', 'logic', 'presentation', 'primitive'] as const).map(cat => (
+            <div key={cat} className={`flex items-center gap-1 ${categoryColors[cat]}`}>
+              {categoryIcons[cat]}
+              <span>{categoryLabels[cat]}</span>
+            </div>
+          ))}
+        </div>
+        
         <div className="py-2">
           {allFunctions.map(node => (
             <TreeNode
