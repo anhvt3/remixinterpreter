@@ -267,17 +267,17 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         </ScrollArea>
       )}
 
-      {/* Save/Discard Dialog */}
+      {/* Cancel/Save Dialog */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes. Would you like to save them before leaving?
+              You have unsaved changes. Would you like to save them?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscard}>Discard</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => { handleSave(); setShowSaveDialog(false); }}>
               Save
             </AlertDialogAction>
