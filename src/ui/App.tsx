@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ZoomIn, ZoomOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
@@ -94,7 +96,15 @@ export const App: React.FC = () => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
   const [elementCallChains, setElementCallChains] = useState<Map<string, CallChainEntry[]>>(new Map());
-  
+  const [zoomLevel, setZoomLevel] = useState(100);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + 10, 150));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - 10, 50));
+  }, []);
   // Persistent DSL panel state (survives tab switches)
   const [dslPanelState, setDslPanelState] = useState<DSLPanelState>(DEFAULT_DSL_PANEL_STATE);
   
@@ -253,10 +263,35 @@ export const App: React.FC = () => {
           <h1 className="text-sm font-semibold text-foreground">AnimYAML Studio</h1>
           <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">v2.0</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>schema_version: 2</span>
-          <span className="text-border">•</span>
-          <span>dialect: AnimYAML-DSL</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>schema_version: 2</span>
+            <span className="text-border">•</span>
+            <span>dialect: AnimYAML-DSL</span>
+          </div>
+          <div className="flex items-center gap-1 border-l border-border pl-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 50}
+              title="Zoom out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground w-10 text-center">{zoomLevel}%</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 150}
+              title="Zoom in"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
       
@@ -279,7 +314,7 @@ export const App: React.FC = () => {
             </TabsList>
           </div>
           
-          <div className="flex-1 min-h-0 p-2 overflow-hidden">
+          <div className="flex-1 min-h-0 p-2 overflow-hidden" style={{ fontSize: `${zoomLevel}%` }}>
             {/* LO-Desc Tab: LO | Desc | Chat */}
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
