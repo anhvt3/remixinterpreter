@@ -252,7 +252,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallCh
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="py-1" style={{ fontSize: `${zoomLevel}%` }}>
+        <div className="py-1" style={{ zoom: zoomLevel / 100 }}>
           {steps.length === 0 ? (
             <div className="text-xs text-muted-foreground text-center py-8">
               No execution steps yet

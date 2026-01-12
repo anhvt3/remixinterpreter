@@ -149,30 +149,16 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
         style={{ minHeight: 200 }}
       >
         {dimensions.width > 0 && dimensions.height > 0 ? (
-          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` }}>
+          <div style={{ zoom: zoomLevel / 100 }}>
             <AnimRenderer
               events={events}
               currentTime={currentTime}
-              width={dimensions.width * (100 / zoomLevel)}
-              height={dimensions.height * (100 / zoomLevel)}
+              width={dimensions.width / (zoomLevel / 100)}
+              height={dimensions.height / (zoomLevel / 100)}
               selectedElementId={selectedElementId}
               onElementClick={onElementClick}
             />
           </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-            Loading...
-          </div>
-        )}
-        {dimensions.width > 0 && dimensions.height > 0 ? (
-          <AnimRenderer
-            events={events}
-            currentTime={currentTime}
-            width={dimensions.width}
-            height={dimensions.height}
-            selectedElementId={selectedElementId}
-            onElementClick={onElementClick}
-          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
             Loading...
