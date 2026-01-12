@@ -634,14 +634,14 @@ export const App: React.FC = () => {
             )}
           </div>
           
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Editing Tab: 6 collapsible panels */}
-            <TabsContent value="editing" className="h-full m-0">
+            <TabsContent value="editing" className="flex-1 min-h-0 m-0 relative overflow-hidden">
               <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} />
             </TabsContent>
 
             {/* Config Tab */}
-            <TabsContent value="config" className="h-full m-0">
+            <TabsContent value="config" className="flex-1 min-h-0 m-0 overflow-hidden">
               {configAuthenticated ? (
                 <ConfigPanel 
                   zoomLevel={zoomLevel} 

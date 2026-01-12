@@ -48,10 +48,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ title = 'Chat', zoomLevel 
   };
   
   return (
-    <div className="flex flex-col h-full panel">
-      <div className="panel-header">{title}</div>
+    <div className="flex flex-col h-full min-h-0 panel">
+      <div className="panel-header shrink-0">{title}</div>
       
-      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4" style={{ zoom: zoomLevel / 100 }}>
+      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4 scrollbar-thin" style={{ zoom: zoomLevel / 100 }}>
         {messages.map((message) => (
           <div
             key={message.id}

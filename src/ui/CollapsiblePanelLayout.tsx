@@ -99,14 +99,16 @@ export const PanelContentArea: React.FC<PanelContentAreaProps> = ({
   sortedVisiblePanelIds,
 }) => {
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 p-2">
+    <div className="absolute inset-0 grid grid-cols-3 gap-2 p-2">
       {sortedVisiblePanelIds.map((panelId) => {
         const panel = panels.find(p => p.id === panelId);
         if (!panel) return null;
         
         return (
-          <div key={panelId} className="h-full min-h-0 flex flex-col overflow-hidden">
-            {panel.render()}
+          <div key={panelId} className="relative min-w-0 overflow-hidden">
+            <div className="absolute inset-0">
+              {panel.render()}
+            </div>
           </div>
         );
       })}
