@@ -1549,9 +1549,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   
   return (
     <div className="flex flex-col h-full panel">
-      <div className="panel-header flex items-center justify-between">
-        <span>YAMLScript Tree</span>
-      </div>
+      <div className="panel-header sr-only">YAMLScript Tree</div>
       
       <ScrollArea className="flex-1">
         <div style={{ zoom: zoomLevel / 100 }}>
