@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Save, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ConfigVersion {
@@ -14,6 +16,9 @@ interface ConfigSubtabProps {
   versions: ConfigVersion[];
   selectedVersionId: string | null;
   onVersionSelect: (id: string) => void;
+  onVersionDelete?: (id: string) => void;
+  onVersionCreate?: () => void;
+  onSystemPromptSave?: () => void;
   systemPrompt: string;
   fullPrompt: string;
   zoomLevel?: number;
@@ -23,6 +28,9 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   versions,
   selectedVersionId,
   onVersionSelect,
+  onVersionDelete,
+  onVersionCreate,
+  onSystemPromptSave,
   systemPrompt,
   fullPrompt,
   zoomLevel = 100,
@@ -33,30 +41,55 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
     <div className="grid grid-cols-5 gap-2 h-full">
       {/* Versions Panel - 1/5 */}
       <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
           <span className="text-xs font-medium text-muted-foreground">Versions</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            onClick={onVersionCreate}
+            title="Create new version"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <div className="p-2 space-y-1" style={{ fontSize: `${scale}rem` }}>
             {versions.map((version) => (
-              <button
+              <div
                 key={version.id}
-                onClick={() => onVersionSelect(version.id)}
                 className={cn(
-                  "w-full text-left px-3 py-2 rounded-md text-xs transition-colors",
+                  "w-full text-left px-3 py-2 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
                   selectedVersionId === version.id
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "hover:bg-muted text-muted-foreground hover:text-foreground"
                 )}
               >
-                <div className="font-medium">{version.name}</div>
-                <div className="text-[0.65rem] opacity-70 mt-0.5">{version.timestamp}</div>
-                {version.isActive && (
-                  <span className="inline-block mt-1 px-1.5 py-0.5 text-[0.6rem] bg-accent/20 text-accent rounded">
-                    Active
-                  </span>
-                )}
-              </button>
+                <button
+                  onClick={() => onVersionSelect(version.id)}
+                  className="flex-1 text-left"
+                >
+                  <div className="font-medium">{version.name}</div>
+                  <div className="text-[0.65rem] opacity-70 mt-0.5">{version.timestamp}</div>
+                  {version.isActive && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 text-[0.6rem] bg-accent/20 text-accent rounded">
+                      Active
+                    </span>
+                  )}
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onVersionDelete?.(version.id);
+                  }}
+                  title="Delete version"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             ))}
             {versions.length === 0 && (
               <div className="text-xs text-muted-foreground p-3 text-center">
@@ -69,8 +102,17 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
 
       {/* System Prompt Panel - 2/5 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
           <span className="text-xs font-medium text-muted-foreground">System Prompt</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            onClick={onSystemPromptSave}
+            title="Save system prompt"
+          >
+            <Save className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
