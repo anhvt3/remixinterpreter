@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
@@ -201,81 +202,99 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-0 p-2 overflow-hidden">
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <CodePanel
-                  title="LO"
-                  content={loContent}
-                  onChange={setLoContent}
-                  language="text"
-                />
-                <CodePanel
-                  title="Desc"
-                  content={descContent}
-                  onChange={setDescContent}
-                  language="text"
-                />
-                <ChatPanel title="Chat" />
+                <ScrollArea className="h-full">
+                  <CodePanel
+                    title="LO"
+                    content={loContent}
+                    onChange={setLoContent}
+                    language="text"
+                  />
+                </ScrollArea>
+                <ScrollArea className="h-full">
+                  <CodePanel
+                    title="Desc"
+                    content={descContent}
+                    onChange={setDescContent}
+                    language="text"
+                  />
+                </ScrollArea>
+                <ScrollArea className="h-full">
+                  <ChatPanel title="Chat" />
+                </ScrollArea>
               </div>
             </TabsContent>
             
             <TabsContent value="desc-dsl" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <CodePanel
-                  title="Desc"
-                  content={descContent}
-                  onChange={setDescContent}
-                  language="text"
-                />
-                <YAMLScriptPanel
-                  spec={parsedSpec}
-                  content={paramsContent}
-                  onChange={handleParamsChange}
-                  onParamsChange={handleParamsObjectChange}
-                  onFunctionArgsChange={handleFunctionArgsChange}
-                />
-                <ChatPanel title="Chat" />
+                <ScrollArea className="h-full">
+                  <CodePanel
+                    title="Desc"
+                    content={descContent}
+                    onChange={setDescContent}
+                    language="text"
+                  />
+                </ScrollArea>
+                <ScrollArea className="h-full">
+                  <YAMLScriptPanel
+                    spec={parsedSpec}
+                    content={paramsContent}
+                    onChange={handleParamsChange}
+                    onParamsChange={handleParamsObjectChange}
+                    onFunctionArgsChange={handleFunctionArgsChange}
+                  />
+                </ScrollArea>
+                <ScrollArea className="h-full">
+                  <ChatPanel title="Chat" />
+                </ScrollArea>
               </div>
             </TabsContent>
             
             <TabsContent value="dsl-anim" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <YAMLScriptPanel
-                  spec={parsedSpec}
-                  content={paramsContent}
-                  onChange={handleParamsChange}
-                  onParamsChange={handleParamsObjectChange}
-                  onFunctionArgsChange={handleFunctionArgsChange}
-                  onLineClick={handleLineClick}
-                  highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
-                />
+                <ScrollArea className="h-full">
+                  <YAMLScriptPanel
+                    spec={parsedSpec}
+                    content={paramsContent}
+                    onChange={handleParamsChange}
+                    onParamsChange={handleParamsObjectChange}
+                    onFunctionArgsChange={handleFunctionArgsChange}
+                    onLineClick={handleLineClick}
+                    highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
+                  />
+                </ScrollArea>
                 
                 <AnimPanelWithControls 
                   events={events} 
                   selectedElementId={selectedElementId}
                   onElementClick={handleElementClick}
                 />
-                <div className="flex flex-col gap-2 h-full">
-                  <div className="flex-1 min-h-0">
+                <div className="flex flex-col gap-2 h-full overflow-hidden">
+                  <ScrollArea className="flex-1 min-h-0">
                     <ChatPanel title="Chat" />
-                  </div>
-                  <div className="h-1/3 min-h-0">
+                  </ScrollArea>
+                  <ScrollArea className="h-1/3 min-h-0">
                     <TimelineDebugPanel events={events} />
-                  </div>
+                  </ScrollArea>
                 </div>
               </div>
             </TabsContent>
             
             <TabsContent value="dsl-runtime" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
-                <YAMLScriptPanel
-                  spec={parsedSpec}
-                  content={paramsContent}
-                  onChange={handleParamsChange}
-                  onParamsChange={handleParamsObjectChange}
-                  onFunctionArgsChange={handleFunctionArgsChange}
-                />
+                <ScrollArea className="h-full">
+                  <YAMLScriptPanel
+                    spec={parsedSpec}
+                    content={paramsContent}
+                    onChange={handleParamsChange}
+                    onParamsChange={handleParamsObjectChange}
+                    onFunctionArgsChange={handleFunctionArgsChange}
+                  />
+                </ScrollArea>
                 
                 {/* Runtime Trace Panel */}
-                <RuntimePanel steps={runtimeSteps} />
+                <ScrollArea className="h-full">
+                  <RuntimePanel steps={runtimeSteps} />
+                </ScrollArea>
                 
                 {/* Anim Panel */}
                 <AnimPanelWithControls 
