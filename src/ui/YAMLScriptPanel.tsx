@@ -1,8 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { ChevronsUpDown, ChevronsDownUp, Undo2, Redo2, Save } from 'lucide-react';
 import yaml from 'js-yaml';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { YAMLSpec, Params } from '../core/types';
 import type { CallChainEntry } from '../core/runtimeTracer';
 
@@ -33,15 +44,10 @@ interface YAMLScriptPanelProps {
   highlightedElementId?: string | null;
   elementCallChain?: CallChainEntry[] | null;
   zoomLevel?: number;
-  // Callback when a statement is clicked in tree view
   onStatementClick?: (fnName: string, stmtIndex: number) => void;
-  // Currently selected statement for highlighting
   selectedStatement?: { fnName: string; stmtIndex: number } | null;
-  // Callback when a function definition is clicked in tree view
   onFunctionDefinitionClick?: (fnName: string) => void;
-  // Currently selected function definition for highlighting
   selectedFunctionDefinition?: string | null;
-  // All function names for expand/collapse all
   allFunctionNames?: string[];
 }
 
@@ -63,23 +69,39 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onFunctionDefinitionClick,
   selectedFunctionDefinition,
 }) => {
-  const setViewMode = (mode: 'code' | 'tree') => {
-    onPanelStateChange?.({ ...panelState, viewMode: mode });
-  };
-
-  // --- Code view: keep a local draft so editing works even while YAML is temporarily invalid
+  const panelRef = useRef<HTMLDivElement>(null);
+  
+  // --- Code view state ---
   const [codeDraft, setCodeDraft] = useState(content);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const dirtyRef = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep draft in sync with external content (tree edits / successful merges)
+  // Undo/redo for code view
+  const { setValue: setUndoValue, undo, redo, canUndo, canRedo, reset: resetUndo } = useUndoRedo(
+    codeDraft, 
+    (val) => setCodeDraft(val)
+  );
+
+  // Keep draft in sync with external content
   useEffect(() => {
     if (!dirtyRef.current) {
       setCodeDraft(content);
       setCodeError(null);
+      resetUndo(content);
     }
-  }, [content]);
+  }, [content, resetUndo]);
+
+  const hasUnsavedChanges = codeDraft !== content;
+
+  const setViewMode = (mode: 'code' | 'tree') => {
+    // If switching away from code view with unsaved changes, prompt
+    if (panelState.viewMode === 'code' && mode === 'tree' && hasUnsavedChanges) {
+      setShowSaveDialog(true);
+      return;
+    }
+    onPanelStateChange?.({ ...panelState, viewMode: mode });
+  };
 
   const validateParamsYaml = useMemo(() => {
     return (text: string): string | null => {
@@ -94,30 +116,54 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     };
   }, []);
 
-  const handleCodeDraftChange = (next: string) => {
+  const handleCodeDraftChange = useCallback((next: string) => {
     dirtyRef.current = true;
-    setCodeDraft(next);
-
+    setUndoValue(next);
     const err = validateParamsYaml(next);
     setCodeError(err);
+  }, [setUndoValue, validateParamsYaml]);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    // Only propagate to parent when YAML parses (so it doesn't immediately revert while typing)
-    if (!err) {
-      debounceRef.current = setTimeout(() => {
-        onChange(next);
-        // We'll mark clean once parent accepts & echoes the same content back
-      }, 250);
+  const handleSave = useCallback(() => {
+    const err = validateParamsYaml(codeDraft);
+    if (err) {
+      setCodeError(err);
+      return;
     }
-  };
+    onChange(codeDraft);
+    dirtyRef.current = false;
+    setCodeError(null);
+  }, [codeDraft, onChange, validateParamsYaml]);
 
-  // When parent catches up, clear dirty flag
-  useEffect(() => {
-    if (dirtyRef.current && codeError === null && content === codeDraft) {
-      dirtyRef.current = false;
+  const handleDiscard = useCallback(() => {
+    setCodeDraft(content);
+    resetUndo(content);
+    dirtyRef.current = false;
+    setCodeError(null);
+    setShowSaveDialog(false);
+  }, [content, resetUndo]);
+
+  const handleSaveAndSwitch = useCallback(() => {
+    handleSave();
+    setShowSaveDialog(false);
+    onPanelStateChange?.({ ...panelState, viewMode: 'tree' });
+  }, [handleSave, onPanelStateChange, panelState]);
+
+  const handleDiscardAndSwitch = useCallback(() => {
+    handleDiscard();
+    onPanelStateChange?.({ ...panelState, viewMode: 'tree' });
+  }, [handleDiscard, onPanelStateChange, panelState]);
+
+  // Handle panel blur for save prompt
+  const handlePanelBlur = useCallback((e: React.FocusEvent) => {
+    if (panelState.viewMode !== 'code') return;
+    
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const isInsidePanel = panelRef.current?.contains(relatedTarget);
+    
+    if (!isInsidePanel && hasUnsavedChanges) {
+      setShowSaveDialog(true);
     }
-  }, [content, codeDraft, codeError]);
+  }, [hasUnsavedChanges, panelState.viewMode]);
 
   // Get all function names from spec for expand/collapse
   const allFunctionNames = spec?.defs ? Object.keys(spec.defs) : [];
@@ -131,9 +177,14 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div 
+      ref={panelRef}
+      className="flex flex-col h-full min-h-0"
+      onBlur={handlePanelBlur}
+    >
+      {/* Header row with tabs and controls */}
       <div className="flex items-center gap-2 mb-2 shrink-0">
-        <span className="text-xs font-medium text-foreground">DSLScript</span>
+        {/* View mode tabs */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setViewMode('tree')}
@@ -157,8 +208,46 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           </button>
         </div>
 
-        {/* Expand/Collapse buttons - only show in tree view */}
-        {panelState.viewMode === 'tree' ? (
+        {/* Code view controls */}
+        {panelState.viewMode === 'code' && (
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasUnsavedChanges || !!codeError}
+              className={`p-1 rounded transition-colors ${
+                hasUnsavedChanges && !codeError
+                  ? 'text-primary hover:bg-primary/20' 
+                  : 'opacity-30 cursor-not-allowed'
+              }`}
+              title="Save (Ctrl+S)"
+            >
+              <Save className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs text-syntax-comment ml-1">YAML</span>
+            {hasUnsavedChanges && (
+              <span className="text-xs text-primary ml-1" title="Unsaved changes">•</span>
+            )}
+          </div>
+        )}
+
+        {/* Tree view controls */}
+        {panelState.viewMode === 'tree' && (
           <div className="flex items-center gap-0.5 ml-auto">
             <button
               onClick={expandAll}
@@ -175,17 +264,17 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
               <ChevronsDownUp className="w-4 h-4" />
             </button>
           </div>
-        ) : (
-          <div className="ml-auto text-[10px] text-muted-foreground truncate max-w-[50%]">
-            {codeError ? (
-              <span className="text-destructive">Invalid YAML: {codeError}</span>
-            ) : (
-              <span>Editable</span>
-            )}
+        )}
+
+        {/* Error indicator for code view */}
+        {panelState.viewMode === 'code' && codeError && (
+          <div className="ml-auto text-[10px] text-destructive truncate max-w-[40%]" title={codeError}>
+            Invalid YAML
           </div>
         )}
       </div>
 
+      {/* Content area */}
       <div className="flex-1 min-h-0">
         {panelState.viewMode === 'tree' ? (
           <YAMLTreePanel 
@@ -208,16 +297,35 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           />
         ) : (
           <CodePanel
-            title="YAMLScript"
+            title=""
             content={codeDraft}
             onChange={handleCodeDraftChange}
             language="yaml"
             highlightedLines={highlightedLines}
             zoomLevel={zoomLevel}
             onLineClick={onLineClick}
+            showHeader={false}
           />
         )}
       </div>
+
+      {/* Save/Discard Dialog */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes in the code editor. Would you like to save them?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardAndSwitch}>Discard</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveAndSwitch} disabled={!!codeError}>
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

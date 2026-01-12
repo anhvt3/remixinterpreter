@@ -278,7 +278,7 @@ const tokenStyles: Record<Token['type'], string> = {
   'keyword-section': 'text-primary font-medium',
   
   // Names
-  'function-name': 'text-primary',              // Same as TreeView stmt.call.fn
+  'function-name': 'text-blue-400 font-medium',  // Function names in blue
   'variable-name': 'text-green-400',            // Same as TreeView let variable names
   'out-value': 'text-green-400',                // Same as TreeView out value
   'param-key': 'text-orange-400',               // Same as TreeView arg keys
