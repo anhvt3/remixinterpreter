@@ -26,6 +26,17 @@ interface CodePanelProps {
   showHeader?: boolean;
   onSave?: (value: string) => void;
   hasUnsavedChanges?: boolean;
+
+  /**
+   * Shows the built-in "Unsaved Changes" dialog when the editor blurs.
+   * Disable this when the parent component handles save prompting.
+   */
+  enableSavePromptOnBlur?: boolean;
+
+  /**
+   * Enables Ctrl/Cmd+S inside the textarea.
+   */
+  enableSaveHotkey?: boolean;
 }
 
 export const CodePanel: React.FC<CodePanelProps> = ({
@@ -40,6 +51,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   showHeader = true,
   onSave,
   hasUnsavedChanges: externalUnsaved,
+  enableSavePromptOnBlur = true,
+  enableSaveHotkey = true,
 }) => {
   const lines = content.split('\n');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -67,6 +80,14 @@ export const CodePanel: React.FC<CodePanelProps> = ({
     onChange?.(val); // Notify parent of changes for tracking
   });
 
+  const handleSave = useCallback(() => {
+    if (onSave) {
+      onSave(localContent);
+    } else if (onChange) {
+      onChange(localContent);
+    }
+  }, [localContent, onSave, onChange]);
+
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
@@ -82,19 +103,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       redo();
     }
     // Ctrl+S to save
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    if (!readOnly && enableSaveHotkey && (e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
       handleSave();
     }
-  }, [undo, redo]);
-
-  const handleSave = useCallback(() => {
-    if (onSave) {
-      onSave(localContent);
-    } else if (onChange) {
-      onChange(localContent);
-    }
-  }, [localContent, onSave, onChange]);
+  }, [undo, redo, handleSave, readOnly, enableSaveHotkey]);
 
   const handleDiscard = useCallback(() => {
     setLocalContent(content);
@@ -103,15 +116,17 @@ export const CodePanel: React.FC<CodePanelProps> = ({
 
   // Handle blur - check if cursor is leaving the panel
   const handlePanelBlur = useCallback((e: React.FocusEvent) => {
+    if (!enableSavePromptOnBlur) return;
+
     // Check if the new focus target is outside this panel
     const relatedTarget = e.relatedTarget as HTMLElement | null;
     const isInsidePanel = panelRef.current?.contains(relatedTarget);
-    
+
     if (!isInsidePanel && hasUnsavedChanges && !readOnly) {
       pendingBlurRef.current = true;
       setShowSaveDialog(true);
     }
-  }, [hasUnsavedChanges, readOnly]);
+  }, [enableSavePromptOnBlur, hasUnsavedChanges, readOnly]);
 
   // Scroll to first highlighted line when highlights change (works in both modes)
   useEffect(() => {
@@ -268,22 +283,24 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       )}
 
       {/* Cancel/Save Dialog */}
-      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Would you like to save them?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { handleSave(); setShowSaveDialog(false); }}>
-              Save
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {enableSavePromptOnBlur && (
+        <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes. Would you like to save them?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { handleSave(); setShowSaveDialog(false); }}>
+                Save
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 };
