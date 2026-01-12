@@ -20,6 +20,7 @@ interface ConfigSubtabProps {
   onVersionCreate?: () => void;
   onSystemPromptSave?: () => void;
   systemPrompt: string;
+  importantNotes: string;
   fullPrompt: string;
   zoomLevel?: number;
 }
@@ -32,6 +33,7 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   onVersionCreate,
   onSystemPromptSave,
   systemPrompt,
+  importantNotes,
   fullPrompt,
   zoomLevel = 100,
 }) => {
@@ -101,27 +103,45 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
       </div>
 
       {/* System Prompt Panel - 2/5 */}
-      <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">System Prompt</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
-            onClick={onSystemPromptSave}
-            title="Save system prompt"
-          >
-            <Save className="h-3.5 w-3.5" />
-          </Button>
+      <div className="col-span-2 h-full min-h-0 overflow-hidden flex flex-col gap-2">
+        {/* System Prompt - Top 2/3 */}
+        <div className="flex-[2] min-h-0 overflow-hidden border border-border rounded-lg bg-card flex flex-col">
+          <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50 shrink-0">
+            <span className="text-xs font-medium text-muted-foreground">System Prompt</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+              onClick={onSystemPromptSave}
+              title="Save system prompt"
+            >
+              <Save className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <pre
+              className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
+              style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
+            >
+              {systemPrompt || 'No system prompt configured'}
+            </pre>
+          </ScrollArea>
         </div>
-        <ScrollArea className="h-[calc(100%-2rem)]">
-          <pre
-            className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
-            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
-          >
-            {systemPrompt || 'No system prompt configured'}
-          </pre>
-        </ScrollArea>
+
+        {/* #ImportantNotes - Bottom 1/3 */}
+        <div className="flex-1 min-h-0 overflow-hidden border border-border rounded-lg bg-card flex flex-col">
+          <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50 shrink-0">
+            <span className="text-xs font-medium text-muted-foreground">#ImportantNotes</span>
+          </div>
+          <ScrollArea className="flex-1">
+            <pre
+              className="p-3 text-xs text-foreground whitespace-pre-wrap font-mono"
+              style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.5 }}
+            >
+              {importantNotes || 'No important notes'}
+            </pre>
+          </ScrollArea>
+        </div>
       </div>
 
       {/* Full Prompt Panel - 2/5 */}
@@ -148,6 +168,32 @@ const createSampleVersions = (prefix: string): ConfigVersion[] => [
   { id: `${prefix}-v2`, name: `${prefix} v2.1`, timestamp: '2024-01-10 09:15' },
   { id: `${prefix}-v1`, name: `${prefix} v1.0`, timestamp: '2024-01-08 16:45' },
 ];
+
+const sampleImportantNotes: Record<string, string> = {
+  'VA1120-EXTRACT-DESC': `• Always preserve mathematical notation exactly as written
+• Include implicit assumptions in the output
+• Flag ambiguous terms for human review`,
+
+  'VA1210-GENERATE-DSL': `• Use schema_version: 2 for all outputs
+• Validate timing constraints (t0 < t1)
+• Prefer reusable functions over inline definitions`,
+
+  'VA2210-GENERATE-SHORT-DESC': `• Maximum 280 characters
+• Must include primary action verb
+• Avoid jargon unless necessary`,
+
+  'VA2220-EDIT-SHORT-DESC': `• Preserve original meaning
+• Check character count after edits
+• Maintain consistent tense`,
+
+  'VA2310-GENERATE-DSL': `• Test macros with edge cases
+• Document all macro parameters
+• Use meaningful naming conventions`,
+
+  'VA2320-EDIT-DSL': `• Run validation before saving
+• Check for orphaned references
+• Verify animation timing flow`,
+};
 
 const sampleSystemPrompts: Record<string, string> = {
   'VA1120-EXTRACT-DESC': `You are an expert at extracting structured descriptions from learning objectives.
@@ -352,6 +398,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
               selectedVersionId={selectedVersions[tab.id]}
               onVersionSelect={(id) => handleVersionSelect(tab.id, id)}
               systemPrompt={sampleSystemPrompts[tab.id] || ''}
+              importantNotes={sampleImportantNotes[tab.id] || ''}
               fullPrompt={sampleFullPrompts[tab.id] || ''}
               zoomLevel={zoomLevel}
             />
