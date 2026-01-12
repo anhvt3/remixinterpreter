@@ -130,31 +130,31 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as editable textarea with syntax highlighting overlay */}
           <div className="relative p-4 pr-10" style={{ zoom: zoomLevel / 100 }}>
-            {/* Syntax highlighted layer (behind) */}
-            <div 
-              className="absolute inset-0 p-4 pr-10 pointer-events-none select-none"
-              aria-hidden="true"
-            >
-              <SyntaxHighlighter content={content} language={language} />
-            </div>
-            {/* Editable textarea (front, for editing) - text visible on selection */}
+            {/* Editable textarea (behind, for editing) */}
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               readOnly={readOnly}
-              className="relative w-full bg-transparent text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground"
+              className="absolute inset-0 w-full h-full p-4 pr-10 bg-transparent text-sm font-mono resize-none focus:outline-none border-none selection:bg-primary/40"
               style={{
                 lineHeight: '1.6',
                 tabSize: 2,
-                minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
                 caretColor: 'hsl(var(--foreground))',
                 color: 'transparent',
-                WebkitTextFillColor: 'transparent',
+                zIndex: 1,
               }}
               spellCheck={false}
             />
+            {/* Syntax highlighted layer (front, visual only) */}
+            <div 
+              className="relative pointer-events-none select-none"
+              aria-hidden="true"
+              style={{ minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em` }}
+            >
+              <SyntaxHighlighter content={content} language={language} />
+            </div>
           </div>
         </ScrollArea>
       )}
