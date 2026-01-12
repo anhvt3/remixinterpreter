@@ -58,7 +58,9 @@ function processTextCreate(scene: Scene, event: TimelineEvent, t: number): void 
   const args = event.args as Record<string, unknown>;
   const id = args.id as string;
   const text = args.text;
-  const mode = (args.mode as 'text' | 'math') || 'text';
+  // Force math mode for known math elements (prompt, factline, etc.)
+  const mathIds = ['prompt', 'factline'];
+  const mode: 'text' | 'math' = args.mode === 'math' || mathIds.includes(id) ? 'math' : 'text';
   const style = args.style as StyleDef;
   const ease = (args.ease as string) || 'easeOutCubic';
   
@@ -178,13 +180,16 @@ function processTextUpdate(scene: Scene, event: TimelineEvent, t: number): void 
  * Render math content using KaTeX
  */
 export function renderMath(latex: string): string {
+  console.log('renderMath input:', JSON.stringify(latex), 'length:', latex.length);
   try {
-    return katex.renderToString(latex, {
+    const result = katex.renderToString(latex, {
       throwOnError: false,
       displayMode: false,
     });
+    console.log('renderMath output length:', result.length, 'first 100 chars:', result.substring(0, 100));
+    return result;
   } catch (e) {
-    console.error('KaTeX error:', e);
+    console.error('KaTeX error:', e, 'for latex:', latex);
     return `<span style="color:red">${latex}</span>`;
   }
 }
