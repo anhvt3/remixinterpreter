@@ -542,7 +542,21 @@ interface ParamsEditorProps {
 }
 
 const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
-  const [expanded, setExpanded] = useState(true);
+  const [mainExpanded, setMainExpanded] = useState(true);
+  // Track which param groups are expanded - only 'number' is expanded by default
+  const [expandedParams, setExpandedParams] = useState<Set<string>>(new Set(['number']));
+  
+  const toggleParam = (key: string) => {
+    setExpandedParams(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
   
   const handleValueChange = (key: string, value: string) => {
     // Try to parse as number, otherwise keep as string
@@ -550,7 +564,7 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
     onChange({ ...params, [key]: parsed } as Params);
   };
   
-  const renderParamInput = (key: string, value: unknown, path: string[] = []) => {
+  const renderNestedValue = (key: string, value: unknown, path: string[] = []): React.ReactNode => {
     const fullPath = [...path, key].join('.');
     
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
@@ -558,7 +572,7 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
       return (
         <div key={fullPath} className="ml-2 border-l border-border/40 pl-2">
           <div className="text-xs text-muted-foreground py-1">{key}:</div>
-          {Object.entries(value).map(([k, v]) => renderParamInput(k, v, [...path, key]))}
+          {Object.entries(value).map(([k, v]) => renderNestedValue(k, v, [...path, key]))}
         </div>
       );
     }
@@ -603,13 +617,60 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
     );
   };
   
+  const renderParamInput = (key: string, value: unknown) => {
+    const isObject = typeof value === 'object' && value !== null && !Array.isArray(value);
+    const isExpanded = expandedParams.has(key);
+    
+    // For primitive values (like 'number'), just render the input directly
+    if (!isObject) {
+      return (
+        <div key={key} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/30 rounded">
+          <span className="text-xs text-orange-400 font-medium min-w-[80px]">{key}:</span>
+          <Input
+            type={typeof value === 'number' ? 'number' : 'text'}
+            value={String(value)}
+            onChange={(e) => handleValueChange(key, e.target.value)}
+            className="h-6 text-xs px-2 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
+          />
+        </div>
+      );
+    }
+    
+    // For objects, render as collapsible section
+    return (
+      <div key={key} className="border-b border-border/30 last:border-b-0">
+        <div 
+          className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-muted/30 rounded"
+          onClick={() => toggleParam(key)}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+          )}
+          <span className="text-xs text-orange-400 font-medium">{key}</span>
+          {!isExpanded && (
+            <span className="text-xs text-muted-foreground">
+              ({Object.keys(value as object).length} fields)
+            </span>
+          )}
+        </div>
+        {isExpanded && (
+          <div className="ml-4 pl-2 pb-2 border-l border-border/40">
+            {Object.entries(value as object).map(([k, v]) => renderNestedValue(k, v, [key]))}
+          </div>
+        )}
+      </div>
+    );
+  };
+  
   return (
     <div className="border-b border-border/50">
       <div 
         className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setMainExpanded(!mainExpanded)}
       >
-        {expanded ? (
+        {mainExpanded ? (
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
         ) : (
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
@@ -620,8 +681,8 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
           {Object.keys(params).length} params
         </span>
       </div>
-      {expanded && (
-        <div className="px-4 pb-3">
+      {mainExpanded && (
+        <div className="px-2 pb-2">
           {Object.entries(params).map(([k, v]) => renderParamInput(k, v))}
         </div>
       )}
