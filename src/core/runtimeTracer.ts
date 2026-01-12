@@ -11,20 +11,39 @@ import { resolve } from './resolver';
 import { evaluate, isExpression } from './exprEngine';
 import type { RuntimeStep } from '../ui/RuntimePanel';
 
+// Call chain entry: function name and statement index
+export interface CallChainEntry {
+  fnName: string;
+  stmtIndex: number;
+}
+
+// Map from element ID to its creation call chain
+// The chain is ordered from innermost (direct creator) to outermost (entry point)
+export type ElementCallChainMap = Map<string, CallChainEntry[]>;
+
 export interface TracedExecutionResult {
   timeline: TimelineEvent[];
   returnValue: unknown;
   steps: RuntimeStep[];
+  elementCallChains: ElementCallChainMap;
 }
 
 let eventCounter = 0;
 let stepCounter = 0;
+
+// Call stack for tracking element creation chains
+interface CallStackFrame {
+  fnName: string;
+  stmtIndex: number;
+}
 
 export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
   eventCounter = 0;
   stepCounter = 0;
   const timeline: TimelineEvent[] = [];
   const steps: RuntimeStep[] = [];
+  const elementCallChains: ElementCallChainMap = new Map();
+  const callStack: CallStackFrame[] = [];
   const globalEnv: Environment = new Map();
   
   const entry = spec.program.entry.call;
@@ -39,9 +58,9 @@ export function executeWithTrace(spec: YAMLSpec): TracedExecutionResult {
     resolvedArgs[key] = resolveValue(val, globalEnv, spec);
   }
   
-  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0);
+  const result = executeFunctionTraced(entryFn, entry.fn, resolvedArgs, spec, timeline, steps, globalEnv, 0, callStack, elementCallChains);
   
-  return { timeline, returnValue: result, steps };
+  return { timeline, returnValue: result, steps, elementCallChains };
 }
 
 function executeFunctionTraced(
@@ -52,7 +71,9 @@ function executeFunctionTraced(
   timeline: TimelineEvent[],
   steps: RuntimeStep[],
   parentEnv: Environment,
-  depth: number
+  depth: number,
+  callStack: CallStackFrame[],
+  elementCallChains: ElementCallChainMap
 ): unknown {
   const env: Environment = new Map(parentEnv);
   
@@ -74,8 +95,16 @@ function executeFunctionTraced(
     }
   }
   
-  for (const stmt of fn.body) {
-    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1);
+  for (let stmtIdx = 0; stmtIdx < fn.body.length; stmtIdx++) {
+    const stmt = fn.body[stmtIdx];
+    // Push current frame onto call stack
+    callStack.push({ fnName, stmtIndex: stmtIdx });
+    
+    const result = executeStatementTraced(stmt, spec, timeline, fnStep.children!, env, depth + 1, callStack, elementCallChains);
+    
+    // Pop the frame
+    callStack.pop();
+    
     if (result !== undefined && 'return' in stmt) {
       return result;
     }
@@ -90,11 +119,13 @@ function executeStatementTraced(
   timeline: TimelineEvent[],
   steps: RuntimeStep[],
   env: Environment,
-  depth: number
+  depth: number,
+  callStack: CallStackFrame[],
+  elementCallChains: ElementCallChainMap
 ): unknown {
-  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth);
+  if ('call' in stmt) return executeCallTraced(stmt.call, spec, timeline, steps, env, depth, callStack, elementCallChains);
   if ('let' in stmt) return executeLetTraced(stmt.let, spec, steps, env, depth);
-  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth);
+  if ('foreach' in stmt) return executeForeachTraced(stmt.foreach, spec, timeline, steps, env, depth, callStack, elementCallChains);
   if ('return' in stmt) {
     const value = resolveValue(stmt.return, env, spec);
     steps.push({
@@ -105,7 +136,7 @@ function executeStatementTraced(
     });
     return value;
   }
-  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth);
+  if ('ir' in stmt) return executeIRTraced(stmt.ir, spec, timeline, steps, env, depth, callStack, elementCallChains);
   return undefined;
 }
 
@@ -115,13 +146,15 @@ function executeCallTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number
+  depth: number,
+  callStack: CallStackFrame[],
+  elementCallChains: ElementCallChainMap
 ): unknown {
   const fnDef = spec.defs[call.fn];
   
   if (!fnDef) {
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
-      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth);
+      return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, callStack, elementCallChains);
     }
     throw new Error(`Function "${call.fn}" not found`);
   }
@@ -131,7 +164,7 @@ function executeCallTraced(
     resolvedArgs[key] = resolveValue(val, env, spec);
   }
   
-  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth);
+  const result = executeFunctionTraced(fnDef, call.fn, resolvedArgs, spec, timeline, steps, env, depth, callStack, elementCallChains);
   if (call.out) env.set(call.out, result);
   return result;
 }
@@ -162,7 +195,9 @@ function executeForeachTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number
+  depth: number,
+  callStack: CallStackFrame[],
+  elementCallChains: ElementCallChainMap
 ): void {
   const rangeValue = resolveValue(foreach.range, env, spec);
   if (!Array.isArray(rangeValue)) throw new Error(`Foreach range must be array`);
@@ -181,8 +216,9 @@ function executeForeachTraced(
     };
     steps.push(iterStep);
     
-    for (const stmt of foreach.do) {
-      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1);
+    for (let stmtIdx = 0; stmtIdx < foreach.do.length; stmtIdx++) {
+      const stmt = foreach.do[stmtIdx];
+      executeStatementTraced(stmt, spec, timeline, iterStep.children!, loopEnv, depth + 1, callStack, elementCallChains);
     }
   }
 }
@@ -193,11 +229,22 @@ function executeIRTraced(
   timeline: TimelineEvent[], 
   steps: RuntimeStep[],
   env: Environment,
-  depth: number
+  depth: number,
+  callStack: CallStackFrame[],
+  elementCallChains: ElementCallChainMap
 ): void {
   const resolvedArgs: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(ir.args)) {
     resolvedArgs[key] = resolveValue(val, env, spec);
+  }
+  
+  // Track element creation - if this IR creates an element with an id
+  const elementId = resolvedArgs.id;
+  if (typeof elementId === 'string') {
+    // Save the current call chain for this element
+    // Clone the stack and reverse it so innermost is first
+    const chain = [...callStack].reverse();
+    elementCallChains.set(elementId, chain);
   }
   
   steps.push({

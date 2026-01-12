@@ -7,7 +7,7 @@ import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
-import { executeWithTrace } from '../core/runtimeTracer';
+import { executeWithTrace, type CallChainEntry } from '../core/runtimeTracer';
 import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
@@ -93,6 +93,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
+  const [elementCallChains, setElementCallChains] = useState<Map<string, CallChainEntry[]>>(new Map());
   
   // Persistent DSL panel state (survives tab switches)
   const [dslPanelState, setDslPanelState] = useState<DSLPanelState>(DEFAULT_DSL_PANEL_STATE);
@@ -208,13 +209,21 @@ export const App: React.FC = () => {
       const result = executeWithTrace(spec);
       setEvents(result.timeline);
       setRuntimeSteps(result.steps);
+      setElementCallChains(result.elementCallChains);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
       setParsedSpec(null);
       setRuntimeSteps([]);
+      setElementCallChains(new Map());
     }
   }, [fullYamlContent]);
+
+  // Get call chain for the selected element
+  const selectedElementCallChain = useMemo(() => {
+    if (!selectedElementId) return null;
+    return elementCallChains.get(selectedElementId) || null;
+  }, [selectedElementId, elementCallChains]);
 
   // Common DSL panel props with persistent state
   const dslPanelProps = {
@@ -226,6 +235,7 @@ export const App: React.FC = () => {
     panelState: dslPanelState,
     onPanelStateChange: setDslPanelState,
     highlightedElementId: selectedElementId,
+    elementCallChain: selectedElementCallChain,
   };
 
   // Common Anim panel props

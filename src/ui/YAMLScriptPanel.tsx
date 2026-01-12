@@ -2,6 +2,7 @@ import React from 'react';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
 import type { YAMLSpec, Params } from '../core/types';
+import type { CallChainEntry } from '../core/runtimeTracer';
 
 export interface DSLPanelState {
   viewMode: 'code' | 'tree';
@@ -25,11 +26,10 @@ interface YAMLScriptPanelProps {
   highlightedLines?: number[];
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  // Controlled state props
   panelState?: DSLPanelState;
   onPanelStateChange?: (state: DSLPanelState) => void;
-  // Highlight element by ID (for Anim -> Tree linking)
   highlightedElementId?: string | null;
+  elementCallChain?: CallChainEntry[] | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -43,6 +43,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   panelState = DEFAULT_DSL_PANEL_STATE,
   onPanelStateChange,
   highlightedElementId,
+  elementCallChain,
 }) => {
   const setViewMode = (mode: 'code' | 'tree') => {
     onPanelStateChange?.({ ...panelState, viewMode: mode });
@@ -50,7 +51,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* View toggle */}
       <div className="flex gap-1 mb-2 shrink-0">
         <button
           onClick={() => setViewMode('tree')}
@@ -74,7 +74,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
         </button>
       </div>
       
-      {/* Panel content */}
       <div className="flex-1 min-h-0">
         {panelState.viewMode === 'tree' ? (
           <YAMLTreePanel 
@@ -88,6 +87,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             onExpandedParamsChange={(expanded) => onPanelStateChange?.({ ...panelState, expandedParams: expanded })}
             onExpandedFunctionsChange={(expanded) => onPanelStateChange?.({ ...panelState, expandedFunctions: expanded })}
             highlightedElementId={highlightedElementId}
+            elementCallChain={elementCallChain}
           />
         ) : (
           <CodePanel
