@@ -39,7 +39,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
     >
       {/* Debug overlay */}
       <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
-        {elements.length} el @ t={currentTime.toFixed(1)}s
+        {elements.length} el @ t={currentTime.toFixed(2)}s
       </div>
       
       {elements.map((element) => {
@@ -53,7 +53,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         
         // Debug log for prompt element
         if (element.id === 'prompt') {
-          console.log('Prompt element:', { atX, atY, px, py, width, height, viewbox, content: element.content });
+          console.log('Prompt element:', { atX, atY, px, py, width, height, viewbox, content: element.content, mode: element.mode, opacity: element.opacity });
         }
         
         // Calculate transform based on anchor

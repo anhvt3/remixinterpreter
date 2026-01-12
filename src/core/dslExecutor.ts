@@ -128,9 +128,9 @@ function executeIR(ir: { fn: string; args: Record<string, unknown> }, spec: YAML
     }
   }
   
-  // Debug: log first few IR calls
-  if (timeline.length < 5) {
-    console.log(`IR ${ir.fn}:`, JSON.stringify(resolvedArgs, null, 2));
+  // Debug: log IR calls for prompt/text
+  if (ir.fn === 'text.create' && resolvedArgs.id === 'prompt') {
+    console.log(`IR text.create (prompt):`, JSON.stringify(resolvedArgs, null, 2));
   }
   
   timeline.push({
