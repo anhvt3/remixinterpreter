@@ -4,6 +4,14 @@
 
 @import "katex/dist/katex.css";
 
+/* Force KaTeX to inherit color from parent */
+.katex-container .katex {
+  color: inherit;
+}
+.katex-container .katex .katex-html {
+  color: inherit;
+}
+
 @layer base {
   :root {
     --background: 220 15% 8%;

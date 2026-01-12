@@ -185,7 +185,7 @@ export function renderMath(latex: string): string {
     });
   } catch (e) {
     console.error('KaTeX error:', e);
-    return latex;
+    return `<span style="color:red">${latex}</span>`;
   }
 }
 

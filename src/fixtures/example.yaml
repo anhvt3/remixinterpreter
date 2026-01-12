@@ -209,11 +209,14 @@ defs:
           fn: ShowMathTimed
           args:
             id: "prompt"
-            latex: { expr: "core.format('\\\\sqrt{%s} = ?', N)", args: { N: "$N" } }
-            at: "$.params.layout.prompt_at"
+            latex: "\\sqrt{720} = ?"
+            at:
+              anchor: "Center"
+              x: 0
+              y: 4.5
             style:
-              color: "$.params.style.text.color"
-              scale: "$.params.style.text.scale_base"
+              color: "#FFFFFF"
+              scale: 1.0
             t0: "$.params.time.intro.prompt.t0"
             t1: "$.params.time.intro.prompt.t1"
             ease: "$.params.time.intro.prompt.ease"

@@ -40,7 +40,6 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
       {/* Debug overlay */}
       <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
         {elements.length} el @ t={currentTime.toFixed(1)}s
-        {selectedElementId && <span className="ml-2 text-primary">• {selectedElementId}</span>}
       </div>
       
       {elements.map((element) => {
@@ -51,6 +50,11 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         const atY = typeof element.at?.y === 'number' ? element.at.y : 0;
         
         const { px, py } = boardToPixel(atX, atY, viewbox, width, height);
+        
+        // Debug log for prompt element
+        if (element.id === 'prompt') {
+          console.log('Prompt element:', { atX, atY, px, py, width, height, viewbox, content: element.content });
+        }
         
         // Calculate transform based on anchor
         const anchor = element.at?.anchor || 'Center';
@@ -89,6 +93,8 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
           >
             {element.mode === 'math' ? (
               <div
+                className="katex-container"
+                style={{ color: 'inherit' }}
                 dangerouslySetInnerHTML={{
                   __html: renderMath(element.content),
                 }}
