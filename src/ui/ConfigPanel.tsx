@@ -252,7 +252,7 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
       {/* IR Functions List - 2/6 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">IR Functions List</span>
+          <span className="text-xs font-medium text-muted-foreground">#IRF-IntermediateRepresentationFunctions</span>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
@@ -318,7 +318,7 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
       {/* ExampleDSL Content - 2/6 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">ExampleDSL Content</span>
+          <span className="text-xs font-medium text-muted-foreground">#EDSL-ExampleDomainSpecificLanguage</span>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
