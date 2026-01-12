@@ -105,7 +105,7 @@ export const PanelContentArea: React.FC<PanelContentAreaProps> = ({
         if (!panel) return null;
         
         return (
-          <div key={panelId} className="h-full min-h-0 overflow-hidden">
+          <div key={panelId} className="h-full min-h-0 flex flex-col overflow-hidden">
             {panel.render()}
           </div>
         );
