@@ -42,6 +42,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
       {/* Debug overlay */}
       <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
         {elements.length} el @ t={currentTime.toFixed(2)}s
+        {selectedElementId && <span className="ml-2 text-primary">sel: {selectedElementId}</span>}
       </div>
       
       {elements.map((element) => {
