@@ -159,6 +159,17 @@ export const useConfigData = () => {
 
   // Soft delete config (disable instead of delete)
   const deleteConfig = useCallback(async (id: string) => {
+    // Check if id is a valid UUID (database record) vs sample data id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      toast({
+        title: 'Cannot Delete',
+        description: 'Sample versions cannot be deleted. Save a version first to create database records.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
     try {
       const { error } = await supabase
         .from('config')
