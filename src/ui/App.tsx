@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
@@ -563,7 +564,7 @@ export const App: React.FC = () => {
       <header className="h-12 px-4 flex items-center justify-between border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-foreground">AnimYAML Studio</h1>
-          <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">v2.0</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary glow-primary">v2.0</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -571,11 +572,14 @@ export const App: React.FC = () => {
             <span className="text-border">•</span>
             <span>dialect: AnimYAML-DSL</span>
           </div>
+          <div className="border-l border-border pl-3">
+            <ThemeSwitcher />
+          </div>
           <div className="flex items-center gap-1 border-l border-border pl-3">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 hover-glow"
               onClick={handleZoomOut}
               disabled={zoomLevel <= 50}
               title="Zoom out"
@@ -586,7 +590,7 @@ export const App: React.FC = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 hover-glow"
               onClick={handleZoomIn}
               disabled={zoomLevel >= 150}
               title="Zoom in"

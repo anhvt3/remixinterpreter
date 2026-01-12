@@ -14,106 +14,217 @@
 }
 
 @layer base {
-  :root {
-    --background: 220 15% 8%;
-    --foreground: 210 20% 90%;
+  /* ===== MIDNIGHT AURORA THEME (Default) ===== */
+  :root,
+  .theme-midnight-aurora {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 92%;
 
-    --card: 220 15% 10%;
-    --card-foreground: 210 20% 90%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 92%;
 
-    --popover: 220 15% 12%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 92%;
 
-    --primary: 195 85% 50%;
-    --primary-foreground: 220 15% 5%;
+    --primary: 187 85% 53%;
+    --primary-foreground: 222 47% 5%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 222 35% 14%;
+    --secondary-foreground: 210 40% 88%;
 
-    --muted: 220 12% 18%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 222 30% 16%;
+    --muted-foreground: 215 25% 55%;
 
-    --accent: 280 60% 55%;
-    --accent-foreground: 210 20% 95%;
+    --accent: 292 70% 60%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 220 12% 20%;
-    --input: 220 12% 18%;
-    --ring: 195 85% 50%;
+    --border: 222 30% 18%;
+    --input: 222 30% 14%;
+    --ring: 187 85% 53%;
 
     --radius: 0.5rem;
 
     /* Custom tokens for editor */
-    --panel-bg: 220 15% 6%;
-    --panel-header: 220 15% 12%;
-    --panel-border: 220 12% 15%;
+    --panel-bg: 222 47% 5%;
+    --panel-header: 222 47% 10%;
+    --panel-border: 222 30% 14%;
     
-    /* Syntax highlighting */
-    --syntax-keyword: 195 85% 60%;
-    --syntax-key: 280 60% 70%;
-    --syntax-string: 80 60% 55%;
-    --syntax-number: 30 80% 60%;
-    --syntax-boolean: 340 70% 65%;
+    /* Syntax highlighting - Aurora colors */
+    --syntax-keyword: 187 85% 60%;
+    --syntax-key: 292 70% 72%;
+    --syntax-string: 142 70% 55%;
+    --syntax-number: 30 85% 58%;
+    --syntax-boolean: 330 75% 65%;
     --syntax-null: 0 0% 50%;
-    --syntax-comment: 220 10% 45%;
-    --syntax-punctuation: 220 15% 55%;
-    --syntax-function: 280 60% 65%;
-    --syntax-variable: 210 70% 70%;
+    --syntax-comment: 222 15% 45%;
+    --syntax-punctuation: 222 20% 55%;
+    --syntax-function: 292 70% 68%;
+    --syntax-variable: 210 75% 72%;
     
     /* Animation colors */
     --anim-bg: 0 0% 0%;
     --anim-text: 0 0% 100%;
-    --anim-accent: 195 85% 50%;
+    --anim-accent: 187 85% 53%;
 
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 195 85% 50%;
-    --sidebar-primary-foreground: 220 15% 5%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 12% 18%;
-    --sidebar-ring: 195 85% 50%;
+    /* Glow effects */
+    --glow-primary: 187 85% 53%;
+    --glow-accent: 292 70% 60%;
+
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 40% 88%;
+    --sidebar-primary: 187 85% 53%;
+    --sidebar-primary-foreground: 222 47% 5%;
+    --sidebar-accent: 222 35% 14%;
+    --sidebar-accent-foreground: 210 40% 92%;
+    --sidebar-border: 222 30% 16%;
+    --sidebar-ring: 187 85% 53%;
+
+    /* Font families */
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Space Grotesk', sans-serif;
   }
 
-  .dark {
-    --background: 220 15% 8%;
-    --foreground: 210 20% 90%;
+  /* ===== WARM TERMINAL THEME ===== */
+  .theme-warm-terminal {
+    --background: 20 14% 8%;
+    --foreground: 36 33% 88%;
 
-    --card: 220 15% 10%;
-    --card-foreground: 210 20% 90%;
+    --card: 20 14% 10%;
+    --card-foreground: 36 33% 88%;
 
-    --popover: 220 15% 12%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 20 14% 12%;
+    --popover-foreground: 36 33% 88%;
 
-    --primary: 195 85% 50%;
-    --primary-foreground: 220 15% 5%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 20 14% 5%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 20 12% 16%;
+    --secondary-foreground: 36 33% 82%;
 
-    --muted: 220 12% 18%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 20 10% 18%;
+    --muted-foreground: 30 15% 50%;
 
-    --accent: 280 60% 55%;
-    --accent-foreground: 210 20% 95%;
+    --accent: 24 95% 53%;
+    --accent-foreground: 36 33% 98%;
 
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 36 33% 98%;
 
-    --border: 220 12% 20%;
-    --input: 220 12% 18%;
-    --ring: 195 85% 50%;
+    --border: 20 12% 20%;
+    --input: 20 12% 15%;
+    --ring: 38 92% 50%;
+
+    /* Custom tokens for editor */
+    --panel-bg: 20 14% 6%;
+    --panel-header: 20 14% 12%;
+    --panel-border: 20 12% 16%;
     
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 195 85% 50%;
-    --sidebar-primary-foreground: 220 15% 5%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 12% 18%;
-    --sidebar-ring: 195 85% 50%;
+    /* Syntax highlighting - Warm colors */
+    --syntax-keyword: 38 92% 58%;
+    --syntax-key: 24 95% 60%;
+    --syntax-string: 85 55% 50%;
+    --syntax-number: 45 90% 55%;
+    --syntax-boolean: 350 70% 60%;
+    --syntax-null: 0 0% 50%;
+    --syntax-comment: 20 10% 45%;
+    --syntax-punctuation: 30 15% 55%;
+    --syntax-function: 24 95% 58%;
+    --syntax-variable: 45 80% 65%;
+    
+    /* Animation colors */
+    --anim-bg: 0 0% 0%;
+    --anim-text: 36 33% 95%;
+    --anim-accent: 38 92% 50%;
+
+    /* Glow effects */
+    --glow-primary: 38 92% 50%;
+    --glow-accent: 24 95% 53%;
+
+    --sidebar-background: 20 14% 8%;
+    --sidebar-foreground: 36 33% 82%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 20 14% 5%;
+    --sidebar-accent: 20 12% 16%;
+    --sidebar-accent-foreground: 36 33% 88%;
+    --sidebar-border: 20 10% 18%;
+    --sidebar-ring: 38 92% 50%;
+
+    /* Font families */
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  /* ===== MINIMAL FROST THEME ===== */
+  .theme-minimal-frost {
+    --background: 215 28% 12%;
+    --foreground: 210 30% 92%;
+
+    --card: 215 28% 14%;
+    --card-foreground: 210 30% 92%;
+
+    --popover: 215 28% 16%;
+    --popover-foreground: 210 30% 92%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 215 28% 5%;
+
+    --secondary: 215 22% 18%;
+    --secondary-foreground: 210 30% 85%;
+
+    --muted: 215 18% 20%;
+    --muted-foreground: 215 20% 52%;
+
+    --accent: 215 25% 35%;
+    --accent-foreground: 210 30% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 30% 98%;
+
+    --border: 215 20% 22%;
+    --input: 215 20% 17%;
+    --ring: 199 89% 48%;
+
+    /* Custom tokens for editor */
+    --panel-bg: 215 28% 10%;
+    --panel-header: 215 28% 15%;
+    --panel-border: 215 20% 18%;
+    
+    /* Syntax highlighting - Cool frost colors */
+    --syntax-keyword: 199 89% 55%;
+    --syntax-key: 215 60% 65%;
+    --syntax-string: 160 60% 50%;
+    --syntax-number: 199 70% 58%;
+    --syntax-boolean: 280 50% 60%;
+    --syntax-null: 0 0% 50%;
+    --syntax-comment: 215 15% 45%;
+    --syntax-punctuation: 215 20% 55%;
+    --syntax-function: 199 80% 58%;
+    --syntax-variable: 200 65% 65%;
+    
+    /* Animation colors */
+    --anim-bg: 215 28% 8%;
+    --anim-text: 0 0% 100%;
+    --anim-accent: 199 89% 48%;
+
+    /* Glow effects */
+    --glow-primary: 199 89% 48%;
+    --glow-accent: 215 60% 55%;
+
+    --sidebar-background: 215 28% 12%;
+    --sidebar-foreground: 210 30% 85%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 215 28% 5%;
+    --sidebar-accent: 215 22% 18%;
+    --sidebar-accent-foreground: 210 30% 92%;
+    --sidebar-border: 215 18% 20%;
+    --sidebar-ring: 199 89% 48%;
+
+    /* Font families */
+    --font-mono: 'Fira Code', monospace;
+    --font-sans: 'Inter', sans-serif;
   }
 }
 
@@ -124,7 +235,12 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-sans), sans-serif;
+  }
+
+  /* Code/mono elements */
+  code, pre, .font-mono, .code-editor {
+    font-family: var(--font-mono), monospace;
   }
 }
 
@@ -142,7 +258,8 @@
   }
   
   .code-editor {
-    @apply font-mono text-sm leading-relaxed p-4;
+    @apply text-sm leading-relaxed p-4;
+    font-family: var(--font-mono), monospace;
   }
   
   .syntax-keyword { color: hsl(var(--syntax-keyword)); }
@@ -155,6 +272,29 @@
   .syntax-punctuation { color: hsl(var(--syntax-punctuation)); }
   .syntax-function { color: hsl(var(--syntax-function)); }
   .syntax-variable { color: hsl(var(--syntax-variable)); }
+  
+  /* Glow effects for interactive elements */
+  .glow-primary {
+    box-shadow: 0 0 20px -5px hsl(var(--glow-primary) / 0.4);
+  }
+  
+  .glow-accent {
+    box-shadow: 0 0 20px -5px hsl(var(--glow-accent) / 0.4);
+  }
+
+  /* Theme-specific hover effects */
+  .theme-midnight-aurora .hover-glow:hover {
+    box-shadow: 0 0 25px -5px hsl(var(--glow-primary) / 0.5),
+                0 0 10px -3px hsl(var(--glow-accent) / 0.3);
+  }
+
+  .theme-warm-terminal .hover-glow:hover {
+    box-shadow: 0 0 20px -5px hsl(var(--glow-primary) / 0.4);
+  }
+
+  .theme-minimal-frost .hover-glow:hover {
+    box-shadow: 0 4px 15px -3px hsl(var(--background) / 0.4);
+  }
   
   /* Custom scrollbar styles */
   .scrollbar-thin {
