@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight } from 'lucide-react';
-import type { YAMLSpec } from '../core/types';
+import type { CallChainEntry } from '../core/runtimeTracer';
 
 export interface RuntimeStep {
   id: string;
@@ -20,6 +20,7 @@ export interface RuntimeStep {
 interface RuntimePanelProps {
   steps: RuntimeStep[];
   currentTime?: number;
+  elementCallChain?: CallChainEntry[] | null;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -58,7 +59,8 @@ const RuntimeStepRow: React.FC<{
   step: RuntimeStep; 
   expanded: Set<string>;
   onToggle: (id: string) => void;
-}> = ({ step, expanded, onToggle }) => {
+  highlightLevel?: 'primary' | 'secondary' | null;
+}> = ({ step, expanded, onToggle, highlightLevel }) => {
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
@@ -72,10 +74,17 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',         // IR commands: cyan
   };
 
+  // Highlight styles based on call chain level
+  const highlightStyles = highlightLevel === 'primary'
+    ? 'bg-primary/30 border-l-2 border-primary'
+    : highlightLevel === 'secondary'
+    ? 'bg-primary/10 border-l-2 border-primary/40'
+    : '';
+
   return (
     <>
       <div 
-        className="flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono"
+        className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono ${highlightStyles}`}
         style={{ paddingLeft: `${8 + indent}px` }}
         onClick={() => hasChildren && onToggle(step.id)}
       >
@@ -159,20 +168,61 @@ const RuntimeStepRow: React.FC<{
       
       {/* Children */}
       {isExpanded && step.children?.map(child => (
-        <RuntimeStepRow key={child.id} step={child} expanded={expanded} onToggle={onToggle} />
+        <RuntimeStepRow key={child.id} step={child} expanded={expanded} onToggle={onToggle} highlightLevel={highlightLevel} />
       ))}
     </>
   );
 };
 
-export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps }) => {
+export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallChain }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   
-  // Auto-expand top-level items
+  // Build a map of step ID -> highlight level from the call chain
+  const highlightMap = React.useMemo(() => {
+    const map = new Map<string, 'primary' | 'secondary'>();
+    if (elementCallChain && elementCallChain.length > 0) {
+      // First entry is the lowest-level creator (primary)
+      // Rest are higher-level callers (secondary)
+      elementCallChain.forEach((entry, index) => {
+        const level = index === 0 ? 'primary' : 'secondary';
+        // Match by function name - we'll highlight all steps for that function
+        map.set(entry.fnName, level);
+      });
+    }
+    return map;
+  }, [elementCallChain]);
+
+  // Get highlight level for a step
+  const getHighlightLevel = (step: RuntimeStep): 'primary' | 'secondary' | null => {
+    if (step.functionName && highlightMap.has(step.functionName)) {
+      return highlightMap.get(step.functionName) || null;
+    }
+    return null;
+  };
+  
+  // Auto-expand top-level items and items in call chain
   useEffect(() => {
     const topLevel = new Set(steps.filter(s => s.depth === 0).map(s => s.id));
+    
+    // Also expand parents of highlighted steps
+    if (elementCallChain && elementCallChain.length > 0) {
+      const expandParents = (items: RuntimeStep[], parentIds: string[] = []) => {
+        for (const step of items) {
+          const shouldExpand = step.functionName && highlightMap.has(step.functionName);
+          if (shouldExpand) {
+            parentIds.forEach(id => topLevel.add(id));
+            topLevel.add(step.id);
+          }
+          if (step.children) {
+            expandParents(step.children, [...parentIds, step.id]);
+          }
+        }
+      };
+      expandParents(steps);
+    }
+    
     setExpanded(topLevel);
-  }, [steps]);
+  }, [steps, elementCallChain, highlightMap]);
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -181,11 +231,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps }) => {
       else next.add(id);
       return next;
     });
-  };
-
-  // Flatten nested structure for rendering
-  const flattenSteps = (items: RuntimeStep[]): RuntimeStep[] => {
-    return items;
   };
 
   return (
@@ -202,12 +247,13 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps }) => {
               No execution steps yet
             </div>
           ) : (
-            flattenSteps(steps).map(step => (
+            steps.map(step => (
               <RuntimeStepRow 
                 key={step.id} 
                 step={step} 
                 expanded={expanded}
                 onToggle={toggleExpand}
+                highlightLevel={getHighlightLevel(step)}
               />
             ))
           )}

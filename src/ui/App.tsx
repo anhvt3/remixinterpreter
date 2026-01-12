@@ -336,7 +336,7 @@ export const App: React.FC = () => {
                   <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <RuntimePanel steps={runtimeSteps} />
+                  <RuntimePanel steps={runtimeSteps} elementCallChain={selectedElementCallChain} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <AnimPanel {...animPanelProps} />
