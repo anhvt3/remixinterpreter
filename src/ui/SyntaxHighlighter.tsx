@@ -305,6 +305,37 @@ interface SyntaxHighlighterProps {
   language?: 'yaml' | 'json' | 'text';
 }
 
+interface SyntaxHighlightedLineProps {
+  line: string;
+  language?: 'yaml' | 'json' | 'text';
+}
+
+// Component for highlighting a single line - used in clickable line mode
+export const SyntaxHighlightedLine: React.FC<SyntaxHighlightedLineProps> = ({
+  line,
+  language = 'yaml'
+}) => {
+  if (language !== 'yaml') {
+    return <span className="text-foreground">{line || ' '}</span>;
+  }
+
+  const { tokens } = tokenizeYamlLine(line);
+  
+  if (tokens.length === 0) {
+    return <span>&nbsp;</span>;
+  }
+
+  return (
+    <>
+      {tokens.map((token, idx) => (
+        <span key={idx} className={tokenStyles[token.type]}>
+          {token.value}
+        </span>
+      ))}
+    </>
+  );
+};
+
 export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({ 
   content,
   language = 'yaml' 

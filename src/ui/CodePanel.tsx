@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Undo2, Redo2 } from 'lucide-react';
-import { SyntaxHighlighter } from './SyntaxHighlighter';
+import { SyntaxHighlighter, SyntaxHighlightedLine } from './SyntaxHighlighter';
 
 interface CodePanelProps {
   title: string;
@@ -96,7 +96,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       </div>
       {hasLineInteraction ? (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
-          {/* Render as clickable lines */}
+          {/* Render as clickable lines with syntax highlighting */}
           <div className="p-4 pr-10 text-sm font-mono">
             {lines.map((line, idx) => {
               const isHighlighted = highlightedLines.includes(idx);
@@ -105,7 +105,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   key={idx}
                   onClick={() => onLineClick?.(idx)}
                   className={`
-                    px-2 py-0.5 -mx-2 rounded cursor-pointer transition-colors duration-150
+                    px-2 py-0.5 -mx-2 rounded cursor-pointer transition-colors duration-150 flex
                     ${isHighlighted 
                       ? 'bg-primary/30 border-l-2 border-primary' 
                       : 'hover:bg-muted/50'
@@ -113,11 +113,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   `}
                   style={{ lineHeight: '1.6' }}
                 >
-                  <span className="text-muted-foreground/50 select-none w-6 inline-block text-right mr-3 text-xs">
+                  <span className="text-muted-foreground/50 select-none w-6 inline-block text-right mr-3 text-xs shrink-0">
                     {idx + 1}
                   </span>
-                  <span className={`${isHighlighted ? 'text-primary' : 'text-foreground'}`}>
-                    {line || ' '}
+                  <span className="flex-1">
+                    <SyntaxHighlightedLine line={line} language={language} />
                   </span>
                 </div>
               );
