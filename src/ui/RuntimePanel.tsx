@@ -79,7 +79,6 @@ const RuntimeStepRow: React.FC<{
   selectedStepId?: string | null;
   highlightedStepIds?: string[];
   currentNavigationStepId?: string | null;
-  anchorStepId?: string | null;
   chainStepIds?: string[];
   // Navigation controls
   canGoUp?: boolean;
@@ -90,12 +89,11 @@ const RuntimeStepRow: React.FC<{
   chainLength?: number;
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
-  currentNavigationStepId, anchorStepId, chainStepIds = [],
+  currentNavigationStepId, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
 }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
-  const isAnchor = step.id === anchorStepId;
   const isCurrentNav = step.id === currentNavigationStepId;
   const isInChain = chainStepIds.includes(step.id);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -104,18 +102,15 @@ const RuntimeStepRow: React.FC<{
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
   
-  // Current position is: anchor when navIndex=0, otherwise the currentNavigationStepId
-  const isCurrentPosition = isCurrentNav || (isAnchor && !currentNavigationStepId);
-  
-  // Show nav buttons on current position only
-  const showNavButtons = isCurrentPosition;
+  // Show nav buttons only on the current navigation position
+  const showNavButtons = isCurrentNav;
 
-  // Auto-scroll highlighted step into view (from element selection, TreeView click, or navigation)
+  // Auto-scroll highlighted step into view
   useEffect(() => {
-    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentPosition) && rowRef.current) {
+    if ((highlightLevel === 'primary' || isHighlightedFromTreeView || isCurrentNav) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel, isHighlightedFromTreeView, isCurrentPosition]);
+  }, [highlightLevel, isHighlightedFromTreeView, isCurrentNav]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -126,10 +121,10 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',
   };
 
-  // Highlight styles: current position is bright, anchor and chain are dim
-  const highlightStyles = isCurrentPosition
+  // Highlight styles: current position is bright green, chain (anchor + ancestors) is dim yellow
+  const highlightStyles = isCurrentNav
     ? 'bg-green-500/40 border-l-4 border-green-400 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
-    : (isAnchor || isInChain)
+    : isInChain
     ? 'bg-yellow-500/10 border-l-2 border-yellow-400/40'
     : isSelected
     ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
@@ -276,7 +271,6 @@ const RuntimeStepRow: React.FC<{
           selectedStepId={selectedStepId}
           highlightedStepIds={highlightedStepIds}
           currentNavigationStepId={currentNavigationStepId}
-          anchorStepId={anchorStepId}
           chainStepIds={chainStepIds}
           canGoUp={canGoUp}
           canGoDown={canGoDown}
@@ -345,20 +339,24 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   }, [anchorStepId, stepCallChains, allStepsMap]);
   
   // Current navigation position step ID
+  // navIndex 0 = anchor, navIndex 1 = first ancestor, etc.
   const currentNavStepId = useMemo(() => {
     if (!anchorStepId) return null;
-    if (navIndex === 0) return null; // At anchor, no separate nav highlight
+    if (navIndex === 0) return anchorStepId; // At anchor
     if (navIndex > 0 && navIndex <= ancestorChain.length) {
       return ancestorChain[navIndex - 1];
     }
     return null;
   }, [anchorStepId, navIndex, ancestorChain]);
   
-  // Chain step IDs (excluding anchor and current nav position)
+  // Chain step IDs: all steps that should be dimly highlighted
+  // This includes anchor (when not current) and all ancestors (except current)
   const chainStepIds = useMemo(() => {
     if (!anchorStepId) return [];
-    return ancestorChain.filter((id, i) => i !== navIndex - 1);
-  }, [anchorStepId, ancestorChain, navIndex]);
+    const allInChain = [anchorStepId, ...ancestorChain];
+    // Exclude the current navigation position
+    return allInChain.filter(id => id !== currentNavStepId);
+  }, [anchorStepId, ancestorChain, currentNavStepId]);
   
   // Handle step click - set as anchor
   const handleStepClick = useCallback((step: RuntimeStep) => {
@@ -478,7 +476,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 selectedStepId={selectedStepId}
                 highlightedStepIds={highlightedStepIds}
                 currentNavigationStepId={currentNavStepId}
-                anchorStepId={anchorStepId}
                 chainStepIds={chainStepIds}
                 canGoUp={!!canGoUp}
                 canGoDown={!!canGoDown}
