@@ -59,11 +59,12 @@ const RuntimeStepRow: React.FC<{
   step: RuntimeStep; 
   expanded: Set<string>;
   onToggle: (id: string) => void;
-  highlightLevel?: 'primary' | 'secondary' | null;
-}> = ({ step, expanded, onToggle, highlightLevel }) => {
+  getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
+}> = ({ step, expanded, onToggle, getHighlightLevel }) => {
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
+  const highlightLevel = getHighlightLevel(step);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -168,7 +169,7 @@ const RuntimeStepRow: React.FC<{
       
       {/* Children */}
       {isExpanded && step.children?.map(child => (
-        <RuntimeStepRow key={child.id} step={child} expanded={expanded} onToggle={onToggle} highlightLevel={highlightLevel} />
+        <RuntimeStepRow key={child.id} step={child} expanded={expanded} onToggle={onToggle} getHighlightLevel={getHighlightLevel} />
       ))}
     </>
   );
@@ -253,7 +254,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallCh
                 step={step} 
                 expanded={expanded}
                 onToggle={toggleExpand}
-                highlightLevel={getHighlightLevel(step)}
+                getHighlightLevel={getHighlightLevel}
               />
             ))
           )}
