@@ -98,7 +98,7 @@ const RuntimeStepRow: React.FC<{
 
   // Highlight styles based on call chain level OR selection
   const highlightStyles = isSelected
-    ? 'bg-accent/40 border-l-2 border-accent ring-1 ring-accent/60'
+    ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
     : highlightLevel === 'primary'
     ? 'bg-primary/30 border-l-2 border-primary'
     : highlightLevel === 'secondary'
