@@ -162,11 +162,256 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   );
 };
 
+// IR Functions & Example DSL Subtab Component
+interface IRFunctionsSubtabProps {
+  irVersions: ConfigVersion[];
+  selectedIRVersionId: string | null;
+  onIRVersionSelect: (id: string) => void;
+  onIRVersionDelete?: (id: string) => void;
+  onIRVersionCreate?: () => void;
+  irFunctionsList: string;
+  exampleDSLVersions: ConfigVersion[];
+  selectedExampleDSLVersionId: string | null;
+  onExampleDSLVersionSelect: (id: string) => void;
+  onExampleDSLVersionDelete?: (id: string) => void;
+  onExampleDSLVersionCreate?: () => void;
+  exampleDSLContent: string;
+  zoomLevel?: number;
+}
+
+const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
+  irVersions,
+  selectedIRVersionId,
+  onIRVersionSelect,
+  onIRVersionDelete,
+  onIRVersionCreate,
+  irFunctionsList,
+  exampleDSLVersions,
+  selectedExampleDSLVersionId,
+  onExampleDSLVersionSelect,
+  onExampleDSLVersionDelete,
+  onExampleDSLVersionCreate,
+  exampleDSLContent,
+  zoomLevel = 100,
+}) => {
+  const scale = zoomLevel / 100;
+
+  return (
+    <div className="grid grid-cols-6 gap-2 h-full">
+      {/* IR Functions Versions - 1/6 */}
+      <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
+          <span className="text-xs font-medium text-muted-foreground">IR Versions</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            onClick={onIRVersionCreate}
+            title="Create new version"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <ScrollArea className="h-[calc(100%-2rem)]">
+          <div className="p-2 space-y-1" style={{ fontSize: `${scale}rem` }}>
+            {irVersions.map((version) => (
+              <div
+                key={version.id}
+                className={cn(
+                  "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
+                  selectedIRVersionId === version.id
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <button
+                  onClick={() => onIRVersionSelect(version.id)}
+                  className="flex-1 text-left"
+                >
+                  <div className="font-medium text-[0.65rem]">{version.name}</div>
+                  <div className="text-[0.55rem] opacity-70">{version.timestamp}</div>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onIRVersionDelete?.(version.id);
+                  }}
+                  title="Delete version"
+                >
+                  <Trash2 className="h-2.5 w-2.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* IR Functions List - 2/6 */}
+      <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
+        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+          <span className="text-xs font-medium text-muted-foreground">IR Functions List</span>
+        </div>
+        <ScrollArea className="h-[calc(100%-2rem)]">
+          <pre
+            className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
+            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
+          >
+            {irFunctionsList || 'No IR functions defined'}
+          </pre>
+        </ScrollArea>
+      </div>
+
+      {/* ExampleDSL Versions - 1/6 */}
+      <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
+          <span className="text-xs font-medium text-muted-foreground">DSL Versions</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            onClick={onExampleDSLVersionCreate}
+            title="Create new version"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <ScrollArea className="h-[calc(100%-2rem)]">
+          <div className="p-2 space-y-1" style={{ fontSize: `${scale}rem` }}>
+            {exampleDSLVersions.map((version) => (
+              <div
+                key={version.id}
+                className={cn(
+                  "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
+                  selectedExampleDSLVersionId === version.id
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <button
+                  onClick={() => onExampleDSLVersionSelect(version.id)}
+                  className="flex-1 text-left"
+                >
+                  <div className="font-medium text-[0.65rem]">{version.name}</div>
+                  <div className="text-[0.55rem] opacity-70">{version.timestamp}</div>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExampleDSLVersionDelete?.(version.id);
+                  }}
+                  title="Delete version"
+                >
+                  <Trash2 className="h-2.5 w-2.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* ExampleDSL Content - 2/6 */}
+      <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
+        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+          <span className="text-xs font-medium text-muted-foreground">ExampleDSL Content</span>
+        </div>
+        <ScrollArea className="h-[calc(100%-2rem)]">
+          <pre
+            className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
+            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
+          >
+            {exampleDSLContent || 'No example DSL content'}
+          </pre>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+};
+
+// Sample data for IR Functions subtab
+const sampleIRFunctionsList = `# IR Functions Reference
+
+## text.create
+Creates a text element on the canvas.
+Parameters:
+- id: string (required)
+- content: string (required)
+- x, y: number (position)
+- color: string (hex or named)
+- fontSize: number
+
+## text.update
+Updates an existing text element.
+Parameters:
+- id: string (required)
+- content: string (optional)
+- x, y: number (optional)
+- opacity: number (0-1)
+
+## text.morph
+Morphs text content with animation.
+Parameters:
+- id: string (required)
+- to: string (target content)
+- t0, t1: number (timing)
+- easing: string
+
+## shape.create
+Creates a geometric shape.
+Parameters:
+- id: string (required)
+- type: "rect" | "circle" | "line"
+- x, y, width, height: number
+
+## shape.transform
+Transforms a shape with animation.
+Parameters:
+- id: string (required)
+- scale, rotate: number
+- t0, t1: number`;
+
+const sampleExampleDSLContent = `# Example DSL - Factor Tree Animation
+
+schema_version: 2
+
+params:
+  title: "Prime Factorization"
+  number: 24
+  colors:
+    primary: "#4F46E5"
+    secondary: "#10B981"
+    accent: "#F59E0B"
+
+defs:
+  main:
+    body:
+      - call: { fn: show_title, args: { text: "$title" } }
+      - call: { fn: show_number, args: { n: "$number" } }
+      - call: { fn: factor_step, args: { n: 24, f1: 4, f2: 6 } }
+      - call: { fn: factor_step, args: { n: 4, f1: 2, f2: 2 } }
+      - call: { fn: factor_step, args: { n: 6, f1: 2, f2: 3 } }
+      - call: { fn: highlight_primes }
+
+  show_title:
+    args: [text]
+    body:
+      - ir: { fn: text.create, args: { id: title, content: "$text" } }
+
+  show_number:
+    args: [n]
+    body:
+      - ir: { fn: text.create, args: { id: root, content: "$n" } }`;
+
 // Sample data for each subtab
 const createSampleVersions = (prefix: string): ConfigVersion[] => [
-  { id: `${prefix}-v3`, name: `${prefix} v3.0`, timestamp: '2024-01-12 14:30', isActive: true },
-  { id: `${prefix}-v2`, name: `${prefix} v2.1`, timestamp: '2024-01-10 09:15' },
-  { id: `${prefix}-v1`, name: `${prefix} v1.0`, timestamp: '2024-01-08 16:45' },
+  { id: `${prefix}-v3`, name: `v3.0`, timestamp: '2024-01-12 14:30', isActive: true },
+  { id: `${prefix}-v2`, name: `v2.1`, timestamp: '2024-01-10 09:15' },
+  { id: `${prefix}-v1`, name: `v1.0`, timestamp: '2024-01-08 16:45' },
 ];
 
 const sampleImportantNotes: Record<string, string> = {
@@ -365,13 +610,17 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
     setSelectedVersions(prev => ({ ...prev, [tab]: versionId }));
   };
 
+  const [selectedIRVersion, setSelectedIRVersion] = useState<string | null>('IR-v3');
+  const [selectedExampleDSLVersion, setSelectedExampleDSLVersion] = useState<string | null>('ExampleDSL-v3');
+
   const subtabs = [
-    { id: 'VA1120-EXTRACT-DESC', label: 'VA1120-EXTRACT-DESC' },
-    { id: 'VA1210-GENERATE-DSL', label: 'VA1210-GENERATE-DSL' },
-    { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210-GENERATE-SHORT DESC' },
-    { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220-EDIT-SHORT DESC' },
-    { id: 'VA2310-GENERATE-DSL', label: 'VA2310-GENERATE-DSL' },
-    { id: 'VA2320-EDIT-DSL', label: 'VA2320-EDIT-DSL' },
+    { id: 'IR-FUNCTIONS-EXAMPLE-DSL', label: 'IR Functions & Example DSL', isSpecial: true },
+    { id: 'VA1120-EXTRACT-DESC', label: 'VA1120-EXTRACT-DESC', isSpecial: false },
+    { id: 'VA1210-GENERATE-DSL', label: 'VA1210-GENERATE-DSL', isSpecial: false },
+    { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210-GENERATE-SHORT DESC', isSpecial: false },
+    { id: 'VA2220-EDIT-SHORT-DESC', label: 'VA2220-EDIT-SHORT DESC', isSpecial: false },
+    { id: 'VA2310-GENERATE-DSL', label: 'VA2310-GENERATE-DSL', isSpecial: false },
+    { id: 'VA2320-EDIT-DSL', label: 'VA2320-EDIT-DSL', isSpecial: false },
   ];
 
   return (
@@ -391,7 +640,23 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
       </div>
 
       <div className="flex-1 min-h-0 p-2 overflow-hidden">
-        {subtabs.map((tab) => (
+        {/* IR Functions & Example DSL Tab */}
+        <TabsContent value="IR-FUNCTIONS-EXAMPLE-DSL" className="h-full m-0">
+          <IRFunctionsSubtab
+            irVersions={createSampleVersions('IR')}
+            selectedIRVersionId={selectedIRVersion}
+            onIRVersionSelect={setSelectedIRVersion}
+            irFunctionsList={sampleIRFunctionsList}
+            exampleDSLVersions={createSampleVersions('ExampleDSL')}
+            selectedExampleDSLVersionId={selectedExampleDSLVersion}
+            onExampleDSLVersionSelect={setSelectedExampleDSLVersion}
+            exampleDSLContent={sampleExampleDSLContent}
+            zoomLevel={zoomLevel}
+          />
+        </TabsContent>
+
+        {/* Regular Config Subtabs */}
+        {subtabs.filter(tab => !tab.isSpecial).map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="h-full m-0">
             <ConfigSubtab
               versions={createSampleVersions(tab.id)}
