@@ -474,6 +474,7 @@ interface TreeNodeProps {
   editable?: boolean;
   onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
   highlightedElementId?: string | null;
+  highlightedFunctionName?: string | null; // Only highlight statements in this function
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -487,6 +488,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   editable = false,
   onArgsChange,
   highlightedElementId,
+  highlightedFunctionName,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -609,7 +611,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => {
-              const isStmtHighlighted = highlightedElementId && statementMatchesElementId(stmt, highlightedElementId);
+              // Only highlight statements if this is the function that contains the element
+              const isStmtHighlighted = highlightedElementId && highlightedFunctionName === node.name && statementMatchesElementId(stmt, highlightedElementId);
               return (
                 <StatementRow 
                   key={idx} 
@@ -850,30 +853,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const functionWithHighlightedElement = useMemo(() => {
     if (!highlightedElementId || !spec?.defs) return null;
     
-    console.log(`[FIND] Searching for element: "${highlightedElementId}"`);
-    
     // For pattern-based IDs like L1, R2, etc., check which functions have matching patterns
     for (const [fnName, fnDef] of Object.entries(spec.defs)) {
-      for (let i = 0; i < fnDef.body.length; i++) {
-        const stmt = fnDef.body[i];
-        // Log call statements with id arg
-        if ('call' in stmt) {
-          const idArg = stmt.call.args.id;
-          if (idArg) {
-            console.log(`[FIND] ${fnName}[${i}]: call ${stmt.call.fn}, id=`, idArg);
-            if (typeof idArg === 'object' && 'expr' in idArg) {
-              console.log(`[FIND]   -> expr: "${(idArg as {expr:string}).expr}"`);
-            }
-          }
-        }
-        
+      for (const stmt of fnDef.body) {
         if (statementHasElementId(stmt, highlightedElementId)) {
-          console.log(`[FIND] ✓ MATCH in ${fnName}[${i}]`);
           return fnName;
         }
       }
     }
-    console.log(`[FIND] ✗ No match found`);
     return null;
   }, [highlightedElementId, spec]);
   
@@ -985,6 +972,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               editable={!!onFunctionArgsChange}
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
               highlightedElementId={highlightedElementId}
+              highlightedFunctionName={functionWithHighlightedElement}
             />
           ))}
         </div>
