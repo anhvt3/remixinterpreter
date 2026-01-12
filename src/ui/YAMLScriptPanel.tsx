@@ -86,15 +86,16 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   );
 
   // Keep draft in sync with external content (after save / external update)
+  // Only reset if content actually changed from external source
   useEffect(() => {
-    if (!dirtyRef.current) {
+    if (!dirtyRef.current && content !== codeDraft) {
       setCodeDraft(content);
       setCodeError(null);
       resetUndo(content);
       setIsDirty(false);
       setPendingViewMode(null);
     }
-  }, [content, resetUndo]);
+  }, [content, resetUndo, codeDraft]);
 
   // "Recent changes not saved" should track user edits since last save, not string formatting differences.
   const hasUnsavedChanges = isDirty;
