@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight } from 'lucide-react';
 import type { CallChainEntry } from '../core/runtimeTracer';
@@ -61,10 +61,18 @@ const RuntimeStepRow: React.FC<{
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
 }> = ({ step, expanded, onToggle, getHighlightLevel }) => {
+  const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
+
+  // Auto-scroll primary highlighted step into view
+  useEffect(() => {
+    if (highlightLevel === 'primary' && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightLevel]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -85,6 +93,7 @@ const RuntimeStepRow: React.FC<{
   return (
     <>
       <div 
+        ref={rowRef}
         className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono ${highlightStyles}`}
         style={{ paddingLeft: `${8 + indent}px` }}
         onClick={() => hasChildren && onToggle(step.id)}
