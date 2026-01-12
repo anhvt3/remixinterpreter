@@ -162,51 +162,45 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   );
 };
 
-// IR Functions & Example DSL Subtab Component
-interface IRFunctionsSubtabProps {
-  irVersions: ConfigVersion[];
-  selectedIRVersionId: string | null;
-  onIRVersionSelect: (id: string) => void;
-  onIRVersionDelete?: (id: string) => void;
-  onIRVersionCreate?: () => void;
-  irFunctionsList: string;
-  exampleDSLVersions: ConfigVersion[];
-  selectedExampleDSLVersionId: string | null;
-  onExampleDSLVersionSelect: (id: string) => void;
-  onExampleDSLVersionDelete?: (id: string) => void;
-  onExampleDSLVersionCreate?: () => void;
-  exampleDSLContent: string;
+// Simple Subtab Component for IRF and EDSL (1/3 versions, 2/3 content)
+interface SimpleSubtabProps {
+  versions: ConfigVersion[];
+  selectedVersionId: string | null;
+  onVersionSelect: (id: string) => void;
+  onVersionDelete?: (id: string) => void;
+  onVersionCreate?: () => void;
+  onContentSave?: () => void;
+  versionsTitle: string;
+  contentTitle: string;
+  content: string;
   zoomLevel?: number;
 }
 
-const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
-  irVersions,
-  selectedIRVersionId,
-  onIRVersionSelect,
-  onIRVersionDelete,
-  onIRVersionCreate,
-  irFunctionsList,
-  exampleDSLVersions,
-  selectedExampleDSLVersionId,
-  onExampleDSLVersionSelect,
-  onExampleDSLVersionDelete,
-  onExampleDSLVersionCreate,
-  exampleDSLContent,
+const SimpleSubtab: React.FC<SimpleSubtabProps> = ({
+  versions,
+  selectedVersionId,
+  onVersionSelect,
+  onVersionDelete,
+  onVersionCreate,
+  onContentSave,
+  versionsTitle,
+  contentTitle,
+  content,
   zoomLevel = 100,
 }) => {
   const scale = zoomLevel / 100;
 
   return (
-    <div className="grid grid-cols-6 gap-2 h-full">
-      {/* IR Functions Versions - 1/6 */}
+    <div className="grid grid-cols-3 gap-2 h-full">
+      {/* Versions Panel - 1/3 */}
       <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">IRF Versions</span>
+          <span className="text-xs font-medium text-muted-foreground">{versionsTitle}</span>
           <Button
             variant="ghost"
             size="icon"
             className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
-            onClick={onIRVersionCreate}
+            onClick={onVersionCreate}
             title="Create new version"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -214,50 +208,61 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <div className="p-2 space-y-1" style={{ fontSize: `${scale}rem` }}>
-            {irVersions.map((version) => (
+            {versions.map((version) => (
               <div
                 key={version.id}
                 className={cn(
-                  "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
-                  selectedIRVersionId === version.id
+                  "w-full text-left px-3 py-2 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
+                  selectedVersionId === version.id
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "hover:bg-muted text-muted-foreground hover:text-foreground"
                 )}
               >
                 <button
-                  onClick={() => onIRVersionSelect(version.id)}
+                  onClick={() => onVersionSelect(version.id)}
                   className="flex-1 text-left"
                 >
-                  <div className="font-medium text-[0.65rem]">{version.name}</div>
-                  <div className="text-[0.55rem] opacity-70">{version.timestamp}</div>
+                  <div className="font-medium">{version.name}</div>
+                  <div className="text-[0.65rem] opacity-70 mt-0.5">{version.timestamp}</div>
+                  {version.isActive && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 text-[0.6rem] bg-accent/20 text-accent rounded">
+                      Active
+                    </span>
+                  )}
                 </button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onIRVersionDelete?.(version.id);
+                    onVersionDelete?.(version.id);
                   }}
                   title="Delete version"
                 >
-                  <Trash2 className="h-2.5 w-2.5" />
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             ))}
+            {versions.length === 0 && (
+              <div className="text-xs text-muted-foreground p-3 text-center">
+                No versions available
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>
 
-      {/* IR Functions List - 2/6 */}
+      {/* Content Panel - 2/3 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
         <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">#IRF-IntermediateRepresentationFunctions</span>
+          <span className="text-xs font-medium text-muted-foreground">{contentTitle}</span>
           <Button
             variant="ghost"
             size="icon"
             className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
-            title="Save IR functions"
+            onClick={onContentSave}
+            title="Save content"
           >
             <Save className="h-3.5 w-3.5" />
           </Button>
@@ -267,81 +272,7 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
             className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
             style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
           >
-            {irFunctionsList || 'No IR functions defined'}
-          </pre>
-        </ScrollArea>
-      </div>
-
-      {/* ExampleDSL Versions - 1/6 */}
-      <div className="h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">EDSL Versions</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
-            onClick={onExampleDSLVersionCreate}
-            title="Create new version"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-        <ScrollArea className="h-[calc(100%-2rem)]">
-          <div className="p-2 space-y-1" style={{ fontSize: `${scale}rem` }}>
-            {exampleDSLVersions.map((version) => (
-              <div
-                key={version.id}
-                className={cn(
-                  "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-start justify-between gap-1 group",
-                  selectedExampleDSLVersionId === version.id
-                    ? "bg-primary/20 text-primary border border-primary/30"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <button
-                  onClick={() => onExampleDSLVersionSelect(version.id)}
-                  className="flex-1 text-left"
-                >
-                  <div className="font-medium text-[0.65rem]">{version.name}</div>
-                  <div className="text-[0.55rem] opacity-70">{version.timestamp}</div>
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onExampleDSLVersionDelete?.(version.id);
-                  }}
-                  title="Delete version"
-                >
-                  <Trash2 className="h-2.5 w-2.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* ExampleDSL Content - 2/6 */}
-      <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
-          <span className="text-xs font-medium text-muted-foreground">#EDSL-ExampleDomainSpecificLanguage</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
-            title="Save example DSL"
-          >
-            <Save className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-        <ScrollArea className="h-[calc(100%-2rem)]">
-          <pre
-            className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
-            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
-          >
-            {exampleDSLContent || 'No example DSL content'}
+            {content || 'No content available'}
           </pre>
         </ScrollArea>
       </div>
@@ -630,7 +561,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
   const [selectedExampleDSLVersion, setSelectedExampleDSLVersion] = useState<string | null>('ExampleDSL-v3');
 
   const subtabs = [
-    { id: 'IR-FUNCTIONS-EXAMPLE-DSL', label: 'IR Functions & Example DSL', isSpecial: true },
+    { id: 'IRF-IR-FUNCTIONS', label: 'IRF-IR Functions', isSpecial: 'irf' },
+    { id: 'EDSL-EXAMPLE-DSL', label: 'EDSL-ExampleDSL', isSpecial: 'edsl' },
     { id: 'VA1120-EXTRACT-DESC', label: 'VA1120-EXTRACT-DESC', isSpecial: false },
     { id: 'VA1210-GENERATE-DSL', label: 'VA1210-GENERATE-DSL', isSpecial: false },
     { id: 'VA2210-GENERATE-SHORT-DESC', label: 'VA2210-GENERATE-SHORT DESC', isSpecial: false },
@@ -640,7 +572,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
   ];
 
   return (
-    <Tabs defaultValue="VA1120-EXTRACT-DESC" className="h-full flex flex-col">
+    <Tabs defaultValue="IRF-IR-FUNCTIONS" className="h-full flex flex-col">
       <div className="shrink-0 border-b border-border/50 px-2 pt-1">
         <TabsList className="bg-transparent h-auto flex-wrap gap-1 p-0">
           {subtabs.map((tab) => (
@@ -656,17 +588,28 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
       </div>
 
       <div className="flex-1 min-h-0 p-2 overflow-hidden">
-        {/* IR Functions & Example DSL Tab */}
-        <TabsContent value="IR-FUNCTIONS-EXAMPLE-DSL" className="h-full m-0">
-          <IRFunctionsSubtab
-            irVersions={createSampleVersions('IR', 'IRF')}
-            selectedIRVersionId={selectedIRVersion}
-            onIRVersionSelect={setSelectedIRVersion}
-            irFunctionsList={sampleIRFunctionsList}
-            exampleDSLVersions={createSampleVersions('ExampleDSL', 'EDSL')}
-            selectedExampleDSLVersionId={selectedExampleDSLVersion}
-            onExampleDSLVersionSelect={setSelectedExampleDSLVersion}
-            exampleDSLContent={sampleExampleDSLContent}
+        {/* IRF-IR Functions Tab */}
+        <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
+          <SimpleSubtab
+            versions={createSampleVersions('IR', 'IRF')}
+            selectedVersionId={selectedIRVersion}
+            onVersionSelect={setSelectedIRVersion}
+            versionsTitle="IRF Versions"
+            contentTitle="#IRF-IntermediateRepresentationFunctions"
+            content={sampleIRFunctionsList}
+            zoomLevel={zoomLevel}
+          />
+        </TabsContent>
+
+        {/* EDSL-ExampleDSL Tab */}
+        <TabsContent value="EDSL-EXAMPLE-DSL" className="h-full m-0">
+          <SimpleSubtab
+            versions={createSampleVersions('ExampleDSL', 'EDSL')}
+            selectedVersionId={selectedExampleDSLVersion}
+            onVersionSelect={setSelectedExampleDSLVersion}
+            versionsTitle="EDSL Versions"
+            contentTitle="#EDSL-ExampleDomainSpecificLanguage"
+            content={sampleExampleDSLContent}
             zoomLevel={zoomLevel}
           />
         </TabsContent>
