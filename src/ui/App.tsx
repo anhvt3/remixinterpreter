@@ -77,11 +77,12 @@ const DescPanel: React.FC<DescPanelProps> = ({ content, onChange, zoomLevel = 10
 interface AnimPanelProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
+  highlightedElementIds?: string[];
   onElementClick?: (elementId: string) => void;
   zoomLevel?: number;
 }
-const AnimPanel: React.FC<AnimPanelProps> = ({ zoomLevel, ...props }) => (
-  <AnimPanelWithControls {...props} zoomLevel={zoomLevel} />
+const AnimPanel: React.FC<AnimPanelProps> = ({ zoomLevel, highlightedElementIds, ...props }) => (
+  <AnimPanelWithControls {...props} highlightedElementIds={highlightedElementIds} zoomLevel={zoomLevel} />
 );
 
 // Chat Panel - Chat interface (re-exported for clarity)
@@ -101,6 +102,9 @@ export const App: React.FC = () => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
   const [elementCallChains, setElementCallChains] = useState<Map<string, CallChainEntry[]>>(new Map());
+  const [stepCallChains, setStepCallChains] = useState<Map<string, CallChainEntry[]>>(new Map());
+  const [stepCreatedElements, setStepCreatedElements] = useState<Map<string, string[]>>(new Map());
+  const [selectedRuntimeStepId, setSelectedRuntimeStepId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const handleZoomIn = useCallback(() => {
@@ -225,20 +229,58 @@ export const App: React.FC = () => {
       setEvents(result.timeline);
       setRuntimeSteps(result.steps);
       setElementCallChains(result.elementCallChains);
+      setStepCallChains(result.stepCallChains);
+      setStepCreatedElements(result.stepCreatedElements);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
       setParsedSpec(null);
       setRuntimeSteps([]);
       setElementCallChains(new Map());
+      setStepCallChains(new Map());
+      setStepCreatedElements(new Map());
     }
   }, [fullYamlContent]);
 
-  // Get call chain for the selected element
+  // Get call chain for the selected element (when clicking Anim panel)
   const selectedElementCallChain = useMemo(() => {
     if (!selectedElementId) return null;
     return elementCallChains.get(selectedElementId) || null;
   }, [selectedElementId, elementCallChains]);
+
+  // Get call chain for the selected runtime step (when clicking Runtime panel)
+  const selectedStepCallChain = useMemo(() => {
+    if (!selectedRuntimeStepId) return null;
+    return stepCallChains.get(selectedRuntimeStepId) || null;
+  }, [selectedRuntimeStepId, stepCallChains]);
+
+  // Get element IDs created by selected runtime step (for Anim panel highlighting)
+  const highlightedElementIds = useMemo(() => {
+    if (!selectedRuntimeStepId) return [];
+    return stepCreatedElements.get(selectedRuntimeStepId) || [];
+  }, [selectedRuntimeStepId, stepCreatedElements]);
+
+  // Combined call chain: prioritize runtime step selection, fall back to element selection
+  const activeCallChain = selectedStepCallChain || selectedElementCallChain;
+
+  // Handle runtime step click
+  const handleRuntimeStepClick = useCallback((step: RuntimeStep) => {
+    if (selectedRuntimeStepId === step.id) {
+      // Deselect if clicking same step
+      setSelectedRuntimeStepId(null);
+      setSelectedElementId(null);
+    } else {
+      setSelectedRuntimeStepId(step.id);
+      // Clear element selection when selecting a runtime step
+      setSelectedElementId(null);
+    }
+  }, [selectedRuntimeStepId]);
+
+  // Handle element click in Anim panel (modified to clear runtime step selection)
+  const handleElementClickWithClear = useCallback((elementId: string) => {
+    setSelectedRuntimeStepId(null); // Clear runtime step selection
+    setSelectedElementId(elementId === selectedElementId ? null : elementId);
+  }, [selectedElementId]);
 
   // Common DSL panel props with persistent state
   const dslPanelProps = {
@@ -250,7 +292,7 @@ export const App: React.FC = () => {
     panelState: dslPanelState,
     onPanelStateChange: setDslPanelState,
     highlightedElementId: selectedElementId,
-    elementCallChain: selectedElementCallChain,
+    elementCallChain: activeCallChain, // Use combined call chain
     zoomLevel,
   };
 
@@ -258,7 +300,8 @@ export const App: React.FC = () => {
   const animPanelProps = {
     events,
     selectedElementId,
-    onElementClick: handleElementClick,
+    highlightedElementIds, // New: elements highlighted by runtime step click
+    onElementClick: handleElementClickWithClear,
     zoomLevel,
   };
   
@@ -378,7 +421,13 @@ export const App: React.FC = () => {
                   <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <RuntimePanel steps={runtimeSteps} elementCallChain={selectedElementCallChain} zoomLevel={zoomLevel} />
+                  <RuntimePanel 
+                    steps={runtimeSteps} 
+                    elementCallChain={selectedElementCallChain} 
+                    zoomLevel={zoomLevel}
+                    onStepClick={handleRuntimeStepClick}
+                    selectedStepId={selectedRuntimeStepId}
+                  />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <AnimPanel {...animPanelProps} />

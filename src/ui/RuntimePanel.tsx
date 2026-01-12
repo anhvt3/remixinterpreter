@@ -15,6 +15,11 @@ export interface RuntimeStep {
   iteration?: { var: string; value: unknown; index: number };
   depth: number;
   children?: RuntimeStep[];
+  // Track which function and statement index this step corresponds to
+  fnName?: string;
+  stmtIndex?: number;
+  // For IR steps, track the element IDs they create
+  createdElementIds?: string[];
 }
 
 interface RuntimePanelProps {
@@ -22,6 +27,10 @@ interface RuntimePanelProps {
   currentTime?: number;
   elementCallChain?: CallChainEntry[] | null;
   zoomLevel?: number;
+  // New: callback when a runtime step is clicked
+  onStepClick?: (step: RuntimeStep) => void;
+  // New: currently selected step (from runtime click)
+  selectedStepId?: string | null;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -61,7 +70,9 @@ const RuntimeStepRow: React.FC<{
   expanded: Set<string>;
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
-}> = ({ step, expanded, onToggle, getHighlightLevel }) => {
+  onStepClick?: (step: RuntimeStep) => void;
+  isSelected?: boolean;
+}> = ({ step, expanded, onToggle, getHighlightLevel, onStepClick, isSelected }) => {
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
@@ -84,12 +95,23 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-cyan-400',         // IR commands: cyan
   };
 
-  // Highlight styles based on call chain level
-  const highlightStyles = highlightLevel === 'primary'
+  // Highlight styles based on call chain level OR selection
+  const highlightStyles = isSelected
+    ? 'bg-accent/40 border-l-2 border-accent ring-1 ring-accent/60'
+    : highlightLevel === 'primary'
     ? 'bg-primary/30 border-l-2 border-primary'
     : highlightLevel === 'secondary'
     ? 'bg-primary/10 border-l-2 border-primary/40'
     : '';
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (hasChildren) {
+      onToggle(step.id);
+    }
+    // Always trigger step click for selection
+    onStepClick?.(step);
+  };
 
   return (
     <>
@@ -97,7 +119,7 @@ const RuntimeStepRow: React.FC<{
         ref={rowRef}
         className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono ${highlightStyles}`}
         style={{ paddingLeft: `${8 + indent}px` }}
-        onClick={() => hasChildren && onToggle(step.id)}
+        onClick={handleClick}
       >
         {/* Expand/collapse */}
         <span className="w-4 shrink-0 flex items-center justify-center">
@@ -179,13 +201,27 @@ const RuntimeStepRow: React.FC<{
       
       {/* Children */}
       {isExpanded && step.children?.map(child => (
-        <RuntimeStepRow key={child.id} step={child} expanded={expanded} onToggle={onToggle} getHighlightLevel={getHighlightLevel} />
+        <RuntimeStepRow 
+          key={child.id} 
+          step={child} 
+          expanded={expanded} 
+          onToggle={onToggle} 
+          getHighlightLevel={getHighlightLevel}
+          onStepClick={onStepClick}
+          isSelected={isSelected}
+        />
       ))}
     </>
   );
 };
 
-export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallChain, zoomLevel = 100 }) => {
+export const RuntimePanel: React.FC<RuntimePanelProps> = ({ 
+  steps, 
+  elementCallChain, 
+  zoomLevel = 100,
+  onStepClick,
+  selectedStepId,
+}) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   
   // Build a map of step ID -> highlight level from the call chain
@@ -209,6 +245,11 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallCh
       return highlightMap.get(step.functionName) || null;
     }
     return null;
+  };
+  
+  // Check if a step matches the selected step ID (recursively)
+  const isStepSelected = (step: RuntimeStep): boolean => {
+    return step.id === selectedStepId;
   };
   
   // Auto-expand top-level items and items in call chain
@@ -265,6 +306,8 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallCh
                 expanded={expanded}
                 onToggle={toggleExpand}
                 getHighlightLevel={getHighlightLevel}
+                onStepClick={onStepClick}
+                isSelected={isStepSelected(step)}
               />
             ))
           )}
