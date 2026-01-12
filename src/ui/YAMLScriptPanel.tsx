@@ -79,31 +79,34 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-1 mb-2 shrink-0">
-        <button
-          onClick={() => setViewMode('tree')}
-          className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
-            panelState.viewMode === 'tree' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          }`}
-        >
-          Tree View
-        </button>
-        <button
-          onClick={() => setViewMode('code')}
-          className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
-            panelState.viewMode === 'code' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          }`}
-        >
-          Code View
-        </button>
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <span className="text-xs font-medium text-foreground">DSLScript</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setViewMode('tree')}
+            className={`text-xs py-1.5 px-3 rounded transition-colors ${
+              panelState.viewMode === 'tree' 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            Tree View
+          </button>
+          <button
+            onClick={() => setViewMode('code')}
+            className={`text-xs py-1.5 px-3 rounded transition-colors ${
+              panelState.viewMode === 'code' 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            Code View
+          </button>
+        </div>
         
         {/* Expand/Collapse buttons - only show in tree view */}
         {panelState.viewMode === 'tree' && (
-          <div className="flex items-center gap-0.5 ml-1">
+          <div className="flex items-center gap-0.5 ml-auto">
             <button
               onClick={expandAll}
               className="p-1.5 rounded hover:bg-muted/80 text-muted-foreground transition-colors"
