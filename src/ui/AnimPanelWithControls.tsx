@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Play, Pause, RotateCcw, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import type { TimelineEvent } from '../core/types';
@@ -12,6 +12,7 @@ interface AnimPanelWithControlsProps {
   highlightedElementIds?: string[];
   onElementClick?: (elementId: string) => void;
   zoomLevel?: number;
+  loopRange?: { start: number; end: number } | null;
 }
 
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
@@ -20,6 +21,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
   highlightedElementIds = [],
   onElementClick,
   zoomLevel = 100,
+  loopRange = null,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(1.5); // Start at 1.5s to show initial elements
@@ -29,6 +31,16 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
   const lastTimeRef = useRef<number>(0);
   
   const { duration } = normalizeTimeline(events);
+  
+  // When loopRange changes, start playing from the loop start
+  useEffect(() => {
+    if (loopRange) {
+      setCurrentTime(loopRange.start);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+    }
+  }, [loopRange]);
   
   // Use ResizeObserver for reliable dimension tracking
   useLayoutEffect(() => {
@@ -71,6 +83,16 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
       
       setCurrentTime((prev) => {
         const next = prev + delta;
+        
+        // If we have a loop range, loop within it
+        if (loopRange) {
+          if (next >= loopRange.end) {
+            return loopRange.start;
+          }
+          return next;
+        }
+        
+        // Normal playback - stop at end
         if (next >= duration) {
           setIsPlaying(false);
           return duration;
@@ -86,7 +108,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, duration]);
+  }, [isPlaying, duration, loopRange]);
   
   const handlePlayPause = useCallback(() => {
     if (currentTime >= duration) setCurrentTime(0);
@@ -106,6 +128,12 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
       {/* Header with controls */}
       <div className="panel-header flex items-center gap-2">
         <span className="font-medium">Anim</span>
+        {loopRange && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary flex items-center gap-1">
+            <Repeat className="h-2.5 w-2.5" />
+            Loop
+          </span>
+        )}
         <div className="flex-1" />
         
         <Button
