@@ -131,14 +131,18 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     setCodeError(err);
   }, [setUndoValue, validateParamsYaml]);
 
-  const handleSave = useCallback((): boolean => {
-    const err = validateParamsYaml(codeDraft);
+  const handleSave = useCallback((draft?: string): boolean => {
+    const text = draft ?? codeDraft;
+
+    const err = validateParamsYaml(text);
     if (err) {
       setCodeError(err);
       return false;
     }
 
-    onChange(codeDraft);
+    // Ensure state reflects exactly what we saved (important for Ctrl/Cmd+S flows)
+    setCodeDraft(text);
+    onChange(text);
 
     dirtyRef.current = false;
     setIsDirty(false);
@@ -249,7 +253,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
               <Redo2 className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={!hasUnsavedChanges || !!codeError}
               className={`p-1 rounded transition-colors ${
                 hasUnsavedChanges && !codeError
@@ -321,6 +325,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             title=""
             content={codeDraft}
             onChange={handleCodeDraftChange}
+            onSave={(val) => handleSave(val)}
+            enableSavePromptOnBlur={false}
             language="yaml"
             highlightedLines={highlightedLines}
             zoomLevel={zoomLevel}
@@ -340,7 +346,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleDialogCancel}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDialogSave} disabled={!!codeError}>
               Save
             </AlertDialogAction>
