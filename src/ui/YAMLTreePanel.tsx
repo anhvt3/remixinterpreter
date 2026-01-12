@@ -531,28 +531,27 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     const directIds = getStatementElementIds(stmt);
     if (directIds.includes(elementId)) return true;
     
-    // For foreach loops, check if the elementId matches a pattern that could be generated
+    // Check for pattern-based ID generation in call statements (e.g., core.format('R%d', i))
+    if ('call' in stmt && stmt.call.args.id) {
+      const idArg = stmt.call.args.id;
+      if (typeof idArg === 'object' && idArg !== null && 'expr' in idArg) {
+        const expr = (idArg as { expr: string }).expr;
+        // Match patterns like "core.format('R%d', i)" or "core.format('L%d', ...)"
+        const formatMatch = expr.match(/core\.format\s*\(\s*['"]([^'"]+)['"]/);
+        if (formatMatch) {
+          const pattern = formatMatch[1]; // e.g., "R%d" or "L%d"
+          // Convert pattern to regex: "R%d" -> /^R\d+$/
+          const regexPattern = pattern.replace(/%d/g, '\\d+');
+          const regex = new RegExp(`^${regexPattern}$`);
+          if (regex.test(elementId)) return true;
+        }
+      }
+    }
+    
+    // For foreach loops, check inner statements recursively
     if ('foreach' in stmt) {
-      // Check if any inner call uses core.format for ID generation
       for (const innerStmt of stmt.foreach.do) {
         if (statementMatchesElementId(innerStmt, elementId)) return true;
-        
-        // Check for pattern-based ID generation (e.g., core.format('R%d', i))
-        if ('call' in innerStmt && innerStmt.call.args.id) {
-          const idArg = innerStmt.call.args.id;
-          if (typeof idArg === 'object' && idArg !== null && 'expr' in idArg) {
-            const expr = (idArg as { expr: string }).expr;
-            // Match patterns like "core.format('R%d', i)" or "core.format('L%d', ...)"
-            const formatMatch = expr.match(/core\.format\s*\(\s*['"]([^'"]+)['"]/);
-            if (formatMatch) {
-              const pattern = formatMatch[1]; // e.g., "R%d" or "L%d"
-              // Convert pattern to regex: "R%d" -> /^R\d+$/
-              const regexPattern = pattern.replace(/%d/g, '\\d+');
-              const regex = new RegExp(`^${regexPattern}$`);
-              if (regex.test(elementId)) return true;
-            }
-          }
-        }
       }
     }
     return false;
