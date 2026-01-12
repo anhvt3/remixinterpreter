@@ -9,7 +9,7 @@ import { ConfigPanel } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
-import { CollapsiblePanelLayout, type PanelId } from './CollapsiblePanelLayout';
+import { usePanelExpansion, PanelSelector, PanelContentArea, type PanelId } from './CollapsiblePanelLayout';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { executeWithTrace, type CallChainEntry } from '../core/runtimeTracer';
@@ -77,6 +77,7 @@ export const App: React.FC = () => {
   const [selectedStatement, setSelectedStatement] = useState<{ fnName: string; stmtIndex: number } | null>(null);
   const [selectedFunctionDefinition, setSelectedFunctionDefinition] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [activeTab, setActiveTab] = useState('editing');
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 10, 150));
@@ -474,6 +475,75 @@ export const App: React.FC = () => {
     zoomLevel,
     loopRange,
   };
+
+  // Panel expansion state
+  const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible } = usePanelExpansion(['dsl', 'runtime', 'anim']);
+
+  // Panel configurations
+  const panelConfigs = useMemo(() => [
+    {
+      id: 'lo' as PanelId,
+      label: 'LO',
+      render: () => (
+        <CodePanel
+          title="LO"
+          content={loContent}
+          onChange={setLoContent}
+          language="text"
+          zoomLevel={zoomLevel}
+        />
+      ),
+    },
+    {
+      id: 'desc' as PanelId,
+      label: 'Desc',
+      render: () => (
+        <CodePanel
+          title="Desc"
+          content={descContent}
+          onChange={setDescContent}
+          language="text"
+          zoomLevel={zoomLevel}
+        />
+      ),
+    },
+    {
+      id: 'dsl' as PanelId,
+      label: 'DSLScript',
+      render: () => (
+        <YAMLScriptPanel {...dslPanelProps} />
+      ),
+    },
+    {
+      id: 'runtime' as PanelId,
+      label: 'Runtime',
+      render: () => (
+        <RuntimePanel 
+          steps={runtimeSteps} 
+          elementCallChain={selectedElementCallChain} 
+          zoomLevel={zoomLevel}
+          onStepClick={handleRuntimeStepClick}
+          selectedStepId={selectedRuntimeStepId}
+          highlightedStepIds={combinedHighlightedStepIds}
+          stepCallChains={stepCallChains}
+        />
+      ),
+    },
+    {
+      id: 'anim' as PanelId,
+      label: 'Anim',
+      render: () => (
+        <AnimPanelWithControls {...animPanelProps} />
+      ),
+    },
+    {
+      id: 'chat' as PanelId,
+      label: 'Chat',
+      render: () => (
+        <ChatPanel title="Chat" zoomLevel={zoomLevel} />
+      ),
+    },
+  ], [loContent, descContent, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -524,84 +594,27 @@ export const App: React.FC = () => {
       
       {/* Main Content */}
       <div className="flex-1 min-h-0">
-        <Tabs defaultValue="editing" className="h-full flex flex-col">
-          <div className="px-4 py-2 border-b border-border shrink-0">
+        <Tabs defaultValue="editing" className="h-full flex flex-col" onValueChange={setActiveTab}>
+          <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-4">
             <TabsList className="bg-muted">
               <TabsTrigger value="editing" className="text-xs">Editing</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
+            
+            {/* Panel selector for Editing tab - shown inline only when Editing is active */}
+            {activeTab === 'editing' && (
+              <PanelSelector
+                panels={panelConfigs}
+                isPanelVisible={isPanelVisible}
+                onPanelClick={handlePanelClick}
+              />
+            )}
           </div>
           
           <div className="flex-1 min-h-0 overflow-hidden">
             {/* Editing Tab: 6 collapsible panels */}
             <TabsContent value="editing" className="h-full m-0">
-              <CollapsiblePanelLayout
-                panels={[
-                  {
-                    id: 'lo',
-                    label: 'LO',
-                    render: () => (
-                      <CodePanel
-                        title="LO"
-                        content={loContent}
-                        onChange={setLoContent}
-                        language="text"
-                        zoomLevel={zoomLevel}
-                      />
-                    ),
-                  },
-                  {
-                    id: 'desc',
-                    label: 'Desc',
-                    render: () => (
-                      <CodePanel
-                        title="Desc"
-                        content={descContent}
-                        onChange={setDescContent}
-                        language="text"
-                        zoomLevel={zoomLevel}
-                      />
-                    ),
-                  },
-                  {
-                    id: 'dsl',
-                    label: 'DSLScript',
-                    render: () => (
-                      <YAMLScriptPanel {...dslPanelProps} />
-                    ),
-                  },
-                  {
-                    id: 'runtime',
-                    label: 'Runtime',
-                    render: () => (
-                      <RuntimePanel 
-                        steps={runtimeSteps} 
-                        elementCallChain={selectedElementCallChain} 
-                        zoomLevel={zoomLevel}
-                        onStepClick={handleRuntimeStepClick}
-                        selectedStepId={selectedRuntimeStepId}
-                        highlightedStepIds={combinedHighlightedStepIds}
-                        stepCallChains={stepCallChains}
-                      />
-                    ),
-                  },
-                  {
-                    id: 'anim',
-                    label: 'Anim',
-                    render: () => (
-                      <AnimPanelWithControls {...animPanelProps} />
-                    ),
-                  },
-                  {
-                    id: 'chat',
-                    label: 'Chat',
-                    render: () => (
-                      <ChatPanel title="Chat" zoomLevel={zoomLevel} />
-                    ),
-                  },
-                ]}
-                initialExpanded={['dsl', 'runtime', 'anim']}
-              />
+              <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} />
             </TabsContent>
 
             {/* Config Tab */}
