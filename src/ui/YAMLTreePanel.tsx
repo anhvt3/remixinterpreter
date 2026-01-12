@@ -2,7 +2,73 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Code, Play, Layers, Wand2, Settings } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { YAMLSpec, FunctionDef, Statement, Params } from '@/core/types';
+
+// Semantic explanations for functions (20-30 words each)
+const functionExplanations: Record<string, string> = {
+  // Entry
+  SimplifyRoot: "Main entry point that orchestrates the entire square root simplification animation, coordinating factorization, morphing, and final simplification scenes.",
+  
+  // Init
+  InitScene: "Initializes the animation canvas with the specified viewbox dimensions and background color theme.",
+  Present_Intro: "Displays the opening title and mathematical prompt (√N = ?) with timed fade-in animations.",
+  
+  // Scenes
+  Scene_Factorization: "Computes prime factorization of N and displays the division ladder showing step-by-step factor extraction.",
+  Scene_MorphToEquation: "Transforms the prime factorization into root notation, morphing between equation representations.",
+  Scene_SimplifyEquation: "Simplifies the root expression to its final form by extracting perfect squares.",
+  
+  // Subscenes
+  Subscene_Divisions: "Calculates the division chain: repeatedly divides N by its prime factors to build the ladder.",
+  Subscene_CountPowers: "Counts how many times each prime factor appears, producing power representations like 2⁴.",
+  Subscene_FormatPrimeFactorExpr: "Formats the prime factorization as LaTeX (e.g., '720 = 2⁴ × 3² × 5').",
+  Subscene_RootRewrite: "Rewrites the equation with the square root applied to the prime factorization.",
+  Subscene_SplitRoots: "Splits the root into separate terms for each prime factor power.",
+  Subscene_SimplifyFinalLatex: "Produces the final simplified form by extracting factors with even powers from the root.",
+  
+  // Presentation functions
+  Present_Scene_Factorization: "Animates the factorization scene: shows division ladder rows with computed timing.",
+  Present_Subscene_Divisions: "Renders each ladder row (left quotient, right factor) with staggered timing.",
+  Present_Micro_LadderRow: "Displays a single ladder row: the factor on the right and quotient on the left.",
+  Present_Subscene_PrimeFactorExpr: "Shows the complete prime factorization equation at the bottom.",
+  Present_Scene_MorphToEquation: "Animates cross-fade transitions between equation representations.",
+  Present_Scene_SimplifyEquation: "Animates the final simplification with a smooth cross-fade to the answer.",
+  
+  // Primitives
+  IR_BoardInit: "Low-level IR call to initialize the rendering board with viewbox and theme.",
+  ShowTextTimed: "Primitive that creates a text element with position, style, and fade-in timing.",
+  ShowMathTimed: "Primitive that creates a LaTeX math element with position, style, and fade-in timing.",
+  CrossFadeMathTimed: "Primitive that smoothly transitions math content from one expression to another.",
+};
+
+// Semantic explanations for parameters
+const paramExplanations: Record<string, string> = {
+  number: "The input number to simplify. Change this to see different square root simplifications.",
+  limits: "Safety constraints: max_factors prevents runaway animations, desired_rows_for_scale controls text sizing.",
+  max_factors: "Maximum number of prime factors allowed. Prevents very long animations for highly composite numbers.",
+  desired_rows_for_scale: "Target row count for auto-scaling text. More rows = smaller text to fit.",
+  text: "Content strings: the title shown at top and the prompt template for the question.",
+  title: "The heading displayed at the top of the animation (e.g., 'Root Simplification').",
+  prompt_template: "LaTeX template for the question. ${N} is replaced with the actual number.",
+  style: "Visual styling: colors, scales, and font weights for different text elements.",
+  board: "Canvas settings: viewbox defines coordinate system, theme sets background color.",
+  viewbox: "Coordinate bounds [xMin, yMax, xMax, yMin] defining the visible area.",
+  layout: "Positioning: anchor points and coordinates for title, prompt, ladder, and equation.",
+  title_at: "Position of the title text. Anchor defines alignment point.",
+  prompt_at: "Position of the √N = ? prompt below the title.",
+  ladder: "Ladder positioning: x coordinates for left/right columns, y0 start, dy row spacing.",
+  line_at: "Position of the prime factorization equation line.",
+  time: "Timing configuration: when each element appears and how long transitions take.",
+  scene_spans: "Absolute time ranges for each major scene (factorization, morphing, simplify).",
+  factorization: "Timing for the factorization scene: division reveals and prime factor display.",
+  morphing: "Timing for equation morphing: cross-fade transitions between representations.",
+  simplify: "Timing for final simplification: transition to the simplified answer.",
+};
+
+const getExplanation = (name: string): string | null => {
+  return functionExplanations[name] || paramExplanations[name] || null;
+};
 
 interface YAMLTreePanelProps {
   spec: YAMLSpec | null;
@@ -590,10 +656,19 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           {categoryIcons[node.category]}
         </span>
         
-        {/* Function name */}
-        <span className={`font-mono text-sm ${categoryColors[node.category]}`}>
-          {node.name}
-        </span>
+        {/* Function name with tooltip */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`font-mono text-sm ${categoryColors[node.category]} cursor-help`}>
+              {node.name}
+            </span>
+          </TooltipTrigger>
+          {getExplanation(node.name) && (
+            <TooltipContent side="right" className="max-w-xs text-xs">
+              <p>{getExplanation(node.name)}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
         
         {/* Params */}
         <span className="text-xs text-muted-foreground">
@@ -725,9 +800,19 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
     
     // For primitive values (like 'number'), just render the input directly
     if (!isObject) {
+      const explanation = getExplanation(key);
       return (
         <div key={key} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/30 rounded">
-          <span className="text-xs text-orange-400 font-medium min-w-[80px]">{key}:</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-orange-400 font-medium min-w-[80px] cursor-help">{key}:</span>
+            </TooltipTrigger>
+            {explanation && (
+              <TooltipContent side="right" className="max-w-xs text-xs">
+                <p>{explanation}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           <Input
             type={typeof value === 'number' ? 'number' : 'text'}
             value={String(value)}
@@ -739,6 +824,7 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
     }
     
     // For objects, render as collapsible section
+    const explanation = getExplanation(key);
     return (
       <div key={key} className="border-b border-border/30 last:border-b-0">
         <div 
@@ -750,7 +836,16 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
           ) : (
             <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
           )}
-          <span className="text-xs text-orange-400 font-medium">{key}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-orange-400 font-medium cursor-help">{key}</span>
+            </TooltipTrigger>
+            {explanation && (
+              <TooltipContent side="right" className="max-w-xs text-xs">
+                <p>{explanation}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           {!isExpanded && (
             <span className="text-xs text-muted-foreground">
               ({Object.keys(value as object).length} fields)
