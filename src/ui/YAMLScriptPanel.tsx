@@ -309,17 +309,17 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
         )}
       </div>
 
-      {/* Save/Discard Dialog */}
+      {/* Cancel/Save Dialog */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes in the code editor. Would you like to save them?
+              You have unsaved changes. Would you like to save them?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscardAndSwitch}>Discard</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowSaveDialog(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleSaveAndSwitch} disabled={!!codeError}>
               Save
             </AlertDialogAction>
