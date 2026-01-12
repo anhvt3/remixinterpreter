@@ -24,7 +24,7 @@ export type Database = {
           is_deleted: boolean | null
           type: string
           updated_at: string
-          version: string
+          version_name: string
         }
         Insert: {
           content?: string | null
@@ -35,7 +35,7 @@ export type Database = {
           is_deleted?: boolean | null
           type: string
           updated_at?: string
-          version: string
+          version_name: string
         }
         Update: {
           content?: string | null
@@ -46,7 +46,7 @@ export type Database = {
           is_deleted?: boolean | null
           type?: string
           updated_at?: string
-          version?: string
+          version_name?: string
         }
         Relationships: []
       }
