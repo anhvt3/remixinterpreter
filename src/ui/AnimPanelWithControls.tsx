@@ -18,7 +18,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
   onElementClick,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(1.5); // Start at 1.5s to show initial elements
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const containerRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number>();
