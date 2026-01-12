@@ -248,7 +248,7 @@ const RuntimeStepRow: React.FC<{
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 hover:bg-muted"
+              className="h-5 w-5 hover:bg-muted -ml-1"
               onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
               disabled={!canGoDown}
               title="Navigate down toward anchor"
