@@ -106,6 +106,7 @@ export const App: React.FC = () => {
   const [stepCreatedElements, setStepCreatedElements] = useState<Map<string, string[]>>(new Map());
   const [selectedRuntimeStepId, setSelectedRuntimeStepId] = useState<string | null>(null);
   const [selectedStatement, setSelectedStatement] = useState<{ fnName: string; stmtIndex: number } | null>(null);
+  const [selectedFunctionDefinition, setSelectedFunctionDefinition] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const handleZoomIn = useCallback(() => {
@@ -329,10 +330,50 @@ export const App: React.FC = () => {
     return [...new Set(elementIds)];
   }, [selectedStatement, highlightedStepIdsFromStatement, stepCreatedElements]);
 
-  // Combined highlighted elements: from runtime step click OR from statement click
+  // Find runtime step IDs matching all calls to the selected function definition
+  const highlightedStepIdsFromFunctionDef = useMemo(() => {
+    if (!selectedFunctionDefinition) return [];
+    
+    const matchingStepIds: string[] = [];
+    
+    // Check each step's call chain to see if it involves a call to the selected function
+    stepCallChains.forEach((callChain, stepId) => {
+      // Check if any entry in the call chain is a call to the selected function
+      const matches = callChain.some(entry => entry.fnName === selectedFunctionDefinition);
+      if (matches) {
+        matchingStepIds.push(stepId);
+      }
+    });
+    
+    return matchingStepIds;
+  }, [selectedFunctionDefinition, stepCallChains]);
+
+  // Collect element IDs from highlighted steps for function definition click
+  const highlightedElementIdsFromFunctionDef = useMemo(() => {
+    if (!selectedFunctionDefinition || highlightedStepIdsFromFunctionDef.length === 0) return [];
+    
+    const elementIds: string[] = [];
+    for (const stepId of highlightedStepIdsFromFunctionDef) {
+      const elements = stepCreatedElements.get(stepId);
+      if (elements) {
+        elementIds.push(...elements);
+      }
+    }
+    return [...new Set(elementIds)];
+  }, [selectedFunctionDefinition, highlightedStepIdsFromFunctionDef, stepCreatedElements]);
+
+  // Combined highlighted elements: from runtime step click, statement click, OR function definition click
   const combinedHighlightedElementIds = selectedRuntimeStepId 
     ? highlightedElementIds 
-    : highlightedElementIdsFromStatement;
+    : selectedStatement 
+    ? highlightedElementIdsFromStatement 
+    : highlightedElementIdsFromFunctionDef;
+  
+  // Combined highlighted step IDs for RuntimePanel
+  const combinedHighlightedStepIds = selectedFunctionDefinition 
+    ? highlightedStepIdsFromFunctionDef 
+    : highlightedStepIdsFromStatement;
+  
   const activeCallChain = selectedStepCallChain || selectedElementCallChain;
 
   // Compute loop range from selected runtime step's elements
@@ -389,8 +430,10 @@ export const App: React.FC = () => {
       setSelectedElementId(null);
     } else {
       setSelectedRuntimeStepId(step.id);
-      // Clear element selection when selecting a runtime step
+      // Clear other selections when selecting a runtime step
       setSelectedElementId(null);
+      setSelectedStatement(null);
+      setSelectedFunctionDefinition(null);
     }
   }, [selectedRuntimeStepId]);
 
@@ -398,6 +441,7 @@ export const App: React.FC = () => {
   const handleElementClickWithClear = useCallback((elementId: string) => {
     setSelectedRuntimeStepId(null);
     setSelectedStatement(null);
+    setSelectedFunctionDefinition(null);
     setSelectedElementId(elementId === selectedElementId ? null : elementId);
   }, [selectedElementId]);
 
@@ -410,8 +454,22 @@ export const App: React.FC = () => {
       setSelectedStatement({ fnName, stmtIndex });
       setSelectedRuntimeStepId(null);
       setSelectedElementId(null);
+      setSelectedFunctionDefinition(null);
     }
   }, [selectedStatement]);
+
+  // Handle function definition click in TreeView
+  const handleFunctionDefinitionClick = useCallback((fnName: string) => {
+    if (selectedFunctionDefinition === fnName) {
+      setSelectedFunctionDefinition(null);
+    } else {
+      setSelectedFunctionDefinition(fnName);
+      setSelectedRuntimeStepId(null);
+      setSelectedElementId(null);
+      setSelectedStatement(null);
+    }
+  }, [selectedFunctionDefinition]);
+
   const dslPanelProps = {
     spec: parsedSpec,
     content: paramsContent,
@@ -425,6 +483,8 @@ export const App: React.FC = () => {
     zoomLevel,
     onStatementClick: handleStatementClick,
     selectedStatement,
+    onFunctionDefinitionClick: handleFunctionDefinitionClick,
+    selectedFunctionDefinition,
   };
 
   // Common Anim panel props
@@ -560,7 +620,7 @@ export const App: React.FC = () => {
                     zoomLevel={zoomLevel}
                     onStepClick={handleRuntimeStepClick}
                     selectedStepId={selectedRuntimeStepId}
-                    highlightedStepIds={highlightedStepIdsFromStatement}
+                    highlightedStepIds={combinedHighlightedStepIds}
                     stepCallChains={stepCallChains}
                   />
                 </div>
