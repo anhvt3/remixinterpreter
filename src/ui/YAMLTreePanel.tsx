@@ -17,6 +17,8 @@ interface YAMLTreePanelProps {
   onParamsExpandedChange?: (expanded: boolean) => void;
   onExpandedParamsChange?: (expanded: Set<string>) => void;
   onExpandedFunctionsChange?: (expanded: Set<string>) => void;
+  // Highlight element by ID (for Anim -> Tree linking)
+  highlightedElementId?: string | null;
 }
 
 interface FunctionNode {
@@ -135,6 +137,7 @@ interface StatementRowProps {
   defaultExpanded?: boolean;
   editable?: boolean;
   onArgsChange?: (newArgs: Record<string, unknown>) => void;
+  isHighlighted?: boolean;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
@@ -142,8 +145,11 @@ const StatementRow: React.FC<StatementRowProps> = ({
   defaultExpanded = false,
   editable = false,
   onArgsChange,
+  isHighlighted = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  
+  const highlightClass = isHighlighted ? 'bg-primary/20 ring-1 ring-primary/40 rounded' : '';
   
   const handleArgChange = (key: string, value: string, originalValue: unknown) => {
     if (!onArgsChange || !('call' in stmt)) return;
@@ -368,7 +374,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div className="py-1">
+      <div className={`py-1 ${highlightClass}`}>
         <div 
           className="flex items-center gap-1 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
           onClick={() => hasArgs && setExpanded(!expanded)}
@@ -459,6 +465,7 @@ interface TreeNodeProps {
   onSelect: (name: string) => void;
   editable?: boolean;
   onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
+  highlightedElementId?: string | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -471,10 +478,19 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onSelect,
   editable = false,
   onArgsChange,
+  highlightedElementId,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
   const isSelected = selected === node.name;
+  
+  // Check if any statement in this node creates the highlighted element
+  const getStatementElementId = (stmt: Statement): string | null => {
+    if ('ir' in stmt && stmt.ir.args.id) {
+      return String(stmt.ir.args.id);
+    }
+    return null;
+  };
   
   return (
     <div>
@@ -527,14 +543,19 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       {isExpanded && (
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
-            {node.def.body.map((stmt, idx) => (
-              <StatementRow 
-                key={idx} 
-                stmt={stmt} 
-                editable={editable}
-                onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
-              />
-            ))}
+            {node.def.body.map((stmt, idx) => {
+              const stmtElementId = getStatementElementId(stmt);
+              const isStmtHighlighted = highlightedElementId && stmtElementId === highlightedElementId;
+              return (
+                <StatementRow 
+                  key={idx} 
+                  stmt={stmt} 
+                  editable={editable}
+                  onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
+                  isHighlighted={!!isStmtHighlighted}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -717,6 +738,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   onParamsExpandedChange,
   onExpandedParamsChange,
   onExpandedFunctionsChange,
+  highlightedElementId,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -823,6 +845,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onSelect={handleSelect}
               editable={!!onFunctionArgsChange}
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
+              highlightedElementId={highlightedElementId}
             />
           ))}
         </div>
