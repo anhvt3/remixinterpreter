@@ -28,6 +28,8 @@ interface YAMLScriptPanelProps {
   // Controlled state props
   panelState?: DSLPanelState;
   onPanelStateChange?: (state: DSLPanelState) => void;
+  // Highlight element by ID (for Anim -> Tree linking)
+  highlightedElementId?: string | null;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -40,6 +42,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onFunctionArgsChange,
   panelState = DEFAULT_DSL_PANEL_STATE,
   onPanelStateChange,
+  highlightedElementId,
 }) => {
   const setViewMode = (mode: 'code' | 'tree') => {
     onPanelStateChange?.({ ...panelState, viewMode: mode });
@@ -84,6 +87,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             onParamsExpandedChange={(expanded) => onPanelStateChange?.({ ...panelState, paramsExpanded: expanded })}
             onExpandedParamsChange={(expanded) => onPanelStateChange?.({ ...panelState, expandedParams: expanded })}
             onExpandedFunctionsChange={(expanded) => onPanelStateChange?.({ ...panelState, expandedFunctions: expanded })}
+            highlightedElementId={highlightedElementId}
           />
         ) : (
           <CodePanel

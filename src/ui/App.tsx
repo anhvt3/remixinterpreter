@@ -216,7 +216,6 @@ export const App: React.FC = () => {
     }
   }, [fullYamlContent]);
 
-  // Common DSL panel props
   // Common DSL panel props with persistent state
   const dslPanelProps = {
     spec: parsedSpec,
@@ -226,6 +225,7 @@ export const App: React.FC = () => {
     onFunctionArgsChange: handleFunctionArgsChange,
     panelState: dslPanelState,
     onPanelStateChange: setDslPanelState,
+    highlightedElementId: selectedElementId,
   };
 
   // Common Anim panel props
