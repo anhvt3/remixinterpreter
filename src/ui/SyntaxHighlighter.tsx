@@ -7,34 +7,40 @@ interface Token {
     | 'keyword-foreach' 
     | 'keyword-ir' 
     | 'keyword-return'
-    | 'keyword-fn'
-    | 'keyword-out'
-    | 'keyword-params'
-    | 'keyword-defs'
-    | 'keyword-program'
+    | 'keyword-structural'  // fn, args, body, var, range, do, entry, expr
+    | 'keyword-section'     // params, defs, program
     | 'function-name'
+    | 'variable-name'       // variable names after let, foreach var
+    | 'out-value'           // the value after out:
     | 'param-key'
-    | 'variable-name'
     | 'string' 
     | 'number' 
     | 'boolean' 
     | 'null' 
     | 'comment' 
     | 'punctuation' 
-    | 'reference' 
-    | 'expression' 
+    | 'reference'           // $variable references
+    | 'expression'          // expr(...)
+    | 'value'               // plain values
     | 'text';
   value: string;
 }
 
-// Keywords that define DSL structure
-const DSL_KEYWORDS = new Set(['call', 'let', 'foreach', 'ir', 'return', 'fn', 'out', 'params', 'defs', 'program', 'entry', 'body', 'var', 'range', 'do', 'args', 'expr']);
-const STATEMENT_KEYWORDS = new Set(['call', 'let', 'foreach', 'ir', 'return']);
+// Track context for multi-line awareness
+type LineContext = {
+  inCall?: boolean;
+  inLet?: boolean;
+  inForeach?: boolean;
+  inIr?: boolean;
+  afterFn?: boolean;
+  afterOut?: boolean;
+  afterVar?: boolean;
+};
 
-function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Token[], context?: string } {
+function tokenizeYamlLine(line: string, prevContext?: LineContext): { tokens: Token[], context: LineContext } {
   const tokens: Token[] = [];
   let remaining = line;
-  let context = prevLineContext;
+  const context: LineContext = {};
 
   // Comment line
   if (remaining.trimStart().startsWith('#')) {
@@ -63,40 +69,36 @@ function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Tok
     
     if (keyName === 'call') {
       keyType = 'keyword-call';
-      context = 'call';
+      context.inCall = true;
     } else if (keyName === 'let') {
       keyType = 'keyword-let';
-      context = 'let';
+      context.inLet = true;
     } else if (keyName === 'foreach') {
       keyType = 'keyword-foreach';
-      context = 'foreach';
+      context.inForeach = true;
     } else if (keyName === 'ir') {
       keyType = 'keyword-ir';
-      context = 'ir';
+      context.inIr = true;
     } else if (keyName === 'return') {
       keyType = 'keyword-return';
     } else if (keyName === 'fn') {
-      keyType = 'keyword-fn';
+      keyType = 'keyword-structural';
+      context.afterFn = true;
     } else if (keyName === 'out') {
-      keyType = 'keyword-out';
+      keyType = 'keyword-structural';
+      context.afterOut = true;
+    } else if (keyName === 'var') {
+      keyType = 'keyword-structural';
+      context.afterVar = true;
     } else if (keyName === 'params' || keyName === 'defs' || keyName === 'program') {
-      keyType = 'keyword-program';
-    } else if (keyName === 'args' || keyName === 'body' || keyName === 'var' || keyName === 'range' || keyName === 'do' || keyName === 'entry' || keyName === 'expr') {
-      keyType = 'keyword-fn';
+      keyType = 'keyword-section';
+    } else if (keyName === 'args' || keyName === 'body' || keyName === 'range' || keyName === 'do' || keyName === 'entry' || keyName === 'expr') {
+      keyType = 'keyword-structural';
     }
     
     tokens.push({ type: keyType, value: keyName });
     tokens.push({ type: 'punctuation', value: keyMatch[2] });
     remaining = remaining.slice(keyMatch[0].length);
-    
-    // Check if the value after colon is a function name (after fn:)
-    if (keyName === 'fn' && remaining.trim()) {
-      const fnNameMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_.]*)/);
-      if (fnNameMatch) {
-        tokens.push({ type: 'function-name', value: fnNameMatch[1] });
-        remaining = remaining.slice(fnNameMatch[1].length);
-      }
-    }
   }
 
   // Match list item marker
@@ -113,16 +115,16 @@ function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Tok
       
       if (keyName === 'call') {
         keyType = 'keyword-call';
-        context = 'call';
+        context.inCall = true;
       } else if (keyName === 'let') {
         keyType = 'keyword-let';
-        context = 'let';
+        context.inLet = true;
       } else if (keyName === 'foreach') {
         keyType = 'keyword-foreach';
-        context = 'foreach';
+        context.inForeach = true;
       } else if (keyName === 'ir') {
         keyType = 'keyword-ir';
-        context = 'ir';
+        context.inIr = true;
       } else if (keyName === 'return') {
         keyType = 'keyword-return';
       }
@@ -207,28 +209,42 @@ function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Tok
       continue;
     }
 
-    // Function name (PascalCase identifier, likely a function)
-    const funcMatch = remaining.match(/^([A-Z][a-zA-Z0-9_]*)/);
-    if (funcMatch) {
-      tokens.push({ type: 'function-name', value: funcMatch[1] });
-      remaining = remaining.slice(funcMatch[1].length);
+    // Identifier - determine type based on context
+    const identMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+    if (identMatch) {
+      const ident = identMatch[1];
+      let identType: Token['type'] = 'value';
+      
+      // PascalCase = function name
+      if (/^[A-Z]/.test(ident)) {
+        identType = 'function-name';
+      }
+      // After fn: = function name
+      else if (context.afterFn) {
+        identType = 'function-name';
+        context.afterFn = false;
+      }
+      // After out: = variable/output name (green)
+      else if (context.afterOut) {
+        identType = 'out-value';
+        context.afterOut = false;
+      }
+      // After var: in foreach = variable name (green)
+      else if (context.afterVar) {
+        identType = 'variable-name';
+        context.afterVar = false;
+      }
+      
+      tokens.push({ type: identType, value: ident });
+      remaining = remaining.slice(ident.length);
       continue;
     }
 
-    // Any other identifier (variable name in let context, or just text)
-    const wordMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
-    if (wordMatch) {
-      // If we're in a 'let' context, this might be a variable name
-      tokens.push({ type: 'text', value: wordMatch[1] });
-      remaining = remaining.slice(wordMatch[1].length);
-      continue;
-    }
-
-    // Any other non-space character
-    const otherMatch = remaining.match(/^([^\s]+)/);
-    if (otherMatch) {
-      tokens.push({ type: 'text', value: otherMatch[1] });
-      remaining = remaining.slice(otherMatch[1].length);
+    // Dot notation for function calls like text.create
+    const dotFuncMatch = remaining.match(/^([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)/);
+    if (dotFuncMatch) {
+      tokens.push({ type: 'function-name', value: dotFuncMatch[1] });
+      remaining = remaining.slice(dotFuncMatch[1].length);
       continue;
     }
 
@@ -248,28 +264,39 @@ function tokenizeYamlLine(line: string, prevLineContext?: string): { tokens: Tok
   return { tokens, context };
 }
 
+// Colors matched to TreeView (YAMLTreePanel.tsx)
 const tokenStyles: Record<Token['type'], string> = {
+  // Statement keywords - match StatementRow colors
   'keyword-call': 'text-purple-400 font-medium',
   'keyword-let': 'text-yellow-400 font-medium',
   'keyword-foreach': 'text-pink-400 font-medium',
   'keyword-ir': 'text-orange-400 font-medium',
   'keyword-return': 'text-red-400 font-medium',
-  'keyword-fn': 'text-muted-foreground',
-  'keyword-out': 'text-green-400',
-  'keyword-params': 'text-primary font-medium',
-  'keyword-defs': 'text-primary font-medium',
-  'keyword-program': 'text-primary font-medium',
-  'function-name': 'text-blue-400',
-  'param-key': 'text-orange-400',
-  'variable-name': 'text-green-400',
-  'string': 'text-amber-400',
-  'number': 'text-amber-400',
-  'boolean': 'text-amber-400',
+  
+  // Structural keywords
+  'keyword-structural': 'text-muted-foreground',
+  'keyword-section': 'text-primary font-medium',
+  
+  // Names
+  'function-name': 'text-primary',              // Same as TreeView stmt.call.fn
+  'variable-name': 'text-green-400',            // Same as TreeView let variable names
+  'out-value': 'text-green-400',                // Same as TreeView out value
+  'param-key': 'text-orange-400',               // Same as TreeView arg keys
+  
+  // Values - match getValueStyle and formatValue colors
+  'string': 'text-foreground',                  // Editable strings are bright
+  'number': 'text-foreground',                  // Editable numbers are bright
+  'boolean': 'text-foreground',
   'null': 'text-muted-foreground italic',
+  'value': 'text-foreground',                   // Plain values
+  
+  // Special
+  'reference': 'text-cyan-400 italic',          // $variable references
+  'expression': 'text-blue-400/70 italic',      // expr(...) 
+  
+  // Syntax
   'comment': 'text-muted-foreground/60 italic',
-  'punctuation': 'text-muted-foreground/80',
-  'reference': 'text-cyan-400 italic',
-  'expression': 'text-blue-400/80 italic',
+  'punctuation': 'text-muted-foreground/60',
   'text': 'text-foreground',
 };
 
@@ -294,7 +321,7 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
   }
 
   // Process lines with context tracking
-  let context: string | undefined;
+  let context: LineContext = {};
   const processedLines = lines.map((line) => {
     const result = tokenizeYamlLine(line, context);
     context = result.context;
