@@ -45,13 +45,15 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
 interface LOPanelProps {
   content: string;
   onChange: (value: string) => void;
+  zoomLevel?: number;
 }
-const LOPanel: React.FC<LOPanelProps> = ({ content, onChange }) => (
+const LOPanel: React.FC<LOPanelProps> = ({ content, onChange, zoomLevel = 100 }) => (
   <CodePanel
     title="LO"
     content={content}
     onChange={onChange}
     language="text"
+    zoomLevel={zoomLevel}
   />
 );
 
@@ -59,13 +61,15 @@ const LOPanel: React.FC<LOPanelProps> = ({ content, onChange }) => (
 interface DescPanelProps {
   content: string;
   onChange: (value: string) => void;
+  zoomLevel?: number;
 }
-const DescPanel: React.FC<DescPanelProps> = ({ content, onChange }) => (
+const DescPanel: React.FC<DescPanelProps> = ({ content, onChange, zoomLevel = 100 }) => (
   <CodePanel
     title="Desc"
     content={content}
     onChange={onChange}
     language="text"
+    zoomLevel={zoomLevel}
   />
 );
 
@@ -74,9 +78,10 @@ interface AnimPanelProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
   onElementClick?: (elementId: string) => void;
+  zoomLevel?: number;
 }
-const AnimPanel: React.FC<AnimPanelProps> = (props) => (
-  <AnimPanelWithControls {...props} />
+const AnimPanel: React.FC<AnimPanelProps> = ({ zoomLevel, ...props }) => (
+  <AnimPanelWithControls {...props} zoomLevel={zoomLevel} />
 );
 
 // Chat Panel - Chat interface (re-exported for clarity)
@@ -246,6 +251,7 @@ export const App: React.FC = () => {
     onPanelStateChange: setDslPanelState,
     highlightedElementId: selectedElementId,
     elementCallChain: selectedElementCallChain,
+    zoomLevel,
   };
 
   // Common Anim panel props
@@ -253,6 +259,7 @@ export const App: React.FC = () => {
     events,
     selectedElementId,
     onElementClick: handleElementClick,
+    zoomLevel,
   };
   
   return (
@@ -314,25 +321,18 @@ export const App: React.FC = () => {
             </TabsList>
           </div>
           
-          <div 
-            className="flex-1 min-h-0 p-2 overflow-hidden origin-top-left"
-            style={{ 
-              transform: `scale(${zoomLevel / 100})`,
-              width: `${10000 / zoomLevel}%`,
-              height: `${10000 / zoomLevel}%`,
-            }}
-          >
+          <div className="flex-1 min-h-0 p-2 overflow-hidden">
             {/* LO-Desc Tab: LO | Desc | Chat */}
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <LOPanel content={loContent} onChange={setLoContent} />
+                  <LOPanel content={loContent} onChange={setLoContent} zoomLevel={zoomLevel} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <DescPanel content={descContent} onChange={setDescContent} />
+                  <DescPanel content={descContent} onChange={setDescContent} zoomLevel={zoomLevel} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" />
+                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
                 </div>
               </div>
             </TabsContent>
@@ -341,13 +341,13 @@ export const App: React.FC = () => {
             <TabsContent value="desc-dsl" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <DescPanel content={descContent} onChange={setDescContent} />
+                  <DescPanel content={descContent} onChange={setDescContent} zoomLevel={zoomLevel} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" />
+                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
                 </div>
               </div>
             </TabsContent>
@@ -366,7 +366,7 @@ export const App: React.FC = () => {
                   <AnimPanel {...animPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <ChatPanel title="Chat" />
+                  <ChatPanel title="Chat" zoomLevel={zoomLevel} />
                 </div>
               </div>
             </TabsContent>
@@ -378,7 +378,7 @@ export const App: React.FC = () => {
                   <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <RuntimePanel steps={runtimeSteps} elementCallChain={selectedElementCallChain} />
+                  <RuntimePanel steps={runtimeSteps} elementCallChain={selectedElementCallChain} zoomLevel={zoomLevel} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <AnimPanel {...animPanelProps} />

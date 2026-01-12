@@ -10,12 +10,14 @@ interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
   selectedElementId?: string | null;
   onElementClick?: (elementId: string) => void;
+  zoomLevel?: number;
 }
 
 export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({ 
   events,
   selectedElementId,
   onElementClick,
+  zoomLevel = 100,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(1.5); // Start at 1.5s to show initial elements
@@ -140,8 +142,28 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
         </span>
       </div>
       
-      {/* Animation canvas */}
-      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden" style={{ minHeight: 200 }}>
+      {/* Animation canvas - scales based on zoom */}
+      <div 
+        ref={containerRef} 
+        className="flex-1 min-h-0 relative overflow-hidden" 
+        style={{ minHeight: 200 }}
+      >
+        {dimensions.width > 0 && dimensions.height > 0 ? (
+          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` }}>
+            <AnimRenderer
+              events={events}
+              currentTime={currentTime}
+              width={dimensions.width * (100 / zoomLevel)}
+              height={dimensions.height * (100 / zoomLevel)}
+              selectedElementId={selectedElementId}
+              onElementClick={onElementClick}
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+            Loading...
+          </div>
+        )}
         {dimensions.width > 0 && dimensions.height > 0 ? (
           <AnimRenderer
             events={events}

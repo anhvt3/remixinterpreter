@@ -500,6 +500,7 @@ interface YAMLTreePanelProps {
   highlightedElementId?: string | null;
   // Call chain for primary/secondary highlighting
   elementCallChain?: CallChainEntry[] | null;
+  zoomLevel?: number;
 }
 
 interface FunctionNode {
@@ -1379,6 +1380,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   onExpandedFunctionsChange,
   highlightedElementId,
   elementCallChain,
+  zoomLevel = 100,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -1527,20 +1529,21 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       </div>
       
       <ScrollArea className="flex-1">
-        {/* Editable Parameters */}
-        {spec?.params && onParamsChange && (
-          <ParamsEditor 
-            params={spec.params} 
-            onChange={handleParamsChange}
-            mainExpanded={paramsExpanded}
-            expandedParams={expandedParams}
-            onMainExpandedChange={onParamsExpandedChange}
-            onExpandedParamsChange={onExpandedParamsChange}
-          />
-        )}
-        
-        
-        <div className="py-2">
+        <div style={{ fontSize: `${zoomLevel}%` }}>
+          {/* Editable Parameters */}
+          {spec?.params && onParamsChange && (
+            <ParamsEditor 
+              params={spec.params} 
+              onChange={handleParamsChange}
+              mainExpanded={paramsExpanded}
+              expandedParams={expandedParams}
+              onMainExpandedChange={onParamsExpandedChange}
+              onExpandedParamsChange={onExpandedParamsChange}
+            />
+          )}
+          
+          
+          <div className="py-2">
           {allFunctions.map(node => (
             <TreeNode
               key={node.name}
@@ -1557,6 +1560,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               elementCallChain={elementCallChain}
             />
           ))}
+          </div>
         </div>
       </ScrollArea>
     </div>

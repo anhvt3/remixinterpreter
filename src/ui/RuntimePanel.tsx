@@ -21,6 +21,7 @@ interface RuntimePanelProps {
   steps: RuntimeStep[];
   currentTime?: number;
   elementCallChain?: CallChainEntry[] | null;
+  zoomLevel?: number;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -184,7 +185,7 @@ const RuntimeStepRow: React.FC<{
   );
 };
 
-export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallChain }) => {
+export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallChain, zoomLevel = 100 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   
   // Build a map of step ID -> highlight level from the call chain
@@ -251,7 +252,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ steps, elementCallCh
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="py-1">
+        <div className="py-1" style={{ fontSize: `${zoomLevel}%` }}>
           {steps.length === 0 ? (
             <div className="text-xs text-muted-foreground text-center py-8">
               No execution steps yet

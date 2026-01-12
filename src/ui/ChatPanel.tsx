@@ -11,9 +11,10 @@ interface Message {
 
 interface ChatPanelProps {
   title?: string;
+  zoomLevel?: number;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ title = 'Chat' }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ title = 'Chat', zoomLevel = 100 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -50,7 +51,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ title = 'Chat' }) => {
     <div className="flex flex-col h-full panel">
       <div className="panel-header">{title}</div>
       
-      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4" style={{ fontSize: `${zoomLevel}%` }}>
         {messages.map((message) => (
           <div
             key={message.id}
