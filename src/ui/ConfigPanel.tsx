@@ -251,8 +251,16 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
 
       {/* IR Functions List - 2/6 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
           <span className="text-xs font-medium text-muted-foreground">#IRF-IntermediateRepresentationFunctions</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            title="Save IR functions"
+          >
+            <Save className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
@@ -317,8 +325,16 @@ const IRFunctionsSubtab: React.FC<IRFunctionsSubtabProps> = ({
 
       {/* ExampleDSL Content - 2/6 */}
       <div className="col-span-2 h-full min-h-0 overflow-hidden border border-border rounded-lg bg-card">
-        <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50">
+        <div className="h-8 px-3 flex items-center justify-between border-b border-border bg-muted/50">
           <span className="text-xs font-medium text-muted-foreground">#EDSL-ExampleDomainSpecificLanguage</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary/20 hover:text-primary"
+            title="Save example DSL"
+          >
+            <Save className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <pre
