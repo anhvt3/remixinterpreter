@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight, ChevronUp } from 'lucide-react';
+import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight, ChevronUp, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CallChainEntry } from '../core/runtimeTracer';
 
@@ -451,11 +451,56 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     });
   };
 
+  // Collect all expandable step IDs
+  const allExpandableIds = useMemo(() => {
+    const ids: string[] = [];
+    const collect = (items: RuntimeStep[]) => {
+      for (const step of items) {
+        if (step.children && step.children.length > 0) {
+          ids.push(step.id);
+          collect(step.children);
+        }
+      }
+    };
+    collect(steps);
+    return ids;
+  }, [steps]);
+
+  const expandAll = useCallback(() => {
+    setExpanded(new Set(allExpandableIds));
+  }, [allExpandableIds]);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+  }, []);
+
   return (
     <div className="h-full flex flex-col bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
         <span className="text-xs font-medium text-foreground">Runtime Trace</span>
-        <span className="text-xs text-muted-foreground">{steps.length} steps</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={expandAll}
+              title="Expand all"
+            >
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={collapseAll}
+              title="Collapse all"
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <span className="text-xs text-muted-foreground">{steps.length} steps</span>
+        </div>
       </div>
       
       <ScrollArea className="flex-1">
