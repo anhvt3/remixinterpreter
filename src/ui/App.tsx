@@ -98,6 +98,21 @@ export const App: React.FC = () => {
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
   const [loContent, setLoContent] = useState('# LO Content\n\nThis panel shows the Learning Objective or high-level description of the animation.');
   const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
+  
+  // Config tab password protection
+  const [configAuthenticated, setConfigAuthenticated] = useState(false);
+  const [configPassword, setConfigPassword] = useState('');
+  const [configPasswordError, setConfigPasswordError] = useState(false);
+  const CONFIG_PASSWORD = 'tuan123';
+  
+  const handleConfigPasswordSubmit = () => {
+    if (configPassword === CONFIG_PASSWORD) {
+      setConfigAuthenticated(true);
+      setConfigPasswordError(false);
+    } else {
+      setConfigPasswordError(true);
+    }
+  };
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [runtimeSteps, setRuntimeSteps] = useState<RuntimeStep[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -694,7 +709,38 @@ export const App: React.FC = () => {
 
             {/* Config Tab */}
             <TabsContent value="config" className="h-full m-0">
-              <ConfigPanel zoomLevel={zoomLevel} />
+              {configAuthenticated ? (
+                <ConfigPanel zoomLevel={zoomLevel} />
+              ) : (
+                <div className="h-full flex items-center justify-center bg-background">
+                  <div className="p-6 bg-card border border-border rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <h2 className="text-lg font-semibold text-foreground mb-4 text-center">Config Access</h2>
+                    <p className="text-sm text-muted-foreground mb-4 text-center">Enter password to access configuration</p>
+                    <input
+                      type="password"
+                      value={configPassword}
+                      onChange={(e) => {
+                        setConfigPassword(e.target.value);
+                        setConfigPasswordError(false);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleConfigPasswordSubmit()}
+                      placeholder="Password"
+                      className={`w-full px-3 py-2 bg-background border rounded-md text-foreground text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary ${
+                        configPasswordError ? 'border-destructive' : 'border-border'
+                      }`}
+                    />
+                    {configPasswordError && (
+                      <p className="text-xs text-destructive mb-3">Incorrect password</p>
+                    )}
+                    <button
+                      onClick={handleConfigPasswordSubmit}
+                      className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </div>
         </Tabs>
