@@ -493,13 +493,16 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const isSelected = selected === node.name;
   
   // Check if any statement in this node creates/targets the highlighted element
-  const getStatementElementId = (stmt: Statement): string | null => {
+  // This returns an array of all element IDs that could be created by this statement
+  const getStatementElementIds = (stmt: Statement): string[] => {
+    const ids: string[] = [];
+    
     // Check ir statements (primitives)
     if ('ir' in stmt && stmt.ir.args.id) {
       const id = stmt.ir.args.id;
       // Only match if it's a literal string, not a variable reference
       if (typeof id === 'string' && !id.startsWith('$')) {
-        return id;
+        ids.push(id);
       }
     }
     // Check call statements with id argument
@@ -507,10 +510,52 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       const id = stmt.call.args.id;
       // Only match if it's a literal string, not a variable reference or expression
       if (typeof id === 'string' && !id.startsWith('$')) {
-        return id;
+        ids.push(id);
       }
     }
-    return null;
+    // Check foreach loops - if the loop generates IDs with patterns like R0, R1, L0, L1...
+    // We mark the foreach as containing the ID if the pattern matches
+    if ('foreach' in stmt) {
+      // Check inner statements for ID patterns
+      for (const innerStmt of stmt.foreach.do) {
+        const innerIds = getStatementElementIds(innerStmt);
+        ids.push(...innerIds);
+      }
+    }
+    return ids;
+  };
+  
+  // Check if a statement could generate an element with a pattern-based ID
+  // This matches IDs like "R0", "R1", "L0", "L1" to foreach loops that generate them
+  const statementMatchesElementId = (stmt: Statement, elementId: string): boolean => {
+    const directIds = getStatementElementIds(stmt);
+    if (directIds.includes(elementId)) return true;
+    
+    // For foreach loops, check if the elementId matches a pattern that could be generated
+    if ('foreach' in stmt) {
+      // Check if any inner call uses core.format for ID generation
+      for (const innerStmt of stmt.foreach.do) {
+        if (statementMatchesElementId(innerStmt, elementId)) return true;
+        
+        // Check for pattern-based ID generation (e.g., core.format('R%d', i))
+        if ('call' in innerStmt && innerStmt.call.args.id) {
+          const idArg = innerStmt.call.args.id;
+          if (typeof idArg === 'object' && idArg !== null && 'expr' in idArg) {
+            const expr = (idArg as { expr: string }).expr;
+            // Match patterns like "core.format('R%d', i)" or "core.format('L%d', ...)"
+            const formatMatch = expr.match(/core\.format\s*\(\s*['"]([^'"]+)['"]/);
+            if (formatMatch) {
+              const pattern = formatMatch[1]; // e.g., "R%d" or "L%d"
+              // Convert pattern to regex: "R%d" -> /^R\d+$/
+              const regexPattern = pattern.replace(/%d/g, '\\d+');
+              const regex = new RegExp(`^${regexPattern}$`);
+              if (regex.test(elementId)) return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
   };
   
   return (
@@ -565,8 +610,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => {
-              const stmtElementId = getStatementElementId(stmt);
-              const isStmtHighlighted = highlightedElementId && stmtElementId === highlightedElementId;
+              const isStmtHighlighted = highlightedElementId && statementMatchesElementId(stmt, highlightedElementId);
               return (
                 <StatementRow 
                   key={idx} 
@@ -768,8 +812,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return buildTree(spec);
   }, [spec]);
   
-  // Helper to check if a statement contains the highlighted element ID
+  // Helper to check if a statement contains the highlighted element ID (including pattern-based)
   const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
+    // Check direct literal IDs
     if ('ir' in stmt && stmt.ir.args.id) {
       const id = stmt.ir.args.id;
       if (typeof id === 'string' && !id.startsWith('$') && id === elementId) {
@@ -780,6 +825,23 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       const id = stmt.call.args.id;
       if (typeof id === 'string' && !id.startsWith('$') && id === elementId) {
         return true;
+      }
+      // Check for pattern-based ID generation (e.g., core.format('R%d', i))
+      if (typeof id === 'object' && id !== null && 'expr' in id) {
+        const expr = (id as { expr: string }).expr;
+        const formatMatch = expr.match(/core\.format\s*\(\s*['"]([^'"]+)['"]/);
+        if (formatMatch) {
+          const pattern = formatMatch[1];
+          const regexPattern = pattern.replace(/%d/g, '\\d+');
+          const regex = new RegExp(`^${regexPattern}$`);
+          if (regex.test(elementId)) return true;
+        }
+      }
+    }
+    // Check foreach loops recursively
+    if ('foreach' in stmt) {
+      for (const innerStmt of stmt.foreach.do) {
+        if (statementHasElementId(innerStmt, elementId)) return true;
       }
     }
     return false;
