@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
 import type { YAMLSpec, Params } from '../core/types';
@@ -39,6 +40,8 @@ interface YAMLScriptPanelProps {
   onFunctionDefinitionClick?: (fnName: string) => void;
   // Currently selected function definition for highlighting
   selectedFunctionDefinition?: string | null;
+  // All function names for expand/collapse all
+  allFunctionNames?: string[];
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -63,9 +66,20 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     onPanelStateChange?.({ ...panelState, viewMode: mode });
   };
 
+  // Get all function names from spec for expand/collapse
+  const allFunctionNames = spec?.defs ? Object.keys(spec.defs) : [];
+
+  const expandAll = () => {
+    onPanelStateChange?.({ ...panelState, expandedFunctions: new Set(allFunctionNames) });
+  };
+
+  const collapseAll = () => {
+    onPanelStateChange?.({ ...panelState, expandedFunctions: new Set() });
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex gap-1 mb-2 shrink-0">
+      <div className="flex items-center gap-1 mb-2 shrink-0">
         <button
           onClick={() => setViewMode('tree')}
           className={`flex-1 text-xs py-1.5 px-3 rounded transition-colors ${
@@ -86,6 +100,26 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
         >
           Code View
         </button>
+        
+        {/* Expand/Collapse buttons - only show in tree view */}
+        {panelState.viewMode === 'tree' && (
+          <div className="flex items-center gap-0.5 ml-1">
+            <button
+              onClick={expandAll}
+              className="p-1.5 rounded hover:bg-muted/80 text-muted-foreground transition-colors"
+              title="Expand All"
+            >
+              <ChevronsUpDown className="w-4 h-4" />
+            </button>
+            <button
+              onClick={collapseAll}
+              className="p-1.5 rounded hover:bg-muted/80 text-muted-foreground transition-colors"
+              title="Collapse All"
+            >
+              <ChevronsDownUp className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="flex-1 min-h-0">

@@ -1531,14 +1531,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     onFunctionSelect?.(name);
   };
   
-  // Expand all / collapse all
-  const expandAll = () => {
-    onExpandedFunctionsChange?.(new Set(nodes.keys()));
-  };
-  
-  const collapseAll = () => {
-    onExpandedFunctionsChange?.(new Set());
-  };
   
   if (!spec) {
     return (
@@ -1559,20 +1551,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     <div className="flex flex-col h-full panel">
       <div className="panel-header flex items-center justify-between">
         <span>YAMLScript Tree</span>
-        <div className="flex gap-1">
-          <button
-            onClick={expandAll}
-            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground"
-          >
-            Expand All
-          </button>
-          <button
-            onClick={collapseAll}
-            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground"
-          >
-            Collapse
-          </button>
-        </div>
       </div>
       
       <ScrollArea className="flex-1">
