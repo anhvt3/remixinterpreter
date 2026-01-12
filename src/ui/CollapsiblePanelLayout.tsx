@@ -40,7 +40,6 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-card/50 shrink-0">
         {panels.map((panel) => {
           const isVisible = isPanelVisible(panel.id);
-          const visibleIndex = visiblePanels.indexOf(panel.id);
           
           return (
             <button
@@ -53,7 +52,7 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
                   : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
                 }
               `}
-              title={isVisible ? `Panel ${visibleIndex + 1} of 3` : 'Click to expand'}
+              title={isVisible ? 'Expanded' : 'Click to expand'}
             >
               {isVisible ? (
                 <ChevronLeft className="w-3 h-3" />
@@ -61,11 +60,6 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
                 <ChevronRight className="w-3 h-3" />
               )}
               <span>{panel.label}</span>
-              {isVisible && (
-                <span className="ml-1 w-4 h-4 rounded-full bg-primary-foreground/20 text-[10px] flex items-center justify-center">
-                  {visibleIndex + 1}
-                </span>
-              )}
             </button>
           );
         })}
