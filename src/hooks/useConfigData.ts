@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 export interface ConfigRecord {
   id: string;
   type: string;
-  version: string;
+  version_name: string;
   content: string | null;
   important_notes: string | null;
   is_active: boolean;
@@ -60,7 +60,7 @@ export const useConfigData = () => {
       .filter(c => c.type === type)
       .map(c => ({
         id: c.id,
-        name: `${type} ${c.version}`,
+        name: c.version_name,
         timestamp: new Date(c.created_at).toLocaleString(),
         isActive: c.is_active,
       }));
@@ -77,7 +77,7 @@ export const useConfigData = () => {
     if (typeConfigs.length === 0) return 0;
     
     const versions = typeConfigs.map(c => {
-      const match = c.version.match(/v(\d+)/);
+      const match = c.version_name.match(/v(\d+)/i);
       if (match) {
         return parseInt(match[1], 10);
       }
@@ -90,7 +90,7 @@ export const useConfigData = () => {
   // Save/Update config
   const saveConfig = useCallback(async (
     type: string,
-    version: string,
+    versionName: string,
     content: string,
     importantNotes: string,
     existingId?: string
@@ -110,7 +110,7 @@ export const useConfigData = () => {
         
         toast({
           title: 'Saved',
-          description: `${type} ${version} saved successfully`,
+          description: `${versionName} saved successfully`,
         });
       } else {
         // Insert new
@@ -118,7 +118,7 @@ export const useConfigData = () => {
           .from('config')
           .insert({
             type,
-            version,
+            version_name: versionName,
             content,
             important_notes: importantNotes,
             is_active: true,
@@ -128,7 +128,7 @@ export const useConfigData = () => {
         
         toast({
           title: 'Created',
-          description: `${type} ${version} created successfully`,
+          description: `${versionName} created successfully`,
         });
       }
       
@@ -149,12 +149,13 @@ export const useConfigData = () => {
   const createNewVersion = useCallback(async (
     type: string,
     content: string,
-    importantNotes: string
+    importantNotes: string,
+    displayPrefix: string
   ) => {
     const latestVersion = getLatestVersionNumber(type);
-    const newVersion = `v${latestVersion + 1}`;
+    const newVersionName = `${displayPrefix} v${latestVersion + 1}`;
     
-    return saveConfig(type, newVersion, content, importantNotes);
+    return saveConfig(type, newVersionName, content, importantNotes);
   }, [getLatestVersionNumber, saveConfig]);
 
   // Soft delete config (disable instead of delete)
