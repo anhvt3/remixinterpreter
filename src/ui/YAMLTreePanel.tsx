@@ -10,6 +10,13 @@ interface YAMLTreePanelProps {
   selectedFunction?: string | null;
   onParamsChange?: (params: Params) => void;
   onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
+  // Controlled state props for persistence
+  paramsExpanded?: boolean;
+  expandedParams?: Set<string>;
+  expandedFunctions?: Set<string>;
+  onParamsExpandedChange?: (expanded: boolean) => void;
+  onExpandedParamsChange?: (expanded: Set<string>) => void;
+  onExpandedFunctionsChange?: (expanded: Set<string>) => void;
 }
 
 interface FunctionNode {
@@ -539,23 +546,30 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 interface ParamsEditorProps {
   params: Params;
   onChange: (params: Params) => void;
+  // Controlled state props
+  mainExpanded?: boolean;
+  expandedParams?: Set<string>;
+  onMainExpandedChange?: (expanded: boolean) => void;
+  onExpandedParamsChange?: (expanded: Set<string>) => void;
 }
 
-const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
-  const [mainExpanded, setMainExpanded] = useState(true);
-  // Track which param groups are expanded - only 'number' is expanded by default
-  const [expandedParams, setExpandedParams] = useState<Set<string>>(new Set(['number']));
+const ParamsEditor: React.FC<ParamsEditorProps> = ({ 
+  params, 
+  onChange,
+  mainExpanded = true,
+  expandedParams = new Set(['number']),
+  onMainExpandedChange,
+  onExpandedParamsChange,
+}) => {
   
   const toggleParam = (key: string) => {
-    setExpandedParams(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+    const next = new Set(expandedParams);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    onExpandedParamsChange?.(next);
   };
   
   const handleValueChange = (key: string, value: string) => {
@@ -668,7 +682,7 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({ params, onChange }) => {
     <div className="border-b border-border/50">
       <div 
         className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
-        onClick={() => setMainExpanded(!mainExpanded)}
+        onClick={() => onMainExpandedChange?.(!mainExpanded)}
       >
         {mainExpanded ? (
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
@@ -696,8 +710,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   selectedFunction,
   onParamsChange,
   onFunctionArgsChange,
+  // Controlled state props with defaults
+  paramsExpanded = true,
+  expandedParams = new Set(['number']),
+  expandedFunctions = new Set(['SimplifyRoot']),
+  onParamsExpandedChange,
+  onExpandedParamsChange,
+  onExpandedFunctionsChange,
 }) => {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['SimplifyRoot']));
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
   const nodes = useMemo(() => {
@@ -718,15 +738,13 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   }, [nodes]);
   
   const handleToggle = (name: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
+    const next = new Set(expandedFunctions);
+    if (next.has(name)) {
+      next.delete(name);
+    } else {
+      next.add(name);
+    }
+    onExpandedFunctionsChange?.(next);
   };
   
   const handleSelect = (name: string) => {
@@ -736,11 +754,11 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   
   // Expand all / collapse all
   const expandAll = () => {
-    setExpanded(new Set(nodes.keys()));
+    onExpandedFunctionsChange?.(new Set(nodes.keys()));
   };
   
   const collapseAll = () => {
-    setExpanded(new Set());
+    onExpandedFunctionsChange?.(new Set());
   };
   
   if (!spec) {
@@ -781,7 +799,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       <ScrollArea className="flex-1">
         {/* Editable Parameters */}
         {spec?.params && onParamsChange && (
-          <ParamsEditor params={spec.params} onChange={handleParamsChange} />
+          <ParamsEditor 
+            params={spec.params} 
+            onChange={handleParamsChange}
+            mainExpanded={paramsExpanded}
+            expandedParams={expandedParams}
+            onMainExpandedChange={onParamsExpandedChange}
+            onExpandedParamsChange={onExpandedParamsChange}
+          />
         )}
         
         
@@ -792,7 +817,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               node={node}
               allNodes={nodes}
               depth={0}
-              expanded={expanded}
+              expanded={expandedFunctions}
               onToggle={handleToggle}
               selected={selected}
               onSelect={handleSelect}
