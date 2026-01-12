@@ -3,7 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
-import { TimelineDebugPanel } from './TimelineDebugPanel';
 import { YAMLScriptPanel } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
@@ -34,6 +33,70 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
     return fullYaml; // Return original if merge fails
   }
 }
+
+// ============================================================
+// REUSABLE PANEL COMPONENTS
+// These are the core panels used across all tabs
+// ============================================================
+
+// LO Panel - Learning Objective content editor
+interface LOPanelProps {
+  content: string;
+  onChange: (value: string) => void;
+}
+const LOPanel: React.FC<LOPanelProps> = ({ content, onChange }) => (
+  <CodePanel
+    title="LO"
+    content={content}
+    onChange={onChange}
+    language="text"
+  />
+);
+
+// Desc Panel - Description content editor
+interface DescPanelProps {
+  content: string;
+  onChange: (value: string) => void;
+}
+const DescPanel: React.FC<DescPanelProps> = ({ content, onChange }) => (
+  <CodePanel
+    title="Desc"
+    content={content}
+    onChange={onChange}
+    language="text"
+  />
+);
+
+// DSL Panel - YAML Script with Tree/Code view toggle
+interface DSLPanelProps {
+  spec: YAMLSpec | null;
+  content: string;
+  onChange: (value: string) => void;
+  onParamsChange?: (params: Params) => void;
+  onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
+  onLineClick?: (lineIndex: number) => void;
+  highlightedLines?: number[];
+}
+const DSLPanel: React.FC<DSLPanelProps> = (props) => (
+  <YAMLScriptPanel {...props} />
+);
+
+// Anim Panel - Animation preview with controls
+interface AnimPanelProps {
+  events: TimelineEvent[];
+  selectedElementId?: string | null;
+  onElementClick?: (elementId: string) => void;
+}
+const AnimPanel: React.FC<AnimPanelProps> = (props) => (
+  <AnimPanelWithControls {...props} />
+);
+
+// Chat Panel - Chat interface (re-exported for clarity)
+// Already exported from ChatPanel.tsx
+
+// ============================================================
+// MAIN APP COMPONENT
+// ============================================================
 
 export const App: React.FC = () => {
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
@@ -163,6 +226,22 @@ export const App: React.FC = () => {
       setRuntimeSteps([]);
     }
   }, [fullYamlContent]);
+
+  // Common DSL panel props
+  const dslPanelProps = {
+    spec: parsedSpec,
+    content: paramsContent,
+    onChange: handleParamsChange,
+    onParamsChange: handleParamsObjectChange,
+    onFunctionArgsChange: handleFunctionArgsChange,
+  };
+
+  // Common Anim panel props
+  const animPanelProps = {
+    events,
+    selectedElementId,
+    onElementClick: handleElementClick,
+  };
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -199,23 +278,14 @@ export const App: React.FC = () => {
           </div>
           
           <div className="flex-1 min-h-0 p-2 overflow-hidden">
+            {/* LO-Desc Tab: LO | Desc | Chat */}
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <CodePanel
-                    title="LO"
-                    content={loContent}
-                    onChange={setLoContent}
-                    language="text"
-                  />
+                  <LOPanel content={loContent} onChange={setLoContent} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <CodePanel
-                    title="Desc"
-                    content={descContent}
-                    onChange={setDescContent}
-                    language="text"
-                  />
+                  <DescPanel content={descContent} onChange={setDescContent} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <ChatPanel title="Chat" />
@@ -223,24 +293,14 @@ export const App: React.FC = () => {
               </div>
             </TabsContent>
             
+            {/* Desc-DSL Tab: Desc | DSL | Chat */}
             <TabsContent value="desc-dsl" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <CodePanel
-                    title="Desc"
-                    content={descContent}
-                    onChange={setDescContent}
-                    language="text"
-                  />
+                  <DescPanel content={descContent} onChange={setDescContent} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel
-                    spec={parsedSpec}
-                    content={paramsContent}
-                    onChange={handleParamsChange}
-                    onParamsChange={handleParamsObjectChange}
-                    onFunctionArgsChange={handleFunctionArgsChange}
-                  />
+                  <DSLPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <ChatPanel title="Chat" />
@@ -248,59 +308,37 @@ export const App: React.FC = () => {
               </div>
             </TabsContent>
             
+            {/* DSL-Anim Tab: DSL | Anim | Chat */}
             <TabsContent value="dsl-anim" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel
-                    spec={parsedSpec}
-                    content={paramsContent}
-                    onChange={handleParamsChange}
-                    onParamsChange={handleParamsObjectChange}
-                    onFunctionArgsChange={handleFunctionArgsChange}
+                  <DSLPanel
+                    {...dslPanelProps}
                     onLineClick={handleLineClick}
                     highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
                   />
                 </div>
-                
-                <AnimPanelWithControls 
-                  events={events} 
-                  selectedElementId={selectedElementId}
-                  onElementClick={handleElementClick}
-                />
-                <div className="flex flex-col gap-2 h-full overflow-hidden">
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    <ChatPanel title="Chat" />
-                  </div>
-                  <div className="h-1/3 min-h-0 overflow-hidden">
-                    <TimelineDebugPanel events={events} />
-                  </div>
+                <div className="h-full min-h-0 overflow-hidden">
+                  <AnimPanel {...animPanelProps} />
+                </div>
+                <div className="h-full min-h-0 overflow-hidden">
+                  <ChatPanel title="Chat" />
                 </div>
               </div>
             </TabsContent>
             
+            {/* DSL-Runtime Tab: DSL | Runtime | Anim */}
             <TabsContent value="dsl-runtime" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <YAMLScriptPanel
-                    spec={parsedSpec}
-                    content={paramsContent}
-                    onChange={handleParamsChange}
-                    onParamsChange={handleParamsObjectChange}
-                    onFunctionArgsChange={handleFunctionArgsChange}
-                  />
+                  <DSLPanel {...dslPanelProps} />
                 </div>
-                
-                {/* Runtime Trace Panel */}
                 <div className="h-full min-h-0 overflow-hidden">
                   <RuntimePanel steps={runtimeSteps} />
                 </div>
-                
-                {/* Anim Panel */}
-                <AnimPanelWithControls 
-                  events={events} 
-                  selectedElementId={selectedElementId}
-                  onElementClick={handleElementClick}
-                />
+                <div className="h-full min-h-0 overflow-hidden">
+                  <AnimPanel {...animPanelProps} />
+                </div>
               </div>
             </TabsContent>
           </div>
