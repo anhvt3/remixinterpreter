@@ -42,7 +42,9 @@ interface ConfigSubtabProps {
   onVersionCreate?: () => void;
   onSystemPromptSave?: () => void;
   systemPrompt: string;
+  onSystemPromptChange?: (value: string) => void;
   importantNotes: string;
+  onImportantNotesChange?: (value: string) => void;
   // Content from other panels for placeholder replacement
   irfContent?: string;
   edslContent?: string;
@@ -61,7 +63,9 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
   onVersionCreate,
   onSystemPromptSave,
   systemPrompt,
+  onSystemPromptChange,
   importantNotes,
+  onImportantNotesChange,
   irfContent = '',
   edslContent = '',
   loContent = '',
@@ -165,14 +169,13 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
               <Save className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <ScrollArea className="flex-1">
-            <pre
-              className="p-4 text-xs text-foreground whitespace-pre-wrap font-mono"
-              style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
-            >
-              {systemPrompt || 'No system prompt configured'}
-            </pre>
-          </ScrollArea>
+          <textarea
+            className="flex-1 w-full p-4 text-xs text-foreground bg-transparent font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/30"
+            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.6 }}
+            value={systemPrompt}
+            onChange={(e) => onSystemPromptChange?.(e.target.value)}
+            placeholder="No system prompt configured"
+          />
         </div>
 
         {/* #ImportantNotes - Bottom 1/3 */}
@@ -180,14 +183,13 @@ const ConfigSubtab: React.FC<ConfigSubtabProps> = ({
           <div className="h-8 px-3 flex items-center border-b border-border bg-muted/50 shrink-0">
             <span className="text-xs font-medium text-muted-foreground">#ImportantNotes</span>
           </div>
-          <ScrollArea className="flex-1">
-            <pre
-              className="p-3 text-xs text-foreground whitespace-pre-wrap font-mono"
-              style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.5 }}
-            >
-              {importantNotes || 'No important notes'}
-            </pre>
-          </ScrollArea>
+          <textarea
+            className="flex-1 w-full p-3 text-xs text-foreground bg-transparent font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/30"
+            style={{ fontSize: `${0.75 * scale}rem`, lineHeight: 1.5 }}
+            value={importantNotes}
+            onChange={(e) => onImportantNotesChange?.(e.target.value)}
+            placeholder="No important notes"
+          />
         </div>
       </div>
 
@@ -750,7 +752,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ zoomLevel = 100 }) => 
               onVersionCreate={() => handleCreate(tab.id)}
               onSystemPromptSave={() => handleSave(tab.id)}
               systemPrompt={getContent(tab.id, selectedVersions[tab.id] || null, '')}
+              onSystemPromptChange={(value) => setEditableContent(prev => ({ ...prev, [tab.id]: value }))}
               importantNotes={getNotes(tab.id, selectedVersions[tab.id] || null, '')}
+              onImportantNotesChange={(value) => setEditableNotes(prev => ({ ...prev, [tab.id]: value }))}
               irfContent={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, '')}
               edslContent={getContent('EDSL-EXAMPLE-DSL', selectedVersions['EDSL-EXAMPLE-DSL'] || null, '')}
               zoomLevel={zoomLevel}
