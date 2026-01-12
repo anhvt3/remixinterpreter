@@ -1004,7 +1004,8 @@ interface TreeNodeProps {
   editable?: boolean;
   onArgsChange?: (stmtIndex: number, newArgs: Record<string, unknown>) => void;
   highlightedElementId?: string | null;
-  highlightedFunctionName?: string | null; // Only highlight statements in this function
+  // Call chain for primary/secondary highlighting
+  elementCallChain?: CallChainEntry[] | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1018,7 +1019,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   editable = false,
   onArgsChange,
   highlightedElementId,
-  highlightedFunctionName,
+  elementCallChain,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -1150,15 +1151,28 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
             {node.def.body.map((stmt, idx) => {
-              // Only highlight statements if this is the function that contains the element
-              const isStmtHighlighted = highlightedElementId && highlightedFunctionName === node.name && statementMatchesElementId(stmt, highlightedElementId);
+              // Determine highlight level based on call chain
+              let highlightLevel: 'primary' | 'secondary' | null = null;
+              if (elementCallChain && elementCallChain.length > 0) {
+                // Primary = first entry in chain (direct creator)
+                if (elementCallChain[0].fnName === node.name && elementCallChain[0].stmtIndex === idx) {
+                  highlightLevel = 'primary';
+                } else {
+                  // Secondary = any other entry in chain (parent callers)
+                  const isInChain = elementCallChain.slice(1).some(
+                    entry => entry.fnName === node.name && entry.stmtIndex === idx
+                  );
+                  if (isInChain) highlightLevel = 'secondary';
+                }
+              }
+              
               return (
                 <StatementRow 
                   key={idx} 
                   stmt={stmt} 
                   editable={editable}
                   onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
-                  isHighlighted={!!isStmtHighlighted}
+                  highlightLevel={highlightLevel}
                 />
               );
             })}
@@ -1357,7 +1371,6 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   selectedFunction,
   onParamsChange,
   onFunctionArgsChange,
-  // Controlled state props with defaults
   paramsExpanded = true,
   expandedParams = new Set(['number']),
   expandedFunctions = new Set(['SimplifyRoot']),
@@ -1365,6 +1378,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   onExpandedParamsChange,
   onExpandedFunctionsChange,
   highlightedElementId,
+  elementCallChain,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -1423,14 +1437,23 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return null;
   }, [highlightedElementId, spec]);
   
-  // Auto-expand the function containing the highlighted element
+  // Auto-expand all functions in the call chain
   useEffect(() => {
-    if (functionWithHighlightedElement && !expandedFunctions.has(functionWithHighlightedElement)) {
+    if (elementCallChain && elementCallChain.length > 0) {
+      const functionsToExpand = elementCallChain.map(entry => entry.fnName);
       const next = new Set(expandedFunctions);
-      next.add(functionWithHighlightedElement);
-      onExpandedFunctionsChange?.(next);
+      let changed = false;
+      for (const fnName of functionsToExpand) {
+        if (!next.has(fnName)) {
+          next.add(fnName);
+          changed = true;
+        }
+      }
+      if (changed) {
+        onExpandedFunctionsChange?.(next);
+      }
     }
-  }, [functionWithHighlightedElement, expandedFunctions, onExpandedFunctionsChange]);
+  }, [elementCallChain, expandedFunctions, onExpandedFunctionsChange]);
   
   // Show all functions as flat list
   const allFunctions = useMemo(() => {
@@ -1531,7 +1554,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               editable={!!onFunctionArgsChange}
               onArgsChange={onFunctionArgsChange ? (stmtIdx, newArgs) => onFunctionArgsChange(node.name, stmtIdx, newArgs) : undefined}
               highlightedElementId={highlightedElementId}
-              highlightedFunctionName={functionWithHighlightedElement}
+              elementCallChain={elementCallChain}
             />
           ))}
         </div>
