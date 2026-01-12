@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "katex/dist/katex.css";
+/* KaTeX CSS is imported from TS to ensure font assets are bundled correctly.
+   See: src/renderer/AnimRenderer.tsx */
 
 /* Force KaTeX to inherit color from parent */
 .katex-container .katex {

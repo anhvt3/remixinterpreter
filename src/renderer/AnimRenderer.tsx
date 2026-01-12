@@ -1,4 +1,6 @@
 import React from 'react';
+import 'katex/dist/katex.css';
+
 import type { TimelineEvent } from '../core/types';
 import { computeScene, renderMath, boardToPixel } from './scene';
 
