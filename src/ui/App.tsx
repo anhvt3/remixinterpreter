@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
+import { ConfigPanel } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
 import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
@@ -614,6 +615,7 @@ export const App: React.FC = () => {
               <TabsTrigger value="desc-dsl" className="text-xs">Desc-DSL</TabsTrigger>
               <TabsTrigger value="dsl-anim" className="text-xs">DSL-Anim</TabsTrigger>
               <TabsTrigger value="dsl-runtime" className="text-xs">DSL-Runtime</TabsTrigger>
+              <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
           </div>
           
@@ -688,6 +690,11 @@ export const App: React.FC = () => {
                   <AnimPanel {...animPanelProps} />
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Config Tab */}
+            <TabsContent value="config" className="h-full m-0">
+              <ConfigPanel zoomLevel={zoomLevel} />
             </TabsContent>
           </div>
         </Tabs>
