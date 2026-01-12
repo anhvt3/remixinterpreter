@@ -284,8 +284,11 @@ function doMul(args: unknown[]): number {
 }
 
 function doFormat(args: unknown[]): string {
-  const template = String(args[0]);
+  let template = String(args[0]);
   const values = args.slice(1);
+  
+  // Handle common LaTeX escaping from YAML (double backslash becomes single)
+  template = template.replace(/\\\\/g, '\\');
   
   let result = template;
   let valueIndex = 0;
