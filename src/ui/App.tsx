@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { ChatPanel } from './ChatPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
-import { YAMLScriptPanel } from './YAMLScriptPanel';
+import { YAMLScriptPanel, DEFAULT_DSL_PANEL_STATE, type DSLPanelState } from './YAMLScriptPanel';
 import { RuntimePanel, type RuntimeStep } from './RuntimePanel';
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
@@ -67,20 +67,6 @@ const DescPanel: React.FC<DescPanelProps> = ({ content, onChange }) => (
   />
 );
 
-// DSL Panel - YAML Script with Tree/Code view toggle
-interface DSLPanelProps {
-  spec: YAMLSpec | null;
-  content: string;
-  onChange: (value: string) => void;
-  onParamsChange?: (params: Params) => void;
-  onFunctionArgsChange?: (fnName: string, stmtIndex: number, newArgs: Record<string, unknown>) => void;
-  onLineClick?: (lineIndex: number) => void;
-  highlightedLines?: number[];
-}
-const DSLPanel: React.FC<DSLPanelProps> = (props) => (
-  <YAMLScriptPanel {...props} />
-);
-
 // Anim Panel - Animation preview with controls
 interface AnimPanelProps {
   events: TimelineEvent[];
@@ -107,6 +93,9 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [parsedSpec, setParsedSpec] = useState<YAMLSpec | null>(null);
+  
+  // Persistent DSL panel state (survives tab switches)
+  const [dslPanelState, setDslPanelState] = useState<DSLPanelState>(DEFAULT_DSL_PANEL_STATE);
   
   // Extract editable params from full YAML
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
@@ -228,12 +217,15 @@ export const App: React.FC = () => {
   }, [fullYamlContent]);
 
   // Common DSL panel props
+  // Common DSL panel props with persistent state
   const dslPanelProps = {
     spec: parsedSpec,
     content: paramsContent,
     onChange: handleParamsChange,
     onParamsChange: handleParamsObjectChange,
     onFunctionArgsChange: handleFunctionArgsChange,
+    panelState: dslPanelState,
+    onPanelStateChange: setDslPanelState,
   };
 
   // Common Anim panel props
@@ -300,7 +292,7 @@ export const App: React.FC = () => {
                   <DescPanel content={descContent} onChange={setDescContent} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
-                  <DSLPanel {...dslPanelProps} />
+                  <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <ChatPanel title="Chat" />
@@ -312,7 +304,7 @@ export const App: React.FC = () => {
             <TabsContent value="dsl-anim" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <DSLPanel
+                  <YAMLScriptPanel
                     {...dslPanelProps}
                     onLineClick={handleLineClick}
                     highlightedLines={selectedElementId ? elementToLinesMap[selectedElementId] || [] : []}
@@ -331,7 +323,7 @@ export const App: React.FC = () => {
             <TabsContent value="dsl-runtime" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
                 <div className="h-full min-h-0 overflow-hidden">
-                  <DSLPanel {...dslPanelProps} />
+                  <YAMLScriptPanel {...dslPanelProps} />
                 </div>
                 <div className="h-full min-h-0 overflow-hidden">
                   <RuntimePanel steps={runtimeSteps} />
