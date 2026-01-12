@@ -314,7 +314,14 @@ export const App: React.FC = () => {
             </TabsList>
           </div>
           
-          <div className="flex-1 min-h-0 p-2 overflow-hidden" style={{ fontSize: `${zoomLevel}%` }}>
+          <div 
+            className="flex-1 min-h-0 p-2 overflow-hidden origin-top-left"
+            style={{ 
+              transform: `scale(${zoomLevel / 100})`,
+              width: `${10000 / zoomLevel}%`,
+              height: `${10000 / zoomLevel}%`,
+            }}
+          >
             {/* LO-Desc Tab: LO | Desc | Chat */}
             <TabsContent value="lo-desc" className="h-full m-0">
               <div className="grid grid-cols-3 gap-2 h-full">
