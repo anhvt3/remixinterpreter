@@ -75,9 +75,9 @@ export const useConfigData = () => {
     if (typeConfigs.length === 0) return 0;
     
     const versions = typeConfigs.map(c => {
-      const match = c.version.match(/v(\d+)\.(\d+)/);
+      const match = c.version.match(/v(\d+)/);
       if (match) {
-        return parseFloat(`${match[1]}.${match[2]}`);
+        return parseInt(match[1], 10);
       }
       return 0;
     });
@@ -150,8 +150,7 @@ export const useConfigData = () => {
     importantNotes: string
   ) => {
     const latestVersion = getLatestVersionNumber(type);
-    const newMajor = Math.floor(latestVersion) + 1;
-    const newVersion = `v${newMajor}.0`;
+    const newVersion = `v${latestVersion + 1}`;
     
     return saveConfig(type, newVersion, content, importantNotes);
   }, [getLatestVersionNumber, saveConfig]);
