@@ -62,7 +62,8 @@ export function useDslScriptData() {
         .select('*')
         .in('dsl_script_id', scriptIds)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('version_name', { ascending: false });
 
       if (versionsError) {
         console.error('Error fetching dsl_script_versions:', versionsError);

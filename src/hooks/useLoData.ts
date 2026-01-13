@@ -56,7 +56,8 @@ export function useLoData() {
         .select('*')
         .eq('lo_id', loId)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('version_name', { ascending: false });
 
       if (error) throw error;
       setVersions((data as LoVersionRecord[]) || []);
