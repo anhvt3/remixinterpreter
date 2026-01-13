@@ -161,7 +161,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     
     const runtime = runtimeRef.current;
     
-    // Apply animations to get current state
+    // Ensure current time is set and animations applied
+    setTime(runtime, currentTime);
     applyAnimations(runtime);
     
     const scale = displayWidth / (program.scene.width || 800);
@@ -207,7 +208,6 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const style = node.style;
       const fontSize = (style.text?.fontSize || 24) * scale;
       const color = colorToRGBA(style.fill.color);
-      
       overlays.push({
         id: node.id,
         x: node.transform.x * scale,

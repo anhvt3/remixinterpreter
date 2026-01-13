@@ -181,6 +181,28 @@ function processTextCreate(state: CompilerState, args: Record<string, unknown>):
   const t1 = (args.t1 ?? t0 + 0.5) as number;
   const ease = args.ease as string | undefined;
   
+  // If node already exists, treat as update (skip creation but add fade-in animation)
+  if (state.nodes.has(id)) {
+    // If node already exists, treat as update (skip creation but add fade-in animation)
+    // Just add a fade-in animation to show it
+    const currentState = state.nodeCurrentState.get(id);
+    if (currentState) {
+      state.animations.push({
+        id: generateId('anim'),
+        nodeId: id,
+        propertyPath: 'style.opacity',
+        t0,
+        t1,
+        easing: convertEasing(ease),
+        fromValue: 0,
+        toValue: opacity,
+      });
+      // Update current state
+      state.nodeCurrentState.set(id, { ...currentState, opacity });
+    }
+    return;
+  }
+  
   // Get viewbox for coordinate conversion
   const viewbox = (state.scene as SceneConfig & { viewbox?: number[] }).viewbox || [-6, 10, 6, -10];
   const { px, py } = boardToPixel(atX, atY, viewbox, state.scene.width, state.scene.height);
@@ -243,7 +265,9 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
   const dslStyle = args.style as { color?: string; scale?: number; weight?: string } | undefined;
   
   const existingNode = state.nodes.get(id);
-  if (!existingNode) return;
+  if (!existingNode) {
+    return;
+  }
   
   // Get current tracked state (or fallback to node values)
   const currentState = state.nodeCurrentState.get(id) || {
