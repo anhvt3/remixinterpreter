@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import type { TimelineEvent } from '../core/types';
 import { normalizeTimeline } from '../core/timeline';
-import { AnimRenderer } from '../renderer/AnimRenderer';
+import { IRAnimRenderer } from '../ir/IRAnimRenderer';
 
 interface AnimPanelWithControlsProps {
   events: TimelineEvent[];
@@ -189,7 +189,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
       >
         {dimensions.width > 0 && dimensions.height > 0 ? (
           <div style={{ zoom: zoomLevel / 100 }}>
-            <AnimRenderer
+            <IRAnimRenderer
               events={events}
               currentTime={currentTime}
               width={dimensions.width / (zoomLevel / 100)}
