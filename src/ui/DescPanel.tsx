@@ -143,6 +143,14 @@ export const DescPanel: React.FC<DescPanelProps> = ({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
+            disabled={!selectedVersionId}
+            title="Generate DSL"
+          >
+            VA-2310-GENERATE-DSL
+          </Button>
         </div>
         
         <div className="flex-1 min-h-0">
