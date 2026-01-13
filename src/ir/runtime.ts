@@ -65,6 +65,7 @@ export function createRuntime(): RuntimeState {
       background: theme.background,
     },
     nodes: new Map(),
+    baseNodes: new Map(),
     animations: [],
     currentTime: 0,
     isPlaying: false,
@@ -197,6 +198,12 @@ function isTransform(v: unknown): v is Transform {
  */
 export function applyAnimations(state: RuntimeState): void {
   const time = state.currentTime;
+  
+  // Reset nodes from baseNodes so scrubbing backwards works correctly
+  state.nodes.clear();
+  for (const [id, node] of state.baseNodes) {
+    state.nodes.set(id, JSON.parse(JSON.stringify(node)));
+  }
   
   for (const anim of state.animations) {
     const node = state.nodes.get(anim.nodeId);
@@ -790,15 +797,30 @@ export function exportFrameAsPNG(state: RuntimeState): string | null {
 export function loadProgram(state: RuntimeState, program: IRProgram): void {
   // Reset state
   state.nodes.clear();
+  state.baseNodes.clear();
   state.animations = [];
   state.currentTime = 0;
   
   // Load scene config
   initScene(state, program.scene);
   
-  // Load nodes
+  // Load nodes into baseNodes (the immutable snapshot)
   for (const node of program.nodes) {
-    addNode(state, node);
+    const nodeCopy = JSON.parse(JSON.stringify(node));
+    state.baseNodes.set(node.id, nodeCopy);
+    
+    // If node has a parent, add to parent's children in baseNodes
+    if (node.parentId) {
+      const parent = state.baseNodes.get(node.parentId);
+      if (parent && parent.type === 'group') {
+        (parent as GroupProps).children.push(node.id);
+      }
+    }
+  }
+  
+  // Copy baseNodes to nodes for initial render
+  for (const [id, node] of state.baseNodes) {
+    state.nodes.set(id, JSON.parse(JSON.stringify(node)));
   }
   
   // Load animations
