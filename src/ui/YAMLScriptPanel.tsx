@@ -146,13 +146,18 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     onPanelStateChange?.({ ...panelState, viewMode: mode });
   };
 
-  const validateParamsYaml = useMemo(() => {
+  const validateYaml = useMemo(() => {
     return (text: string): string | null => {
       try {
         const obj = yaml.load(text) as unknown;
         if (!obj || typeof obj !== 'object') return 'YAML must be an object.';
-        // CodeView is intended to edit the params payload, so we require (or will auto-wrap) a top-level "params".
-        if (!('params' in (obj as Record<string, unknown>))) return 'Missing top-level "params:" key.';
+        const record = obj as Record<string, unknown>;
+        // Accept either: params-only payload OR complete spec (with defs/entry/schema_version)
+        const hasParams = 'params' in record;
+        const isCompleteSpec = 'defs' in record || 'entry' in record || 'schema_version' in record;
+        if (!hasParams && !isCompleteSpec) {
+          return 'Missing top-level "params:" key (or provide a complete spec with defs/entry).';
+        }
         return null;
       } catch (e) {
         return e instanceof Error ? e.message : 'Invalid YAML.';
@@ -167,16 +172,16 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     dirtyRef.current = true;
     setIsDirty(true);
     setUndoValue(next);
-    const err = validateParamsYaml(next);
+    const err = validateYaml(next);
     setCodeError(err);
-  }, [setUndoValue, validateParamsYaml]);
+  }, [setUndoValue, validateYaml]);
 
   const handleSave = useCallback(async (draft?: string): Promise<boolean> => {
     if (isSaving) return false;
 
     const text = draft ?? codeDraftRef.current;
 
-    const err = validateParamsYaml(text);
+    const err = validateYaml(text);
     if (err) {
       setCodeError(err);
       return false;
@@ -214,7 +219,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [content, isSaving, onChange, onSaveVersion, validateParamsYaml]);
+  }, [content, isSaving, onChange, onSaveVersion, validateYaml]);
 
   const handleDiscard = useCallback(() => {
     codeDraftRef.current = content;

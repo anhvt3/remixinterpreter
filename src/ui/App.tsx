@@ -34,11 +34,28 @@ function extractParams(fullYaml: string): string {
   }
 }
 
-// Merge edited params back into the full spec
-function mergeParams(fullYaml: string, paramsYaml: string): string {
+// Check if content is a complete spec (has defs, entry, etc.) vs just params
+function isCompleteSpec(content: string): boolean {
   try {
+    const obj = yaml.load(content) as Record<string, unknown>;
+    // A complete spec has defs and entry (or at minimum schema_version/dialect)
+    return obj && typeof obj === 'object' && ('defs' in obj || 'entry' in obj || 'schema_version' in obj);
+  } catch {
+    return false;
+  }
+}
+
+// Merge edited params back into the full spec, OR use content directly if it's a complete spec
+function mergeParams(fullYaml: string, editedContent: string): string {
+  try {
+    // If the edited content is a complete spec, use it directly
+    if (isCompleteSpec(editedContent)) {
+      return editedContent;
+    }
+    
+    // Otherwise, merge just the params
     const fullSpec = yaml.load(fullYaml) as YAMLSpec;
-    const paramsObj = yaml.load(paramsYaml) as { params: YAMLSpec['params'] };
+    const paramsObj = yaml.load(editedContent) as { params: YAMLSpec['params'] };
     fullSpec.params = paramsObj.params;
     return yaml.dump(fullSpec, { indent: 2, lineWidth: -1 });
   } catch {
