@@ -35,7 +35,19 @@ import { theme } from './theme';
 
 export interface RuntimeState {
   scene: SceneConfig;
+
+  /**
+   * Mutable nodes for the current frame.
+   * NOTE: These are reset from baseNodes inside applyAnimations() to support scrubbing.
+   */
   nodes: Map<string, NodeProps>;
+
+  /**
+   * Immutable snapshot of nodes as loaded from the IR program (after parent/child wiring).
+   * Used to reset the runtime every frame before applying animations.
+   */
+  baseNodes: Map<string, NodeProps>;
+
   animations: AnimationKeyframe[];
   currentTime: number;
   isPlaying: boolean;
