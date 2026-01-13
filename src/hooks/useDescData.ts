@@ -56,7 +56,8 @@ export function useDescData() {
             .select('*')
             .eq('desc_id', desc.id)
             .eq('is_deleted', false)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .order('version_name', { ascending: false });
 
           if (versionsError) throw versionsError;
 
@@ -107,7 +108,8 @@ export function useDescData() {
         .select('*')
         .eq('desc_id', desc.id)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('version_name', { ascending: false });
 
       if (versionsError) throw versionsError;
 

@@ -34,7 +34,8 @@ export const useConfigData = () => {
         .select('*')
         .eq('is_deleted', false)
         .order('type')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('version_name', { ascending: false });
 
       if (error) throw error;
       setConfigs(data || []);
