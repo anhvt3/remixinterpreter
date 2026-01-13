@@ -88,16 +88,17 @@ export const DescPanel: React.FC<DescPanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-card" style={{ fontSize: `${fontSize}px` }}>
+    <div className="panel h-full flex flex-col bg-card" style={{ fontSize: `${fontSize}px` }}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="px-2 py-1 border-b border-border shrink-0">
-          <TabsList className="h-7 bg-muted">
-            <TabsTrigger value="1" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>1</TabsTrigger>
-            <TabsTrigger value="2" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>2</TabsTrigger>
-            <TabsTrigger value="3" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>3</TabsTrigger>
-            <TabsTrigger value="4" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>4</TabsTrigger>
-            <TabsTrigger value="5" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>5</TabsTrigger>
-            <TabsTrigger value="video" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'video'}>Video</TabsTrigger>
+        <div className="panel-header shrink-0 flex items-center justify-between">
+          <span className="panel-title">Desc</span>
+          <TabsList className="h-6">
+            <TabsTrigger value="1" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>1</TabsTrigger>
+            <TabsTrigger value="2" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>2</TabsTrigger>
+            <TabsTrigger value="3" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>3</TabsTrigger>
+            <TabsTrigger value="4" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>4</TabsTrigger>
+            <TabsTrigger value="5" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>5</TabsTrigger>
+            <TabsTrigger value="video" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'video'}>Video</TabsTrigger>
           </TabsList>
         </div>
 
