@@ -189,35 +189,59 @@ function isTransform(v: unknown): v is Transform {
 }
 
 /**
- * Apply all active animations to nodes at current time
- * 
+ * Apply all active animations to nodes at current time.
+ *
+ * We reset nodes from `baseNodes` each time, then apply animations that have
+ * started. This makes scrubbing deterministic (no cumulative mutation).
+ *
  * Animation behavior:
- * - Before t0: Use fromValue
- * - Between t0 and t1: Interpolate with easing
- * - After t1: Use toValue (animation "sticks" at final value)
+ * - Before t0: no-op (leave value as-is from base/previous animations)
+ * - Between t0 and t1: interpolate with easing
+ * - After t1: stick at final value
  */
 export function applyAnimations(state: RuntimeState): void {
   const time = state.currentTime;
-  
-  // Reset nodes from baseNodes so scrubbing backwards works correctly
-  // Guard: only reset if baseNodes exists and is iterable
-  if (state.baseNodes && state.baseNodes.size > 0) {
+
+  // Reset nodes from baseNodes so scrubbing backwards works correctly.
+  // Guard: allow old runtime instances (pre-baseNodes) to keep working.
+  const anyState = state as unknown as { baseNodes?: unknown };
+
+  // Hot-reload/back-compat: if this runtime instance was created before baseNodes
+  // existed, reconstruct it from the current node snapshot.
+  if (!(anyState.baseNodes instanceof Map)) {
+    (anyState as unknown as { baseNodes: Map<string, NodeProps> }).baseNodes = new Map();
+    for (const [id, node] of state.nodes) {
+      (anyState as unknown as { baseNodes: Map<string, NodeProps> }).baseNodes.set(
+        id,
+        JSON.parse(JSON.stringify(node))
+      );
+    }
+  } else if (anyState.baseNodes.size === 0 && state.nodes.size > 0) {
+    // Another safe-guard: baseNodes accidentally empty -> rebuild it.
+    for (const [id, node] of state.nodes) {
+      (anyState.baseNodes as Map<string, NodeProps>).set(id, JSON.parse(JSON.stringify(node)));
+    }
+  }
+
+  const baseNodes = anyState.baseNodes as Map<string, NodeProps>;
+  if (baseNodes.size > 0) {
     state.nodes.clear();
-    for (const [id, node] of state.baseNodes) {
+    for (const [id, node] of baseNodes) {
       state.nodes.set(id, JSON.parse(JSON.stringify(node)));
     }
   }
-  
+
   for (const anim of state.animations) {
+    // Skip animations that haven't started yet; otherwise they would overwrite
+    // the current state with fromValue and break sequential chains.
+    if (time < anim.t0) continue;
+
     const node = state.nodes.get(anim.nodeId);
     if (!node) continue;
-    
+
     let value: unknown;
-    
-    if (time < anim.t0) {
-      // Before animation starts - use initial value
-      value = anim.fromValue;
-    } else if (time >= anim.t1) {
+
+    if (time >= anim.t1) {
       // After animation ends - stick at final value
       value = anim.toValue;
     } else {
@@ -227,7 +251,7 @@ export function applyAnimations(state: RuntimeState): void {
       const easedProgress = easingFn(rawProgress);
       value = interpolateProperty(anim.fromValue, anim.toValue, easedProgress);
     }
-    
+
     // Apply to node via property path
     setPropertyByPath(node, anim.propertyPath, value);
   }
