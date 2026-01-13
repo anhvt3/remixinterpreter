@@ -1330,20 +1330,26 @@ export const App: React.FC = () => {
             {activeTab === 'config' && configAuthenticated && (
               <div className="flex items-center gap-1">
                 {CONFIG_SUBTABS.map((subtab) => (
-                  <button
-                    key={subtab.id}
-                    onClick={() => setActiveConfigSubtab(subtab.id)}
-                    className={`
-                      px-2 py-1 rounded text-xs font-medium transition-all flex items-baseline gap-0.5
-                      ${activeConfigSubtab === subtab.id
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }
-                    `}
-                  >
-                    <span>{subtab.code}</span>
-                    <span className="text-[0.6rem] opacity-70">{subtab.suffix}</span>
-                  </button>
+                  <React.Fragment key={subtab.id}>
+                    {subtab.labelBefore && (
+                      <span className="text-xs text-muted-foreground font-medium px-1">
+                        {subtab.labelBefore}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setActiveConfigSubtab(subtab.id)}
+                      className={`
+                        px-2 py-1 rounded text-xs font-medium transition-all flex items-baseline gap-0.5
+                        ${activeConfigSubtab === subtab.id
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }
+                      `}
+                    >
+                      <span>{subtab.code}</span>
+                      <span className="text-[0.6rem] opacity-70">{subtab.suffix}</span>
+                    </button>
+                  </React.Fragment>
                 ))}
               </div>
             )}
