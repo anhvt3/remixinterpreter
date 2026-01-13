@@ -543,6 +543,9 @@ function buildUpstreamChain(
   return chain;
 }
 
+// Key for a highlighted param: fnName + stmtIndex + paramPath (e.g., "args.N" or "args.pos.0")
+export type ParamHighlightKey = { fnName: string; stmtIndex: number; paramPath: string };
+
 interface YAMLTreePanelProps {
   spec: YAMLSpec | null;
   onFunctionSelect?: (fnName: string) => void;
@@ -682,6 +685,8 @@ function getValueStyle(value: unknown, isEditable: boolean): string {
 // Statement component with expandable args
 interface StatementRowProps {
   stmt: Statement;
+  fnName: string;
+  stmtIndex: number;
   defaultExpanded?: boolean;
   editable?: boolean;
   onArgsChange?: (newArgs: Record<string, unknown>) => void;
@@ -697,10 +702,15 @@ interface StatementRowProps {
   onNavigateDown?: () => void;
   navIndex?: number;
   chainLength?: number;
+  // Param highlighting props
+  highlightedParams?: ParamHighlightKey[];
+  onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
   stmt, 
+  fnName,
+  stmtIndex,
   defaultExpanded = false,
   editable = false,
   onArgsChange,
@@ -715,6 +725,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
   onNavigateDown,
   navIndex = 0,
   chainLength = 0,
+  highlightedParams = [],
+  onParamClick,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -843,8 +855,23 @@ const StatementRow: React.FC<StatementRowProps> = ({
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
+              const paramPath = `args.${k}`;
+              const isParamHighlighted = highlightedParams.some(
+                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
+              );
+              const highlightClass = isParamHighlighted 
+                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+                : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+              
               return (
-                <div key={k} className="flex items-center gap-2">
+                <div 
+                  key={k} 
+                  className={`flex items-center gap-2 ${highlightClass}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onParamClick?.(fnName, stmtIndex, paramPath);
+                  }}
+                >
                   <span className="text-orange-400 min-w-[60px]">{k}:</span>
                   {canEdit ? (
                     <Input
@@ -1012,7 +1039,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
         {expanded && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1">
             {stmt.foreach.do.map((s, i) => (
-              <StatementRow key={i} stmt={s} />
+              <StatementRow key={i} stmt={s} fnName={fnName} stmtIndex={stmtIndex} />
             ))}
           </div>
         )}
@@ -1174,6 +1201,9 @@ interface TreeNodeProps {
   onFnNavigateDown?: () => void;
   fnNavIndex?: number;
   fnChainLength?: number;
+  // Param highlighting props
+  highlightedParams?: ParamHighlightKey[];
+  onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1209,6 +1239,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onFnNavigateDown,
   fnNavIndex = 0,
   fnChainLength = 0,
+  // Param highlighting props
+  highlightedParams = [],
+  onParamClick,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -1457,7 +1490,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               return (
                 <StatementRow 
                   key={idx} 
-                  stmt={stmt} 
+                  stmt={stmt}
+                  fnName={node.name}
+                  stmtIndex={idx}
                   editable={editable}
                   onArgsChange={onArgsChange ? (newArgs) => onArgsChange(idx, newArgs) : undefined}
                   highlightLevel={highlightLevel}
@@ -1471,6 +1506,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   onNavigateDown={usesFnNav ? onFnNavigateDown : onNavigateDown}
                   navIndex={usesFnNav ? fnNavIndex : navIndex}
                   chainLength={usesFnNav ? fnChainLength : chainLength}
+                  highlightedParams={highlightedParams}
+                  onParamClick={onParamClick}
                 />
               );
             })}
@@ -1693,6 +1730,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const [anchorFunction, setAnchorFunction] = useState<string | null>(null);
   const [fnNavIndex, setFnNavIndex] = useState<number>(0);
   
+  // Param highlighting state: when a param is clicked, we trace its origin through the call chain
+  const [anchorParam, setAnchorParam] = useState<ParamHighlightKey | null>(null);
+  
   const nodes = useMemo(() => {
     if (!spec) return new Map();
     return buildTree(spec);
@@ -1754,6 +1794,117 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       !(s.fnName === currentNavFnKey?.fnName && s.stmtIndex === currentNavFnKey?.stmtIndex)
     );
   }, [anchorFunction, fnUpstreamChain, currentNavFnKey]);
+  
+  // Build param origin chain: trace a param value through the call chain to find all contributing params
+  // Example: If we click on "N" in Present_Micro_LadderRow, and it has value "$N", we trace up to find 
+  // where $N comes from in the parent caller's args
+  const highlightedParams = useMemo((): ParamHighlightKey[] => {
+    if (!anchorParam || !spec?.defs) return [];
+    
+    const result: ParamHighlightKey[] = [anchorParam];
+    
+    // Get the statement that contains the clicked param
+    const fnDef = spec.defs[anchorParam.fnName];
+    if (!fnDef) return result;
+    
+    const stmt = fnDef.body[anchorParam.stmtIndex];
+    if (!stmt) return result;
+    
+    // Extract the param value from the statement
+    let paramValue: unknown = null;
+    const pathParts = anchorParam.paramPath.split('.');
+    
+    if ('call' in stmt && pathParts[0] === 'args' && pathParts.length >= 2) {
+      const argKey = pathParts[1];
+      paramValue = stmt.call.args[argKey];
+    } else if ('ir' in stmt && pathParts[0] === 'args' && pathParts.length >= 2) {
+      const argKey = pathParts[1];
+      paramValue = stmt.ir.args[argKey];
+    }
+    
+    // If the value is a variable reference like $N, trace it through the call chain
+    if (typeof paramValue === 'string' && paramValue.startsWith('$') && !paramValue.startsWith('$.')) {
+      const varName = paramValue.substring(1).split('.')[0]; // Get variable name without path
+      
+      // Build upstream chain for this function and trace the variable
+      const chain = buildUpstreamChain(anchorParam.fnName, spec);
+      
+      // Track current function and variable we're looking for
+      let currentFn = anchorParam.fnName;
+      let currentVar = varName;
+      
+      for (const caller of chain) {
+        const callerFnDef = spec.defs[caller.fnName];
+        if (!callerFnDef) break;
+        
+        const callerStmt = callerFnDef.body[caller.stmtIndex];
+        if (!callerStmt || !('call' in callerStmt)) break;
+        
+        // Check if this caller passes the variable we're tracing
+        const calledFn = callerStmt.call.fn;
+        if (calledFn !== currentFn) break;
+        
+        // Find which arg in the caller corresponds to our variable
+        // The callee's params define the variable names
+        const calleeDef = spec.defs[currentFn];
+        if (!calleeDef?.params) break;
+        
+        const paramIndex = calleeDef.params.indexOf(currentVar);
+        if (paramIndex === -1) break;
+        
+        // The caller's args should be in the same order as callee's params
+        // Or we can look up by param name if the caller uses named args
+        const callerArgs = Object.entries(callerStmt.call.args);
+        let callerArgKey: string | null = null;
+        let callerArgValue: unknown = null;
+        
+        // Try to find by param name (most common case)
+        if (currentVar in callerStmt.call.args) {
+          callerArgKey = currentVar;
+          callerArgValue = callerStmt.call.args[currentVar];
+        } else {
+          // Fallback: try positional matching
+          if (paramIndex < callerArgs.length) {
+            [callerArgKey, callerArgValue] = callerArgs[paramIndex];
+          }
+        }
+        
+        if (callerArgKey) {
+          // Add this to highlighted params
+          result.push({
+            fnName: caller.fnName,
+            stmtIndex: caller.stmtIndex,
+            paramPath: `args.${callerArgKey}`
+          });
+          
+          // If the value is another variable reference, continue tracing
+          if (typeof callerArgValue === 'string' && callerArgValue.startsWith('$') && !callerArgValue.startsWith('$.')) {
+            currentVar = callerArgValue.substring(1).split('.')[0];
+            currentFn = caller.fnName;
+          } else {
+            // Reached a literal value, stop tracing
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+    }
+    
+    return result;
+  }, [anchorParam, spec]);
+  
+  // Handle param click
+  const handleParamClick = useCallback((fnName: string, stmtIndex: number, paramPath: string) => {
+    console.log('YAMLTreePanel: Param clicked', { fnName, stmtIndex, paramPath });
+    
+    // Toggle: if clicking the same param, clear it
+    if (anchorParam?.fnName === fnName && anchorParam?.stmtIndex === stmtIndex && anchorParam?.paramPath === paramPath) {
+      setAnchorParam(null);
+    } else {
+      setAnchorParam({ fnName, stmtIndex, paramPath });
+    }
+  }, [anchorParam]);
   
   // Handle statement click - set as anchor
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
@@ -2053,6 +2204,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               onFnNavigateDown={fnNavigateDown}
               fnNavIndex={fnNavIndex}
               fnChainLength={fnChainLength}
+              // Param highlighting props
+              highlightedParams={highlightedParams}
+              onParamClick={handleParamClick}
             />
           ))}
           </div>
