@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +21,7 @@ import yaml from 'js-yaml';
 import { useLoData } from '@/hooks/useLoData';
 import { useDescData } from '@/hooks/useDescData';
 import { useDslScriptData } from '@/hooks/useDslScriptData';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
@@ -195,9 +196,28 @@ export const App: React.FC = () => {
   }, [getDslVersionContent]);
   
   // LO data management
-  const { los, versions, fetchVersionsForLo, getVersionContent } = useLoData();
+  const { los, versions, fetchVersionsForLo, getVersionContent, createLo, deleteLo, createVersion, fetchLos } = useLoData();
   const [selectedLoId, setSelectedLoId] = useState<string | null>(null);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  
+  // Track the original content for unsaved changes detection
+  const originalLoContentRef = useRef<string>('');
+  
+  // Undo/Redo for LO content
+  const {
+    value: loContentUndoable,
+    setValue: setLoContentUndoable,
+    undo: handleUndo,
+    redo: handleRedo,
+    canUndo,
+    canRedo,
+    reset: resetUndoRedo,
+  } = useUndoRedo(loContent, setLoContent);
+  
+  // Detect unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    return loContent !== originalLoContentRef.current && selectedLoId !== null;
+  }, [loContent, selectedLoId]);
   
   // When LO selection changes, fetch versions and update loCode
   const handleSelectLo = useCallback(async (loId: string | null) => {
@@ -213,8 +233,10 @@ export const App: React.FC = () => {
     } else {
       setLoCode('');
       setLoContent('');
+      originalLoContentRef.current = '';
+      resetUndoRedo('');
     }
-  }, [los, fetchVersionsForLo]);
+  }, [los, fetchVersionsForLo, resetUndoRedo]);
   
   // When version selection changes, load content
   const handleSelectVersion = useCallback(async (versionId: string | null) => {
@@ -222,11 +244,75 @@ export const App: React.FC = () => {
     
     if (versionId) {
       const content = await getVersionContent(versionId);
-      setLoContent(content || '');
+      const contentValue = content || '';
+      setLoContent(contentValue);
+      originalLoContentRef.current = contentValue;
+      resetUndoRedo(contentValue);
     } else {
       setLoContent('');
+      originalLoContentRef.current = '';
+      resetUndoRedo('');
     }
-  }, [getVersionContent]);
+  }, [getVersionContent, resetUndoRedo]);
+  
+  // Create new LO with version 1
+  const handleCreateNewLo = useCallback(async () => {
+    const code = `LO${String(los.length + 1).padStart(3, '0')}`;
+    const name = `New LO ${los.length + 1}`;
+    
+    const newLo = await createLo(code, name);
+    if (newLo) {
+      // Create version 1 with empty content
+      await createVersion(newLo.id, 'v1', '');
+      // Select the new LO
+      setSelectedLoId(newLo.id);
+      setLoCode(newLo.code);
+      await fetchVersionsForLo(newLo.id);
+      // Auto-select the first version
+      const { data } = await import('@/integrations/supabase/client').then(m => 
+        m.supabase.from('lo_version').select('id').eq('lo_id', newLo.id).eq('is_deleted', false).order('created_at', { ascending: false }).limit(1).single()
+      );
+      if (data) {
+        setSelectedVersionId(data.id);
+        setLoContent('');
+        originalLoContentRef.current = '';
+        resetUndoRedo('');
+      }
+    }
+  }, [los, createLo, createVersion, fetchVersionsForLo, resetUndoRedo]);
+  
+  // Delete current LO
+  const handleDeleteLo = useCallback(async () => {
+    if (!selectedLoId) return;
+    
+    const confirmed = window.confirm('Are you sure you want to delete this LO?');
+    if (!confirmed) return;
+    
+    const success = await deleteLo(selectedLoId);
+    if (success) {
+      setSelectedLoId(null);
+      setSelectedVersionId(null);
+      setLoCode('');
+      setLoContent('');
+      originalLoContentRef.current = '';
+      resetUndoRedo('');
+    }
+  }, [selectedLoId, deleteLo, resetUndoRedo]);
+  
+  // Save: create a new version of the current LO
+  const handleSave = useCallback(async () => {
+    if (!selectedLoId || !hasUnsavedChanges) return;
+    
+    // Calculate next version number
+    const nextVersion = versions.length + 1;
+    const versionName = `v${nextVersion}`;
+    
+    const newVersion = await createVersion(selectedLoId, versionName, loContent);
+    if (newVersion) {
+      setSelectedVersionId(newVersion.id);
+      originalLoContentRef.current = loContent;
+    }
+  }, [selectedLoId, hasUnsavedChanges, versions, createVersion, loContent]);
   
   // Config tab password protection
   const [configAuthenticated, setConfigAuthenticated] = useState(false);
@@ -670,7 +756,7 @@ export const App: React.FC = () => {
           loCode={loCode}
           onLoCodeChange={setLoCode}
           loContent={loContent}
-          onLoContentChange={setLoContent}
+          onLoContentChange={setLoContentUndoable}
           gdriveLink={gdriveLink}
           onGdriveLinkChange={setGdriveLink}
           zoomLevel={zoomLevel}
@@ -682,6 +768,14 @@ export const App: React.FC = () => {
           onSelectLo={handleSelectLo}
           selectedVersionId={selectedVersionId}
           onSelectVersion={handleSelectVersion}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onSave={handleSave}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          hasUnsavedChanges={hasUnsavedChanges}
+          onCreateNewLo={handleCreateNewLo}
+          onDeleteLo={handleDeleteLo}
         />
       ),
     },

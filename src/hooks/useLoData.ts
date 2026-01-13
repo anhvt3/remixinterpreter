@@ -96,6 +96,32 @@ export function useLoData() {
     }
   }, [toast, fetchLos]);
 
+  const deleteLo = useCallback(async (loId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('lo')
+        .update({ is_deleted: true })
+        .eq('id', loId);
+
+      if (error) throw error;
+      
+      toast({
+        title: 'LO deleted',
+        description: 'LO has been deleted',
+      });
+      
+      await fetchLos();
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Error deleting LO',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [toast, fetchLos]);
+
   const createVersion = useCallback(async (loId: string, versionName: string, content: string): Promise<LoVersionRecord | null> => {
     try {
       const { data, error } = await supabase
@@ -179,6 +205,7 @@ export function useLoData() {
     fetchLos,
     fetchVersionsForLo,
     createLo,
+    deleteLo,
     createVersion,
     updateVersion,
     getVersionContent,
