@@ -155,10 +155,15 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
   }
   
   // Get LaTeX text nodes from runtime for DOM overlay
+  // This needs to run after animations are applied to get current content/opacity
   const latexOverlays = useMemo(() => {
     if (!runtimeRef.current || !program) return [];
     
     const runtime = runtimeRef.current;
+    
+    // Apply animations to get current state
+    applyAnimations(runtime);
+    
     const scale = displayWidth / (program.scene.width || 800);
     const overlays: Array<{
       id: string;
@@ -182,16 +187,20 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           !content.includes('$') && !content.includes('\\frac') &&
           !content.includes('\\sqrt') && !content.includes('^{')) continue;
       
-      // Extract LaTeX
+      // Extract LaTeX from delimiters
       let latex = content;
-      const inlineMatch = content.match(/\\\((.*?)\\\)/s);
-      if (inlineMatch) latex = inlineMatch[1];
-      else {
-        const displayMatch = content.match(/\\\[(.*?)\\\]/s);
-        if (displayMatch) latex = displayMatch[1];
-        else {
-          const dollarMatch = content.match(/\$(.*?)\$/s);
-          if (dollarMatch) latex = dollarMatch[1];
+      const inlineMatch = content.match(/\\\(([\s\S]*?)\\\)/);
+      if (inlineMatch) {
+        latex = inlineMatch[1];
+      } else {
+        const displayMatch = content.match(/\\\[([\s\S]*?)\\\]/);
+        if (displayMatch) {
+          latex = displayMatch[1];
+        } else {
+          const dollarMatch = content.match(/\$([\s\S]*?)\$/);
+          if (dollarMatch) {
+            latex = dollarMatch[1];
+          }
         }
       }
       

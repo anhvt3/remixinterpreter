@@ -695,50 +695,10 @@ function renderText(
   const content = textNode.content;
   const textStyle = style.text || theme.defaultText;
   
-  // Check if this is LaTeX content
+  // Check if this is LaTeX content - skip canvas rendering as it's handled by DOM overlay
   if (isLatexContent(content)) {
-    const latex = extractLatex(content);
-    const cacheKey = `${latex}|${textStyle.fontSize}|${colorToRGBA(style.fill.color)}`;
-    
-    const cached = latexCache.get(cacheKey);
-    if (cached && cached.img.complete && cached.width > 0) {
-      // Draw cached LaTeX image
-      ctx.save();
-      
-      // Apply glow if enabled
-      if (style.glow.enabled) {
-        ctx.shadowColor = colorToRGBA(style.glow.color, style.glow.color.a * style.glow.intensity);
-        ctx.shadowBlur = style.glow.blurPx;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-      }
-      
-      // Draw centered on the position
-      ctx.drawImage(
-        cached.img, 
-        -cached.width / 2, 
-        -cached.height / 2, 
-        cached.width, 
-        cached.height
-      );
-      ctx.restore();
-      return;
-    }
-    
-    // Start async render if not already pending
-    if (!pendingLatexRenders.has(cacheKey)) {
-      pendingLatexRenders.set(cacheKey, true);
-      renderLatexToImage(latex, textStyle.fontSize, colorToRGBA(style.fill.color))
-        .then(() => {
-          pendingLatexRenders.delete(cacheKey);
-          // Notify callback to trigger re-render
-          if (onLatexReadyCallback) {
-            onLatexReadyCallback();
-          }
-        });
-    }
-    
-    // Fall back to plain text while loading
+    // LaTeX is rendered via DOM overlay in IRAnimRenderer, skip canvas rendering
+    return;
   }
   
   // Plain text rendering (or fallback)
