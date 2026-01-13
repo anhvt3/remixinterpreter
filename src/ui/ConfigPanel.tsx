@@ -597,14 +597,14 @@ interface ConfigPanelProps {
 
 // Export subtabs list for use in App.tsx header
 export const CONFIG_SUBTABS = [
-  { id: 'IRF-IR-FUNCTIONS', code: 'IRF', suffix: 'IR-FUNCTIONS' },
-  { id: 'EDSL-EXAMPLE-DSL', code: 'EDSL', suffix: 'EXAMPLE-DSL' },
-  { id: 'VA1120-EXTRACT-DESC', code: 'VA1120', suffix: 'EXTRACT-DESC' },
-  { id: 'VA1210-GENERATE-DSL', code: 'VA1210', suffix: 'GENERATE-DSL' },
-  { id: 'VA2210-GENERATE-SHORT-DESC', code: 'VA2210', suffix: 'GENERATE-SHORT-DESC' },
-  { id: 'VA2220-EDIT-SHORT-DESC', code: 'VA2220', suffix: 'EDIT-SHORT-DESC' },
-  { id: 'VA2310-GENERATE-DSL', code: 'VA2310', suffix: 'GENERATE-DSL' },
-  { id: 'VA2320-EDIT-DSL', code: 'VA2320', suffix: 'EDIT-DSL' },
+  { id: 'IRF-IR-FUNCTIONS', code: 'IRF', suffix: 'IR-FUNCTIONS', labelBefore: null },
+  { id: 'EDSL-EXAMPLE-DSL', code: 'EDSL', suffix: 'EXAMPLE-DSL', labelBefore: null },
+  { id: 'VA1120-EXTRACT-DESC', code: 'VA1120', suffix: 'EXTRACT-DESC', labelBefore: 'Video Workflow' },
+  { id: 'VA1210-GENERATE-DSL', code: 'VA1210', suffix: 'GENERATE-DSL', labelBefore: null },
+  { id: 'VA2210-GENERATE-SHORT-DESC', code: 'VA2210', suffix: 'GENERATE-SHORT-DESC', labelBefore: 'LO Workflow' },
+  { id: 'VA2220-EDIT-SHORT-DESC', code: 'VA2220', suffix: 'EDIT-SHORT-DESC', labelBefore: null },
+  { id: 'VA2310-GENERATE-DSL', code: 'VA2310', suffix: 'GENERATE-DSL', labelBefore: null },
+  { id: 'VA2320-EDIT-DSL', code: 'VA2320', suffix: 'EDIT-DSL', labelBefore: null },
 ];
 
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({ 
