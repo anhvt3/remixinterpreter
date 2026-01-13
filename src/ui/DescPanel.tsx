@@ -110,7 +110,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
     <div className="panel h-full flex flex-col bg-card" style={{ fontSize: `${fontSize}px` }}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <div className="panel-header shrink-0 flex items-center gap-2">
-          <span className="panel-title">2.Desc</span>
+          <span className="panel-title">2. Desc</span>
           <TabsList className="h-6">
             <TabsTrigger value="1" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>1</TabsTrigger>
             <TabsTrigger value="2" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>2</TabsTrigger>

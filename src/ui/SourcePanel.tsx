@@ -90,7 +90,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
     <div className="panel flex flex-col h-full min-h-0">
       <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0 h-full">
         <div className="panel-header shrink-0 flex items-center gap-2">
-          <span className="panel-title">1.Source</span>
+          <span className="panel-title">1. Source</span>
           <TabsList className="h-6">
             <TabsTrigger value="lo" className="text-xs h-5 px-2">LO</TabsTrigger>
             <TabsTrigger value="video" className="text-xs h-5 px-2">Video</TabsTrigger>

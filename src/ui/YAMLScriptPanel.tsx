@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ChevronsUpDown, ChevronsDownUp, Undo2, Redo2, Save } from 'lucide-react';
+import { ChevronsUpDown, ChevronsDownUp, Undo2, Redo2, Save, Plus, Trash2 } from 'lucide-react';
 import yaml from 'js-yaml';
 import { CodePanel } from './CodePanel';
 import { YAMLTreePanel } from './YAMLTreePanel';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -247,10 +248,11 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       className="panel flex flex-col h-full min-h-0"
       onBlur={handlePanelBlur}
     >
-      {/* Header row with title, tabs and controls */}
-      <div className="panel-header shrink-0 flex items-center justify-between">
-        <span className="panel-title">3.DSLScript</span>
-        {/* View mode tabs - styled like Source panel LO/Video */}
+      {/* Header row with title, tabs, version selector and action buttons */}
+      <div className="panel-header shrink-0 flex items-center gap-2">
+        <span className="panel-title">3. DSLScript</span>
+        
+        {/* View mode tabs - aligned left after title */}
         <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
           <button
             onClick={() => setViewMode('tree')}
@@ -273,10 +275,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             CodeView
           </button>
         </div>
-      </div>
 
-      {/* Secondary controls row */}
-      <div className="flex items-center gap-2 px-2 py-1 shrink-0">
         {/* Version dropdown */}
         {dslScripts.length > 0 && (
           <Select
@@ -302,65 +301,80 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           </Select>
         )}
 
-        {/* Code view controls */}
-        {panelState.viewMode === 'code' && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={undo}
-              disabled={!canUndo}
-              className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Undo (Ctrl+Z)"
-            >
-              <Undo2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={redo}
-              disabled={!canRedo}
-              className="p-1 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <Redo2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => handleSave()}
-              className={"p-1 rounded transition-colors text-primary hover:bg-primary/20"}
-              title="Save (Ctrl+S)"
-            >
-              <Save className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-xs text-syntax-comment ml-1">YAML</span>
-            {hasUnsavedChanges && (
-              <span className="text-xs text-primary ml-1" title="Unsaved changes">•</span>
-            )}
-          </div>
-        )}
-
-        {/* Tree view controls */}
-        {panelState.viewMode === 'tree' && (
-          <div className="flex items-center gap-0.5 ml-auto">
-            <button
-              onClick={expandAll}
-              className="p-1.5 rounded hover:bg-muted/80 text-muted-foreground transition-colors"
-              title="Expand All"
-            >
-              <ChevronsUpDown className="w-4 h-4" />
-            </button>
-            <button
-              onClick={collapseAll}
-              className="p-1.5 rounded hover:bg-muted/80 text-muted-foreground transition-colors"
-              title="Collapse All"
-            >
-              <ChevronsDownUp className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Error indicator for code view */}
-        {panelState.viewMode === 'code' && codeError && (
-          <div className="ml-auto text-[10px] text-destructive truncate max-w-[40%]" title={codeError}>
-            Invalid YAML
-          </div>
-        )}
+        {/* Action buttons - aligned right */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Create New DSLScript"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Delete DSLScript"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => handleSave()}
+            disabled={!hasUnsavedChanges}
+            title="Save"
+          >
+            <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo"
+          >
+            <Redo2 className="h-3.5 w-3.5" />
+          </Button>
+          
+          {/* Tree view expand/collapse controls */}
+          {panelState.viewMode === 'tree' && (
+            <>
+              <div className="w-px h-4 bg-border mx-1" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={expandAll}
+                title="Expand All"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={collapseAll}
+                title="Collapse All"
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Content area */}
