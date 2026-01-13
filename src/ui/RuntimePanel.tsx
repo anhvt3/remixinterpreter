@@ -73,19 +73,34 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
-// Recursive component for rendering array items with nested array support
-const ArrayItemRow: React.FC<{
-  index: number;
+// Helper to check if value is expandable (array or object with keys)
+const isExpandable = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return false;
+};
+
+// Recursive component for rendering values (arrays and objects)
+const ValueRow: React.FC<{
+  label: string;
   value: unknown;
   indent: number;
-}> = ({ index, value, indent }) => {
+  labelColor?: string;
+}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(value);
-  const hasItems = isArray && value.length > 0;
+  const isObject = value && typeof value === 'object' && !isArray;
+  const expandable = isExpandable(value);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
+  };
+
+  const getCollapsedPreview = () => {
+    if (isArray) return `[...${(value as unknown[]).length} items]`;
+    if (isObject) return `{...${Object.keys(value as object).length} keys}`;
+    return formatValue(value);
   };
 
   return (
@@ -94,7 +109,7 @@ const ArrayItemRow: React.FC<{
         className="flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30"
         style={{ paddingLeft: `${indent}px` }}
       >
-        {hasItems ? (
+        {expandable ? (
           <button
             onClick={handleExpandClick}
             className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
@@ -104,25 +119,34 @@ const ArrayItemRow: React.FC<{
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <span className="text-muted-foreground/60">[{index}]</span>
-        {hasItems && !isExpanded ? (
-          <span>[...{value.length} items]</span>
-        ) : hasItems && isExpanded ? (
-          <span>[</span>
+        <span className={labelColor}>{label}</span>
+        {expandable && !isExpanded ? (
+          <span>{getCollapsedPreview()}</span>
+        ) : expandable && isExpanded ? (
+          <span>{isArray ? '[' : '{'}</span>
         ) : (
           <span>{formatValue(value)}</span>
         )}
       </div>
       
-      {/* Nested array items */}
-      {hasItems && isExpanded && (
+      {/* Expanded children */}
+      {expandable && isExpanded && (
         <>
-          {value.map((item, idx) => (
-            <ArrayItemRow
+          {isArray && (value as unknown[]).map((item, idx) => (
+            <ValueRow
               key={idx}
-              index={idx}
+              label={`[${idx}]`}
               value={item}
               indent={indent + 16}
+            />
+          ))}
+          {isObject && Object.entries(value as object).map(([k, v]) => (
+            <ValueRow
+              key={k}
+              label={`${k}:`}
+              value={v}
+              indent={indent + 16}
+              labelColor="text-cyan-400/70"
             />
           ))}
           <div 
@@ -130,7 +154,7 @@ const ArrayItemRow: React.FC<{
             style={{ paddingLeft: `${indent}px` }}
           >
             <span className="w-3 shrink-0" />
-            <span>]</span>
+            <span>{isArray ? ']' : '}'}</span>
           </div>
         </>
       )}
@@ -138,7 +162,7 @@ const ArrayItemRow: React.FC<{
   );
 };
 
-// Component for rendering a single param row with collapsible array support
+// Component for rendering a single param row with collapsible array/object support
 const ParamRow: React.FC<{
   paramName: string;
   paramValue: unknown;
@@ -151,7 +175,8 @@ const ParamRow: React.FC<{
 }> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(paramValue);
-  const hasItems = isArray && paramValue.length > 0;
+  const isObject = paramValue && typeof paramValue === 'object' && !isArray;
+  const expandable = isExpandable(paramValue);
   
   const paramHighlight = isSelected 
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
@@ -164,6 +189,12 @@ const ParamRow: React.FC<{
     setIsExpanded(!isExpanded);
   };
 
+  const getCollapsedPreview = () => {
+    if (isArray) return `[...${(paramValue as unknown[]).length} items]`;
+    if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
+    return formatValue(paramValue);
+  };
+
   return (
     <>
       <div 
@@ -173,7 +204,7 @@ const ParamRow: React.FC<{
           onParamClick();
         }}
       >
-        {hasItems ? (
+        {expandable ? (
           <button
             onClick={handleExpandClick}
             className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
@@ -185,24 +216,33 @@ const ParamRow: React.FC<{
         )}
         <span className="text-orange-400">{paramName}</span>
         <span className="text-muted-foreground">{separator}</span>
-        {hasItems && !isExpanded ? (
-          <span className="text-muted-foreground">[...{paramValue.length} items]</span>
-        ) : !hasItems ? (
+        {expandable && !isExpanded ? (
+          <span className="text-muted-foreground">{getCollapsedPreview()}</span>
+        ) : !expandable ? (
           <span className="text-muted-foreground">{formatValue(paramValue)}</span>
         ) : (
-          <span className="text-muted-foreground">[</span>
+          <span className="text-muted-foreground">{isArray ? '[' : '{'}</span>
         )}
       </div>
       
-      {/* Expanded array items - using recursive ArrayItemRow */}
-      {hasItems && isExpanded && (
+      {/* Expanded children - using recursive ValueRow */}
+      {expandable && isExpanded && (
         <>
-          {(paramValue as unknown[]).map((item, idx) => (
-            <ArrayItemRow
+          {isArray && (paramValue as unknown[]).map((item, idx) => (
+            <ValueRow
               key={idx}
-              index={idx}
+              label={`[${idx}]`}
               value={item}
               indent={indent + 16}
+            />
+          ))}
+          {isObject && Object.entries(paramValue as object).map(([k, v]) => (
+            <ValueRow
+              key={k}
+              label={`${k}:`}
+              value={v}
+              indent={indent + 16}
+              labelColor="text-cyan-400/70"
             />
           ))}
           <div 
@@ -210,7 +250,7 @@ const ParamRow: React.FC<{
             style={{ paddingLeft: `${indent}px` }}
           >
             <span className="w-3 shrink-0" />
-            <span>]</span>
+            <span>{isArray ? ']' : '}'}</span>
           </div>
         </>
       )}
