@@ -13,7 +13,7 @@ interface PanelConfig {
 
 // Breakpoints for responsive panel count
 const TABLET_BREAKPOINT = 1440;
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = 700;
 
 // Hook to get responsive panel count
 export function useResponsivePanelCount() {
