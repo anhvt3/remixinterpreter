@@ -73,6 +73,88 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
+// Component for rendering a single param row with collapsible array support
+const ParamRow: React.FC<{
+  paramName: string;
+  paramValue: unknown;
+  paramKey: string;
+  isSelected: boolean;
+  isInChain: boolean;
+  separator: string;
+  indent: number;
+  onParamClick: () => void;
+}> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isArray = Array.isArray(paramValue);
+  const hasMultipleItems = isArray && paramValue.length > 1;
+  
+  const paramHighlight = isSelected 
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+    : isInChain 
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
+    : '';
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  return (
+    <>
+      <div 
+        className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onParamClick();
+        }}
+      >
+        {hasMultipleItems ? (
+          <button
+            onClick={handleExpandClick}
+            className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
+          </button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <span className="text-orange-400">{paramName}</span>
+        <span className="text-muted-foreground">{separator}</span>
+        {hasMultipleItems && !isExpanded ? (
+          <span className="text-muted-foreground">[...{paramValue.length} items]</span>
+        ) : !hasMultipleItems ? (
+          <span className="text-muted-foreground">{formatValue(paramValue)}</span>
+        ) : (
+          <span className="text-muted-foreground">[</span>
+        )}
+      </div>
+      
+      {/* Expanded array items */}
+      {hasMultipleItems && isExpanded && (
+        <>
+          {(paramValue as unknown[]).map((item, idx) => (
+            <div 
+              key={idx}
+              className="flex gap-1 py-0.5 px-2 text-muted-foreground"
+              style={{ paddingLeft: `${indent + 16}px` }}
+            >
+              <span className="text-muted-foreground/60">[{idx}]</span>
+              <span>{formatValue(item)}</span>
+            </div>
+          ))}
+          <div 
+            className="flex gap-1 py-0.5 px-2 text-muted-foreground"
+            style={{ paddingLeft: `${indent}px` }}
+          >
+            <span className="w-3 shrink-0" />
+            <span>]</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
 const RuntimeStepRow: React.FC<{ 
   step: RuntimeStep; 
   expanded: Set<string>;
@@ -261,24 +343,18 @@ const RuntimeStepRow: React.FC<{
             const paramKey = `${step.id}:${k}`;
             const isParamSelected = selectedParamKey === paramKey;
             const isParamInChain = chainStepIds.includes(paramKey);
-            const paramHighlight = isParamSelected 
-              ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
-              : isParamInChain 
-              ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
-              : '';
             return (
-              <div 
-                key={k} 
-                className={`flex gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onParamClick?.(step, k);
-                }}
-              >
-                <span className="text-orange-400">{k}</span>
-                <span className="text-muted-foreground">{step.type === 'call' ? '=' : ':'}</span>
-                <span className="text-muted-foreground">{formatValue(v)}</span>
-              </div>
+              <ParamRow
+                key={k}
+                paramName={k}
+                paramValue={v}
+                paramKey={paramKey}
+                isSelected={isParamSelected}
+                isInChain={isParamInChain}
+                separator={step.type === 'call' ? '=' : ':'}
+                indent={8 + indent + 24}
+                onParamClick={() => onParamClick?.(step, k)}
+              />
             );
           })}
         </div>
