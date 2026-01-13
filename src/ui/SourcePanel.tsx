@@ -87,8 +87,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   const embedUrl = getGdriveEmbedUrl(gdriveLink);
 
   return (
-    <div className="panel flex flex-col h-full min-h-0 overflow-hidden">
-      <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0">
+    <div className="panel flex flex-col h-full min-h-0">
+      <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0 h-full">
         <div className="panel-header shrink-0 flex items-center justify-between">
           <span className="panel-title">Source</span>
           <TabsList className="h-6">
@@ -97,7 +97,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
           </TabsList>
         </div>
         
-        <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2 data-[state=active]:flex">
+        <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2 h-full data-[state=active]:flex data-[state=active]:h-full">
           {/* Row 1: LO selector and LO Code input */}
           <div className="shrink-0 flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
@@ -215,7 +215,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
           </div>
         </TabsContent>
         
-        <TabsContent value="video" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
+        <TabsContent value="video" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2 h-full data-[state=active]:flex data-[state=active]:h-full">
           {/* GDrive Link - 1 line input */}
           <div className="shrink-0 flex items-center gap-2">
             <Label htmlFor="gdrive-link" className="text-xs text-muted-foreground whitespace-nowrap">
