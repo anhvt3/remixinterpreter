@@ -1418,20 +1418,16 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       {isExpanded && (
         <div className="border-l border-border/50 ml-6">
           <div className="py-1 px-3 text-xs font-mono bg-muted/20 rounded-r my-1 mx-2">
-            {node.def.body.map((stmt, idx) => {
+          {node.def.body.map((stmt, idx) => {
               // Determine highlight level based on call chain
+              // Only highlight the lowest-level statement (first entry = direct creator)
               let highlightLevel: 'primary' | 'secondary' | null = null;
               if (elementCallChain && elementCallChain.length > 0) {
-                // Primary = first entry in chain (direct creator)
+                // Primary = first entry in chain only (direct creator at lowest level)
                 if (elementCallChain[0].fnName === node.name && elementCallChain[0].stmtIndex === idx) {
                   highlightLevel = 'primary';
-                } else {
-                  // Secondary = any other entry in chain (parent callers)
-                  const isInChain = elementCallChain.slice(1).some(
-                    entry => entry.fnName === node.name && entry.stmtIndex === idx
-                  );
-                  if (isInChain) highlightLevel = 'secondary';
                 }
+                // Do NOT highlight parent callers (secondary) - user wants only one statement
               }
               
 // Check if this statement is selected
