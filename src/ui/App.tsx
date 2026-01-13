@@ -24,6 +24,8 @@ import { useDslScriptData } from '@/hooks/useDslScriptData';
 import { useVideoData } from '@/hooks/useVideoData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useActivityLog } from '@/contexts/ActivityLogContext';
+import { useMissingFunctions } from '@/contexts/MissingFunctionsContext';
+import { setMissingFunctionCallback, setActivityLogCallback, clearReportedFunctions } from '@/core/missingFunctionRegistry';
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
   try {
@@ -73,6 +75,24 @@ function mergeParams(fullYaml: string, editedContent: string): string {
 export const App: React.FC = () => {
   // Activity log - must be near top for use in all handlers
   const { addLog } = useActivityLog();
+  
+  // Missing functions tracking
+  const { addMissingFunction, clearMissingFunctions } = useMissingFunctions();
+  
+  // Connect the missing function registry to React context
+  useEffect(() => {
+    setMissingFunctionCallback((name, type, calledFrom) => {
+      addMissingFunction(name, type, calledFrom);
+    });
+    setActivityLogCallback((level, source, message) => {
+      addLog(level as 'info' | 'warning' | 'error' | 'success', source, message);
+    });
+    
+    return () => {
+      setMissingFunctionCallback(null);
+      setActivityLogCallback(null);
+    };
+  }, [addMissingFunction, addLog]);
 
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
   // Keep a last-known-good full YAML to recover if a bad version is selected/saved
@@ -814,6 +834,10 @@ export const App: React.FC = () => {
   
   // Parse and execute YAML whenever it changes
   useEffect(() => {
+    // Clear previously reported missing functions before rebuild
+    clearReportedFunctions();
+    clearMissingFunctions();
+    
     try {
       const spec = loadYAML(fullYamlContent);
       setParsedSpec(spec);

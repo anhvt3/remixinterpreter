@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Save, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConfigData, type ConfigVersion } from '@/hooks/useConfigData';
+import { IRFMissingPanel } from './IRFMissingPanel';
 
 // Placeholder patterns with fuzzy matching support
 const PLACEHOLDER_PATTERNS = [
@@ -713,20 +714,29 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   return (
     <Tabs value={activeSubtab} onValueChange={onSubtabChange} className="h-full flex flex-col">
       <div className="flex-1 min-h-0 p-2 overflow-hidden">
-        {/* IRF-IR Functions Tab */}
+        {/* IRF-IR Functions Tab - with Missing Functions panel */}
         <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
-          <SimpleSubtab
-            versions={getVersions('IRF-IR-FUNCTIONS')}
-            selectedVersionId={selectedVersions['IRF-IR-FUNCTIONS'] || null}
-            onVersionSelect={(id) => handleVersionSelect('IRF-IR-FUNCTIONS', id)}
-            onVersionDelete={handleDelete}
-            onVersionCreate={() => handleCreate('IRF-IR-FUNCTIONS')}
-            onContentSave={() => handleSave('IRF-IR-FUNCTIONS')}
-            versionsTitle="IRF Versions"
-            contentTitle="#IRF-IntermediateRepresentationFunctions"
-            content={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, '')}
-            zoomLevel={zoomLevel}
-          />
+          <div className="grid grid-cols-3 gap-2 h-full">
+            {/* Main IRF content - 2/3 */}
+            <div className="col-span-2 h-full">
+              <SimpleSubtab
+                versions={getVersions('IRF-IR-FUNCTIONS')}
+                selectedVersionId={selectedVersions['IRF-IR-FUNCTIONS'] || null}
+                onVersionSelect={(id) => handleVersionSelect('IRF-IR-FUNCTIONS', id)}
+                onVersionDelete={handleDelete}
+                onVersionCreate={() => handleCreate('IRF-IR-FUNCTIONS')}
+                onContentSave={() => handleSave('IRF-IR-FUNCTIONS')}
+                versionsTitle="IRF Versions"
+                contentTitle="#IRF-IntermediateRepresentationFunctions"
+                content={getContent('IRF-IR-FUNCTIONS', selectedVersions['IRF-IR-FUNCTIONS'] || null, '')}
+                zoomLevel={zoomLevel}
+              />
+            </div>
+            {/* Missing Functions panel - 1/3 */}
+            <div className="h-full">
+              <IRFMissingPanel zoomLevel={zoomLevel} />
+            </div>
+          </div>
         </TabsContent>
 
         {/* EDSL-ExampleDSL Tab */}
