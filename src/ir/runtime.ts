@@ -553,6 +553,16 @@ function renderGlow(
 // LaTeX rendering cache
 const latexCache = new Map<string, { img: HTMLImageElement; width: number; height: number }>();
 
+// Callback to notify when LaTeX images are ready
+let onLatexReadyCallback: (() => void) | null = null;
+
+/**
+ * Set callback for when LaTeX images finish rendering
+ */
+export function setLatexReadyCallback(cb: (() => void) | null): void {
+  onLatexReadyCallback = cb;
+}
+
 /**
  * Check if text contains LaTeX delimiters
  */
@@ -584,7 +594,7 @@ function extractLatex(content: string): string {
 }
 
 /**
- * Render LaTeX to an image via hidden DOM element
+ * Render LaTeX to an image via SVG foreignObject
  */
 function renderLatexToImage(
   latex: string,
@@ -597,14 +607,14 @@ function renderLatexToImage(
   if (cached) return Promise.resolve(cached);
   
   return new Promise((resolve) => {
-    // Create temporary container
+    // Create temporary container for measurement
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '-9999px';
     container.style.fontSize = `${fontSize}px`;
     container.style.color = color;
-    container.style.fontFamily = '"Times New Roman", Times, serif';
+    container.style.visibility = 'hidden';
     document.body.appendChild(container);
     
     try {
@@ -617,44 +627,30 @@ function renderLatexToImage(
       
       // Get dimensions
       const rect = container.getBoundingClientRect();
-      const width = Math.ceil(rect.width) + 4;
-      const height = Math.ceil(rect.height) + 4;
+      const width = Math.ceil(rect.width) + 8;
+      const height = Math.ceil(rect.height) + 8;
       
-      // Create canvas to capture as image
-      const offscreen = document.createElement('canvas');
-      offscreen.width = width * 2; // 2x for retina
-      offscreen.height = height * 2;
-      const offCtx = offscreen.getContext('2d');
+      // Create SVG with foreignObject containing the rendered KaTeX
+      const scale = 2; // Retina scale
+      const svgWidth = width * scale;
+      const svgHeight = height * scale;
       
-      if (!offCtx) {
-        document.body.removeChild(container);
-        resolve({ img: new Image(), width: 0, height: 0 });
-        return;
-      }
+      // Build SVG with inline KaTeX HTML
+      const katexHtml = container.innerHTML;
       
-      // Use html2canvas-like approach: render to SVG foreignObject
-      const svgNS = 'http://www.w3.org/2000/svg';
-      const svg = document.createElementNS(svgNS, 'svg');
-      svg.setAttribute('width', String(width * 2));
-      svg.setAttribute('height', String(height * 2));
+      // Need to inline all styles for foreignObject to work
+      const svgContent = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="font-size: ${fontSize * scale}px; color: ${color}; font-family: 'Times New Roman', Times, serif; display: flex; align-items: center; justify-content: center; height: 100%;">
+              ${katexHtml}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
       
-      const foreignObject = document.createElementNS(svgNS, 'foreignObject');
-      foreignObject.setAttribute('width', '100%');
-      foreignObject.setAttribute('height', '100%');
-      
-      // Clone container content into foreignObject
-      const clonedDiv = document.createElement('div');
-      clonedDiv.style.fontSize = `${fontSize * 2}px`;
-      clonedDiv.style.color = color;
-      clonedDiv.style.fontFamily = '"Times New Roman", Times, serif';
-      clonedDiv.innerHTML = container.innerHTML;
-      
-      foreignObject.appendChild(clonedDiv);
-      svg.appendChild(foreignObject);
-      
-      // Convert SVG to data URL
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      // Convert to data URL
+      const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(svgBlob);
       
       const img = new Image();
@@ -674,7 +670,9 @@ function renderLatexToImage(
       img.src = url;
       
     } catch (e) {
-      document.body.removeChild(container);
+      if (document.body.contains(container)) {
+        document.body.removeChild(container);
+      }
       resolve({ img: new Image(), width: 0, height: 0 });
     }
   });
@@ -733,6 +731,10 @@ function renderText(
       renderLatexToImage(latex, textStyle.fontSize, colorToRGBA(style.fill.color))
         .then(() => {
           pendingLatexRenders.delete(cacheKey);
+          // Notify callback to trigger re-render
+          if (onLatexReadyCallback) {
+            onLatexReadyCallback();
+          }
         });
     }
     

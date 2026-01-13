@@ -2,7 +2,7 @@
  * IR-based Animation Renderer
  * 
  * Renders DSL timeline events using the IR runtime with Canvas.
- * This replaces the SVG-based AnimRenderer for better glow/opacity support.
+ * LaTeX content is rendered as DOM overlays for reliable display.
  */
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
@@ -14,9 +14,14 @@ import {
   render,
   setTime,
   attachCanvas,
+  setLatexReadyCallback,
+  applyAnimations,
   type RuntimeState,
 } from './runtime';
-import type { IRProgram } from './types';
+import type { IRProgram, TextProps } from './types';
+import { colorToRGBA } from './types';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 interface IRAnimRendererProps {
   events: TimelineEvent[];
@@ -49,6 +54,9 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     return compileToIR(events);
   }, [events]);
   
+  // Force re-render counter for LaTeX loading
+  const [renderKey, setRenderKey] = useState(0);
+  
   // Initialize runtime and attach canvas
   useEffect(() => {
     if (!canvasRef.current || !compiledProgram) return;
@@ -66,6 +74,14 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     // Load program AFTER canvas is attached
     loadProgram(runtime, compiledProgram);
     
+    // Set up LaTeX ready callback to trigger re-render
+    setLatexReadyCallback(() => {
+      if (runtimeRef.current) {
+        render(runtimeRef.current);
+        setRenderKey(k => k + 1);
+      }
+    });
+    
     // Set initial time and render
     setTime(runtime, currentTime);
     render(runtime);
@@ -74,6 +90,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     
     return () => {
       runtimeRef.current = null;
+      setLatexReadyCallback(null);
     };
   }, [compiledProgram]); // Note: currentTime not in deps - we handle time updates separately
   
@@ -137,6 +154,65 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     displayHeight = width / aspectRatio;
   }
   
+  // Get LaTeX text nodes from runtime for DOM overlay
+  const latexOverlays = useMemo(() => {
+    if (!runtimeRef.current || !program) return [];
+    
+    const runtime = runtimeRef.current;
+    const scale = displayWidth / (program.scene.width || 800);
+    const overlays: Array<{
+      id: string;
+      x: number;
+      y: number;
+      latex: string;
+      fontSize: number;
+      color: string;
+      opacity: number;
+    }> = [];
+    
+    for (const node of runtime.nodes.values()) {
+      if (node.type !== 'text') continue;
+      
+      const textNode = node as TextProps;
+      const content = textNode.content;
+      
+      // Check if it contains LaTeX
+      if (typeof content !== 'string') continue;
+      if (!content.includes('\\(') && !content.includes('\\[') && 
+          !content.includes('$') && !content.includes('\\frac') &&
+          !content.includes('\\sqrt') && !content.includes('^{')) continue;
+      
+      // Extract LaTeX
+      let latex = content;
+      const inlineMatch = content.match(/\\\((.*?)\\\)/s);
+      if (inlineMatch) latex = inlineMatch[1];
+      else {
+        const displayMatch = content.match(/\\\[(.*?)\\\]/s);
+        if (displayMatch) latex = displayMatch[1];
+        else {
+          const dollarMatch = content.match(/\$(.*?)\$/s);
+          if (dollarMatch) latex = dollarMatch[1];
+        }
+      }
+      
+      const style = node.style;
+      const fontSize = (style.text?.fontSize || 24) * scale;
+      const color = colorToRGBA(style.fill.color);
+      
+      overlays.push({
+        id: node.id,
+        x: node.transform.x * scale,
+        y: node.transform.y * scale,
+        latex,
+        fontSize,
+        color,
+        opacity: style.opacity,
+      });
+    }
+    
+    return overlays;
+  }, [program, displayWidth, renderKey, currentTime]);
+  
   return (
     <div
       className="relative overflow-hidden flex items-center justify-center"
@@ -146,28 +222,48 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         backgroundColor: '#1a1a2e',
       }}
     >
-      <canvas
-        ref={canvasRef}
-        onClick={handleCanvasClick}
-        className="cursor-pointer"
-        style={{
-          width: displayWidth,
-          height: displayHeight,
-        }}
-      />
+      <div className="relative" style={{ width: displayWidth, height: displayHeight }}>
+        <canvas
+          ref={canvasRef}
+          onClick={handleCanvasClick}
+          className="cursor-pointer absolute inset-0"
+          style={{
+            width: displayWidth,
+            height: displayHeight,
+          }}
+        />
+        
+        {/* LaTeX overlay layer */}
+        <div className="absolute inset-0 pointer-events-none">
+          {latexOverlays.map((overlay) => (
+            <div
+              key={overlay.id}
+              className="absolute"
+              style={{
+                left: overlay.x,
+                top: overlay.y,
+                transform: 'translate(-50%, -50%)',
+                fontSize: overlay.fontSize,
+                color: overlay.color,
+                opacity: overlay.opacity,
+                textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
+              }}
+              dangerouslySetInnerHTML={{
+                __html: katex.renderToString(overlay.latex, {
+                  throwOnError: false,
+                  displayMode: false,
+                }),
+              }}
+            />
+          ))}
+        </div>
+      </div>
       
       {/* Debug overlay */}
       <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
         {program?.nodes.length || 0} nodes @ t={currentTime.toFixed(2)}s
         {selectedElementId && <span className="ml-2 text-primary">sel: {selectedElementId}</span>}
       </div>
-      
-      {/* Selection highlight overlay */}
-      {selectedElementId && runtimeRef.current && (
-        <div className="pointer-events-none absolute inset-0">
-          {/* Could add selection indicators here */}
-        </div>
-      )}
     </div>
   );
 };
