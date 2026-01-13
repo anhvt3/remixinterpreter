@@ -331,7 +331,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                         <div 
                           key={idx} 
                           className="flex items-center justify-end gap-0.5 px-1"
-                          style={{ lineHeight: '1.6', fontSize: '0.75em' }}
+                          style={{ height: '1.6em', lineHeight: '1.6em', fontSize: '0.75em' }}
                         >
                           {lineErrors && lineErrors.length > 0 && !onlyInfo ? (
                             <Tooltip>
