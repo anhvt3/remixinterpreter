@@ -55,6 +55,9 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
 
 export const App: React.FC = () => {
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
+  // Keep a last-known-good full YAML to recover if a bad version is selected/saved
+  const lastValidFullYamlRef = useRef<string>(exampleYaml);
+
   const [loCode, setLoCode] = useState('');
   const [loContent, setLoContent] = useState('');
   const [gdriveLink, setGdriveLink] = useState('');
@@ -294,27 +297,54 @@ export const App: React.FC = () => {
 
   // Load DSL content when version selection changes
   useEffect(() => {
-    const loadDslContent = async () => {
-      if (selectedDslVersionId) {
-        const content = await getDslVersionContent(selectedDslVersionId);
-        if (content) {
-          setFullYamlContent(content);
-        }
+    const isValidDslYaml = (text: string): boolean => {
+      try {
+        const spec = loadYAML(text);
+        const validation = validateSchema(spec);
+        return validation.valid;
+      } catch {
+        return false;
       }
     };
+
+    const loadDslContent = async () => {
+      if (!selectedDslVersionId) return;
+
+      const content = await getDslVersionContent(selectedDslVersionId);
+      if (!content) return;
+
+      // Guard against accidentally loading/saving a params-only version
+      if (isValidDslYaml(content)) {
+        setFullYamlContent(content);
+        return;
+      }
+
+      // Fallback: pick the newest valid version we have locally
+      const firstScript = dslScripts[0];
+      const fallback = firstScript?.versions.find(v => {
+        const c = v.content || '';
+        return typeof c === 'string' && c.includes('schema_version:') && c.includes('dialect:') && c.includes('defs:');
+      });
+
+      if (fallback && fallback.id !== selectedDslVersionId) {
+        setSelectedDslVersionId(fallback.id);
+        if (fallback.content) setFullYamlContent(fallback.content);
+        return;
+      }
+
+      // Last resort: restore last known good YAML
+      if (lastValidFullYamlRef.current) {
+        setFullYamlContent(lastValidFullYamlRef.current);
+      }
+    };
+
     loadDslContent();
-  }, [selectedDslVersionId, getDslVersionContent]);
+  }, [selectedDslVersionId, getDslVersionContent, dslScripts]);
 
   // Handle DSL version selection
-  const handleSelectDslVersion = useCallback(async (versionId: string | null) => {
+  const handleSelectDslVersion = useCallback((versionId: string | null) => {
     setSelectedDslVersionId(versionId);
-    if (versionId) {
-      const content = await getDslVersionContent(versionId);
-      if (content) {
-        setFullYamlContent(content);
-      }
-    }
-  }, [getDslVersionContent]);
+  }, []);
 
   // Save DSL script: create a new version and trigger rebuild
   const handleSaveDslVersion = useCallback(async (paramsContent: string) => {
@@ -322,8 +352,9 @@ export const App: React.FC = () => {
     const currentScript = dslScripts[0];
     if (!currentScript) return;
 
-    // Merge the edited params back into the full YAML
-    const fullContent = mergeParams(fullYamlContent, paramsContent);
+    // Merge the edited params back into a valid full YAML base
+    const baseYaml = lastValidFullYamlRef.current || fullYamlContent;
+    const fullContent = mergeParams(baseYaml, paramsContent);
 
     // Calculate next version number
     const nextVersion = currentScript.versions.length + 1;
@@ -687,11 +718,12 @@ export const App: React.FC = () => {
   const paramsContent = useMemo(() => extractParams(fullYamlContent), [fullYamlContent]);
   
   
-  // Handle params changes by merging back into full YAML (from code editor)
+  // Handle params changes by merging back into a valid full YAML base (from code editor)
   // This triggers a rebuild of TreeView, Runtime, and Anim via the fullYamlContent useEffect
   const handleParamsChange = useCallback((newParams: string) => {
     try {
-      const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
+      const baseYaml = lastValidFullYamlRef.current || fullYamlContent;
+      const fullSpec = yaml.load(baseYaml) as YAMLSpec;
       const paramsObj = yaml.load(newParams) as { params: YAMLSpec['params'] };
       fullSpec.params = paramsObj.params;
       const merged = yaml.dump(fullSpec, { indent: 2, lineWidth: -1 });
@@ -704,7 +736,8 @@ export const App: React.FC = () => {
   // Handle params object changes (from tree view editor)
   const handleParamsObjectChange = (newParams: Params) => {
     try {
-      const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
+      const baseYaml = lastValidFullYamlRef.current || fullYamlContent;
+      const fullSpec = yaml.load(baseYaml) as YAMLSpec;
       fullSpec.params = newParams;
       setFullYamlContent(yaml.dump(fullSpec, { indent: 2, lineWidth: -1 }));
     } catch (e) {
