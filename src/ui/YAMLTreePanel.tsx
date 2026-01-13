@@ -826,9 +826,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
     const hasArgs = args.length > 0;
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
+      <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
-          className="flex items-center gap-1 rounded px-1 -mx-1"
+          className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
           onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
@@ -934,9 +934,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
+      <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
-          className="flex items-center gap-1 rounded px-1 -mx-1"
+          className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
           onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasVars ? (
@@ -1057,9 +1057,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
   
   if ('foreach' in stmt) {
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
+      <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
-          className="flex items-center gap-1 rounded px-1 -mx-1"
+          className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
           onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); }}
         >
           {isExpanded ? (
@@ -1107,9 +1107,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
     };
     
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
+      <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
-          className="flex items-center gap-1 rounded px-1 -mx-1"
+          className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
           onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
@@ -1179,8 +1179,8 @@ const StatementRow: React.FC<StatementRowProps> = ({
   
   if ('return' in stmt) {
     return (
-      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
-        <div className="flex items-center gap-1">
+      <div ref={rowRef} className="py-1" onClick={handleRowClick}>
+        <div className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}>
           <span className="w-3" />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1397,14 +1397,13 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const isFnDefSelected = selectedFunctionDefinition === node.name;
   
   // Determine function header highlight class
+  // Only highlight function header for navigation purposes, not for general selection
   const fnHeaderHighlightClass = isFnCurrentNav
     ? 'bg-green-500/40 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
     : isFnInChain
     ? 'bg-yellow-500/10 ring-1 ring-yellow-400/40'
     : isFnDefSelected 
     ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70' 
-    : isSelected 
-    ? 'bg-primary/20 ring-1 ring-primary/40' 
     : 'hover:bg-muted/50';
   
   // Render function navigation buttons
