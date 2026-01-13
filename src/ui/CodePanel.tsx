@@ -230,53 +230,55 @@ export const CodePanel: React.FC<CodePanelProps> = ({
           </div>
         </ScrollArea>
       ) : (
-        <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
+        <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0 overflow-hidden">
           {/* Render as editable textarea with syntax highlighting overlay and line numbers */}
           <div 
             className="relative text-sm font-mono cursor-text" 
             style={{ zoom: zoomLevel / 100 }}
             onClick={() => textareaRef.current?.focus()}
           >
-            {/* Line numbers column */}
-            <div className="absolute left-0 top-0 bottom-0 w-10 bg-muted/20 border-r border-border/30 select-none pointer-events-none">
-              <div className="py-4 pr-2">
-                {lines.map((_, idx) => (
-                  <div 
-                    key={idx} 
-                    className="text-right text-muted-foreground/50 text-xs px-1"
-                    style={{ lineHeight: '1.6' }}
-                  >
-                    {idx + 1}
-                  </div>
-                ))}
+            {/* Line numbers column - rendered inline with content to ensure all numbers show */}
+            <div className="flex">
+              <div className="w-10 bg-muted/20 border-r border-border/30 select-none shrink-0">
+                <div className="py-4 pr-2">
+                  {localContent.split('\n').map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className="text-right text-muted-foreground/50 text-xs px-1"
+                      style={{ lineHeight: '1.6' }}
+                    >
+                      {idx + 1}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            
-            {/* Content area with padding for line numbers */}
-            <div className="pl-12 pr-4">
-              {/* Syntax highlighted layer (behind) */}
-              <div
-                className="absolute left-12 right-4 top-0 py-4 pointer-events-none select-none overflow-hidden"
-                aria-hidden="true"
-              >
-                <SyntaxHighlighter content={localContent} language={language} />
+              
+              {/* Content area */}
+              <div className="flex-1 relative pl-2 pr-4 min-w-0">
+                {/* Syntax highlighted layer (behind) */}
+                <div
+                  className="absolute left-2 right-4 top-0 py-4 pointer-events-none select-none"
+                  aria-hidden="true"
+                >
+                  <SyntaxHighlighter content={localContent} language={language} />
+                </div>
+                {/* Transparent textarea (front, for editing) */}
+                <textarea
+                  ref={textareaRef}
+                  value={localContent}
+                  onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  readOnly={readOnly}
+                  className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10 overflow-hidden"
+                  style={{
+                    lineHeight: '1.6',
+                    tabSize: 2,
+                    minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                    caretColor: 'hsl(var(--foreground))',
+                  }}
+                  spellCheck={false}
+                />
               </div>
-              {/* Transparent textarea (front, for editing) */}
-              <textarea
-                ref={textareaRef}
-                value={localContent}
-                onChange={(e) => setValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                readOnly={readOnly}
-                className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10"
-                style={{
-                  lineHeight: '1.6',
-                  tabSize: 2,
-                  minHeight: `${Math.max(lines.length + 5, 20) * 1.6}em`,
-                  caretColor: 'hsl(var(--foreground))',
-                }}
-                spellCheck={false}
-              />
             </div>
           </div>
         </ScrollArea>
