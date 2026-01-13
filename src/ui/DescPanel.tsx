@@ -180,7 +180,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
           const selectedVersionId = selectedVersionIds[index];
           
           return (
-            <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0">
+            <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0 h-full data-[state=active]:flex data-[state=active]:h-full">
               {/* Version dropdown */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">
@@ -217,7 +217,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
         })}
 
         {/* Video Tab */}
-        <TabsContent value="video" className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0">
+        <TabsContent value="video" className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0 h-full data-[state=active]:flex data-[state=active]:h-full">
           {/* Version dropdown for VideoDesc */}
           <div className="shrink-0 flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">

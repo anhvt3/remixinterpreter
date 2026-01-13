@@ -541,9 +541,9 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   }, []);
 
   return (
-    <div className="h-full min-h-0 flex flex-col bg-card border border-border rounded-lg overflow-hidden">
-      <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
-        <span className="text-xs font-medium text-foreground">4. Runtime</span>
+    <div className="panel h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="panel-header shrink-0 flex items-center justify-between">
+        <span className="panel-title">4. Runtime</span>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5">
             <Button
