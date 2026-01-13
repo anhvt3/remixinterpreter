@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-import { Undo2, Redo2, Save } from 'lucide-react';
+import { Undo2, Redo2, Save, AlertCircle } from 'lucide-react';
 import { SyntaxHighlighter, SyntaxHighlightedLine } from './SyntaxHighlighter';
+import { lintYAML, LintError } from '@/core/yamlLinter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +14,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface CodePanelProps {
   title: string;
@@ -70,6 +77,23 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   }, [content]);
   
   const hasUnsavedChanges = externalUnsaved !== undefined ? externalUnsaved : localContent !== content;
+  
+  // YAML linting
+  const lintErrors = useMemo(() => {
+    if (language !== 'yaml') return [];
+    return lintYAML(localContent);
+  }, [localContent, language]);
+  
+  // Create a map of line -> errors for quick lookup
+  const errorsByLine = useMemo(() => {
+    const map = new Map<number, LintError[]>();
+    lintErrors.forEach(error => {
+      const existing = map.get(error.line) || [];
+      existing.push(error);
+      map.set(error.line, existing);
+    });
+    return map;
+  }, [lintErrors]);
   
   // If we have line click handlers, render as clickable lines overlay
   const hasLineInteraction = !!onLineClick;
@@ -175,6 +199,12 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <Save className="w-3.5 h-3.5" />
       </button>
       <span className="text-xs text-syntax-comment ml-1">{language.toUpperCase()}</span>
+      {lintErrors.length > 0 && (
+        <span className={`text-xs ml-1 flex items-center gap-0.5 ${lintErrors.some(e => e.severity === 'error') ? 'text-destructive' : 'text-yellow-500'}`}>
+          <AlertCircle className="w-3 h-3" />
+          {lintErrors.length}
+        </span>
+      )}
       {hasUnsavedChanges && (
         <span className="text-xs text-primary ml-1">•</span>
       )}
@@ -203,32 +233,65 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as clickable lines with syntax highlighting */}
           {/* Using fontSize scaling instead of zoom to avoid browser rendering limits */}
-          <div className="p-4 pr-10 font-mono" style={{ fontSize: `${14 * zoomLevel / 100}px` }}>
-            {lines.map((line, idx) => {
-              const isHighlighted = highlightedLines.includes(idx);
-              return (
-                <div
-                  key={idx}
-                  onClick={() => onLineClick?.(idx)}
-                  className={`
-                    px-2 py-0.5 -mx-2 rounded cursor-pointer transition-colors duration-150 flex
-                    ${isHighlighted 
-                      ? 'bg-primary/30 border-l-2 border-primary' 
-                      : 'hover:bg-muted/50'
-                    }
-                  `}
-                  style={{ lineHeight: '1.6' }}
-                >
-                  <span className="text-muted-foreground/50 select-none w-10 inline-block text-right mr-3 shrink-0" style={{ fontSize: '0.75em' }}>
-                    {idx + 1}
-                  </span>
-                  <span className="flex-1">
-                    <SyntaxHighlightedLine line={line} language={language} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="p-4 pr-10 font-mono" style={{ fontSize: `${14 * zoomLevel / 100}px` }}>
+              {lines.map((line, idx) => {
+                const isHighlighted = highlightedLines.includes(idx);
+                const lineErrors = errorsByLine.get(idx);
+                const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
+                const hasWarning = lineErrors && lineErrors.some(e => e.severity === 'warning');
+                
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => onLineClick?.(idx)}
+                    className={`
+                      px-2 py-0.5 -mx-2 rounded cursor-pointer transition-colors duration-150 flex
+                      ${isHighlighted 
+                        ? 'bg-primary/30 border-l-2 border-primary' 
+                        : hasError
+                          ? 'bg-destructive/10 border-l-2 border-destructive'
+                          : hasWarning
+                            ? 'bg-yellow-500/10 border-l-2 border-yellow-500'
+                            : 'hover:bg-muted/50'
+                      }
+                    `}
+                    style={{ lineHeight: '1.6' }}
+                  >
+                    <span className="flex items-center gap-1 select-none w-12 justify-end mr-3 shrink-0" style={{ fontSize: '0.75em' }}>
+                      {lineErrors && lineErrors.length > 0 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`flex items-center ${hasError ? 'text-destructive' : 'text-yellow-500'}`}>
+                              <AlertCircle className="w-3 h-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="right" 
+                            className="max-w-xs bg-popover border-border z-50"
+                          >
+                            <div className="space-y-1">
+                              {lineErrors.map((err, errIdx) => (
+                                <div key={errIdx} className={`text-xs ${err.severity === 'error' ? 'text-destructive' : 'text-yellow-500'}`}>
+                                  {err.message}
+                                </div>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                      <span className={`${hasError ? 'text-destructive' : hasWarning ? 'text-yellow-500' : 'text-muted-foreground/50'}`}>
+                        {idx + 1}
+                      </span>
+                    </span>
+                    <span className="flex-1">
+                      <SyntaxHighlightedLine line={line} language={language} />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         </ScrollArea>
       ) : (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0 overflow-hidden">
@@ -239,21 +302,52 @@ export const CodePanel: React.FC<CodePanelProps> = ({
             style={{ fontSize: `${14 * zoomLevel / 100}px` }}
             onClick={() => textareaRef.current?.focus()}
           >
-            {/* Line numbers column - rendered inline with content to ensure all numbers show */}
+            {/* Line numbers column with error indicators */}
             <div className="flex">
-              <div className="w-12 bg-muted/20 border-r border-border/30 select-none shrink-0">
-                <div className="py-4 pr-2">
-                  {localContent.split('\n').map((_, idx) => (
-                    <div 
-                      key={idx} 
-                      className="text-right text-muted-foreground/50 px-1"
-                      style={{ lineHeight: '1.6', fontSize: '0.75em' }}
-                    >
-                      {idx + 1}
-                    </div>
-                  ))}
+              <TooltipProvider delayDuration={200}>
+                <div className="w-14 bg-muted/20 border-r border-border/30 select-none shrink-0">
+                  <div className="py-4 pr-1">
+                    {localContent.split('\n').map((_, idx) => {
+                      const lineErrors = errorsByLine.get(idx);
+                      const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
+                      const hasWarning = lineErrors && lineErrors.some(e => e.severity === 'warning');
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className="flex items-center justify-end gap-0.5 px-1"
+                          style={{ lineHeight: '1.6', fontSize: '0.75em' }}
+                        >
+                          {lineErrors && lineErrors.length > 0 ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={`flex items-center ${hasError ? 'text-destructive' : 'text-yellow-500'}`}>
+                                  <AlertCircle className="w-3 h-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="right" 
+                                className="max-w-xs bg-popover border-border z-50"
+                              >
+                                <div className="space-y-1">
+                                  {lineErrors.map((err, errIdx) => (
+                                    <div key={errIdx} className={`text-xs ${err.severity === 'error' ? 'text-destructive' : 'text-yellow-500'}`}>
+                                      {err.message}
+                                    </div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
+                          <span className={`text-right w-6 ${hasError ? 'text-destructive' : hasWarning ? 'text-yellow-500' : 'text-muted-foreground/50'}`}>
+                            {idx + 1}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </TooltipProvider>
               
               {/* Content area */}
               <div className="flex-1 relative pl-2 pr-4 min-w-0">
