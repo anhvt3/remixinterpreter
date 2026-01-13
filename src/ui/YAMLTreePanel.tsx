@@ -840,14 +840,18 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
           className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
-            isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            )
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); }}
+              className="p-0 hover:bg-muted/50 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+              )}
+            </button>
           ) : (
             <span className="w-3" />
           )}
@@ -948,14 +952,18 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
           className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
-          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasVars ? (
-            isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            )
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); }}
+              className="p-0 hover:bg-muted/50 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+              )}
+            </button>
           ) : (
             <span className="w-3" />
           )}
@@ -1071,13 +1079,17 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
           className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
-          onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); }}
         >
-          {isExpanded ? (
-            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); }}
+            className="p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+          </button>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="text-pink-400 cursor-help">foreach</span>
@@ -1121,14 +1133,18 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className="py-1" onClick={handleRowClick}>
         <div 
           className={`flex items-center gap-1 rounded px-1 -mx-1 ${highlightClass}`}
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
-            isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            )
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); }}
+              className="p-0 hover:bg-muted/50 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+              )}
+            </button>
           ) : (
             <span className="w-3" />
           )}
