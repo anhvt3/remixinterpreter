@@ -741,6 +741,38 @@ const StatementRow: React.FC<StatementRowProps> = ({
   // Show nav buttons only on current navigation position
   const showNavButtons = isCurrentNav;
   
+  // Render navigation buttons
+  const renderNavButtons = () => {
+    if (!showNavButtons) return null;
+    return (
+      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted"
+          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
+          disabled={!canGoUp}
+          title="Navigate up to parent caller"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </Button>
+        <span className="text-[10px] text-muted-foreground w-8 text-center">
+          {navIndex}/{chainLength}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted -ml-1"
+          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
+          disabled={!canGoDown}
+          title="Navigate down toward anchor"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+  
   // Auto-scroll into view when current nav or primary highlight
   useEffect(() => {
     if ((isCurrentNav || highlightLevel === 'primary') && rowRef.current) {
@@ -805,35 +837,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
           {out && <span className="text-green-400">{out}</span>}
-          
-          {/* Navigation buttons - shown inline on current nav position */}
-          {showNavButtons && (
-            <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 hover:bg-muted"
-                onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
-                disabled={!canGoUp}
-                title="Navigate up to parent caller"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </Button>
-              <span className="text-[10px] text-muted-foreground w-8 text-center">
-                {navIndex}/{chainLength}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 hover:bg-muted -ml-1"
-                onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
-                disabled={!canGoDown}
-                title="Navigate down toward anchor"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
+          {renderNavButtons()}
         </div>
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
@@ -913,6 +917,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
             </TooltipContent>
           </Tooltip>
           {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
+          {renderNavButtons()}
         </div>
         {expanded && hasVars && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-1">
@@ -1002,6 +1007,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
           <span className="text-green-400">{stmt.foreach.var}</span>
           <span className="text-muted-foreground">in</span>
           <span className="text-foreground/80">{formatValue(stmt.foreach.range)}</span>
+          {renderNavButtons()}
         </div>
         {expanded && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1">
@@ -1056,6 +1062,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
           {!expanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
+          {renderNavButtons()}
         </div>
         {expanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
@@ -1086,17 +1093,20 @@ const StatementRow: React.FC<StatementRowProps> = ({
   
   if ('return' in stmt) {
     return (
-      <div className="py-1 flex items-center gap-1">
-        <span className="w-3" />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="text-red-400 cursor-help">return</span>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-sm text-xs">
-            <ExplanationContent explanation={statementExplanations.return} />
-          </TooltipContent>
-        </Tooltip>
-        <span className="text-foreground/80">{formatValue(stmt.return)}</span>
+      <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
+        <div className="flex items-center gap-1">
+          <span className="w-3" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-red-400 cursor-help">return</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ExplanationContent explanation={statementExplanations.return} />
+            </TooltipContent>
+          </Tooltip>
+          <span className="text-foreground/80">{formatValue(stmt.return)}</span>
+          {renderNavButtons()}
+        </div>
       </div>
     );
   }
@@ -1615,14 +1625,17 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   
   // Handle statement click - set as anchor
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
+    console.log('YAMLTreePanel: Statement clicked', { fnName, stmtIndex });
     const clickedKey = { fnName, stmtIndex };
     
     if (anchorStatement?.fnName === fnName && anchorStatement?.stmtIndex === stmtIndex) {
       // Click same statement - clear navigation
+      console.log('YAMLTreePanel: Clearing anchor');
       setAnchorStatement(null);
       setNavIndex(0);
     } else {
       // Set new anchor
+      console.log('YAMLTreePanel: Setting new anchor');
       setAnchorStatement(clickedKey);
       setNavIndex(0);
     }
@@ -1653,6 +1666,12 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   useEffect(() => {
     if (!anchorStatement) return;
     
+    console.log('YAMLTreePanel: Auto-expand effect', { 
+      anchorStatement, 
+      upstreamChain,
+      chainLength: upstreamChain.length 
+    });
+    
     const functionsToExpand = [anchorStatement.fnName, ...upstreamChain.map(s => s.fnName)];
     const next = new Set(expandedFunctions);
     let changed = false;
@@ -1665,6 +1684,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
     
     if (changed) {
+      console.log('YAMLTreePanel: Expanding functions', functionsToExpand);
       onExpandedFunctionsChange?.(next);
     }
   }, [anchorStatement, upstreamChain, expandedFunctions, onExpandedFunctionsChange]);
