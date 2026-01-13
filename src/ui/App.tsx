@@ -776,7 +776,7 @@ export const App: React.FC = () => {
   const panelConfigs = useMemo(() => [
     {
       id: 'source' as PanelId,
-      label: '1.Source',
+      label: '1. Source',
       render: () => (
         <SourcePanel
           loCode={loCode}
@@ -807,7 +807,7 @@ export const App: React.FC = () => {
     },
     {
       id: 'desc' as PanelId,
-      label: '2.Desc',
+      label: '2. Desc',
       render: () => (
         <DescPanel
           zoomLevel={zoomLevel}
@@ -825,14 +825,14 @@ export const App: React.FC = () => {
     },
     {
       id: 'dsl' as PanelId,
-      label: '3.DSLScript',
+      label: '3. DSLScript',
       render: () => (
         <YAMLScriptPanel {...dslPanelProps} />
       ),
     },
     {
       id: 'runtime' as PanelId,
-      label: '4.Runtime',
+      label: '4. Runtime',
       render: () => (
         <RuntimePanel 
           steps={runtimeSteps} 
@@ -847,16 +847,16 @@ export const App: React.FC = () => {
     },
     {
       id: 'anim' as PanelId,
-      label: '5.Anim',
+      label: '5. Anim',
       render: () => (
         <AnimPanelWithControls {...animPanelProps} />
       ),
     },
     {
       id: 'chat' as PanelId,
-      label: '6.Chat',
+      label: '6. Chat',
       render: () => (
-        <ChatPanel title="6.Chat" zoomLevel={zoomLevel} />
+        <ChatPanel title="6. Chat" zoomLevel={zoomLevel} />
       ),
     },
   ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, dslScripts, selectedDslVersionId, handleSelectDslVersion]);
