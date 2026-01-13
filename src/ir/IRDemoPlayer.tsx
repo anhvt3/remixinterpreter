@@ -3,7 +3,18 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { createRuntime, loadProgram, render, setTime, play, pause, step, exportFrameAsPNG, attachCanvas, RuntimeState } from './runtime';
+import { 
+  createRuntime, 
+  loadProgram, 
+  render, 
+  setTime, 
+  play, 
+  pause, 
+  step, 
+  exportFrameAsPNG, 
+  attachCanvas, 
+  type RuntimeState 
+} from './runtime';
 import type { IRProgram } from './types';
 import { exampleProgram } from './exampleProgram';
 import { Button } from '@/components/ui/button';
