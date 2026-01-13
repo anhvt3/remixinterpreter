@@ -109,7 +109,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
           const selectedVersionId = selectedVersionIds[index];
           
           return (
-            <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 flex flex-col gap-2 overflow-hidden">
+            <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0">
               {/* Version dropdown */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">
@@ -132,19 +132,21 @@ export const DescPanel: React.FC<DescPanelProps> = ({
                 </Select>
               </div>
               
-              <Textarea
-                value={descContents[index] || ''}
-                onChange={(e) => handleContentChange(index, e.target.value)}
-                placeholder={`Description ${index + 1}...`}
-                className="flex-1 min-h-0 w-full resize-none bg-background border-border font-mono"
-                style={{ fontSize: `${fontSize}px` }}
-              />
+              <div className="flex-1 min-h-0">
+                <Textarea
+                  value={descContents[index] || ''}
+                  onChange={(e) => handleContentChange(index, e.target.value)}
+                  placeholder={`Description ${index + 1}...`}
+                  className="w-full h-full resize-none bg-background border-border font-mono"
+                  style={{ fontSize: `${fontSize}px` }}
+                />
+              </div>
             </TabsContent>
           );
         })}
 
         {/* Video Tab */}
-        <TabsContent value="video" className="flex-1 m-0 p-2 flex flex-col gap-2 overflow-hidden">
+        <TabsContent value="video" className="flex-1 m-0 p-2 flex flex-col gap-2 min-h-0">
           {/* Version dropdown for VideoDesc */}
           <div className="shrink-0 flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">
