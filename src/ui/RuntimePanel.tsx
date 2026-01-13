@@ -237,7 +237,9 @@ const ParamRow: React.FC<{
   
   // Don't highlight param when only a child is selected - only highlight the value chain
   const paramHighlight = isParamDirectlySelected
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
+    : hasChildSelected
+    ? ''
     : isInChain
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
@@ -657,38 +659,20 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   
   // Chain step IDs: all steps and params that should be dimly highlighted
   // This includes anchor (when not current) and all ancestors (except current)
-  // Also includes param key if a param is selected, and upstream value keys
   const chainStepIds = useMemo(() => {
     if (!anchorStepId) return [];
     const allInChain: string[] = [anchorStepId, ...ancestorChain];
-    // Add param key if selected
-    if (anchorParamKey) {
+
+    // Only include the param row in the chain when the param itself is selected.
+    // When a nested value is selected, we avoid highlighting the parent param row.
+    if (anchorParamKey && !selectedValueKey) {
       allInChain.push(anchorParamKey);
     }
-    // Add upstream value keys when a nested value is selected
-    // e.g., if "step:param[0].key" is selected, add "step:param", "step:param[0]" to chain
-    if (selectedValueKey && anchorParamKey) {
-      // Build all parent keys from paramKey to selectedValueKey
-      const parts = selectedValueKey.slice(anchorParamKey.length);
-      let currentKey = anchorParamKey;
-      const regex = /^(\[\d+\]|\.[^.\[]+)/;
-      let remaining = parts;
-      while (remaining.length > 0) {
-        const match = remaining.match(regex);
-        if (match) {
-          currentKey += match[1];
-          if (currentKey !== selectedValueKey) {
-            allInChain.push(currentKey);
-          }
-          remaining = remaining.slice(match[1].length);
-        } else {
-          break;
-        }
-      }
-    }
-    // Exclude the current navigation position (step) and selected value (it gets primary highlight)
-    return allInChain.filter(id => id !== currentNavStepId && id !== selectedValueKey);
-  }, [anchorStepId, anchorParamKey, selectedValueKey, ancestorChain, currentNavStepId]);
+
+    return allInChain.filter(
+      (id) => id !== currentNavStepId && id !== anchorParamKey && id !== selectedValueKey
+    );
+  }, [anchorStepId, ancestorChain, anchorParamKey, selectedValueKey, currentNavStepId]);
   
   // Handle step click - set as anchor, clear param/value selection
   const handleStepClick = useCallback((step: RuntimeStep) => {
