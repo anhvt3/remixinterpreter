@@ -190,6 +190,14 @@ export const DescPanel: React.FC<DescPanelProps> = ({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
+            disabled={!selectedVersionIds[5]}
+            title="Generate DSL"
+          >
+            VA-1210-GENERATE-DSL
+          </Button>
         </div>
         
         <div className="shrink-0">
