@@ -279,12 +279,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             </button>
             <button
               onClick={() => handleSave()}
-              disabled={!hasUnsavedChanges || !!codeError}
-              className={`p-1 rounded transition-colors ${
-                hasUnsavedChanges && !codeError
-                  ? 'text-primary hover:bg-primary/20' 
-                  : 'opacity-30 cursor-not-allowed'
-              }`}
+              className={"p-1 rounded transition-colors text-primary hover:bg-primary/20"}
               title="Save (Ctrl+S)"
             >
               <Save className="w-3.5 h-3.5" />
@@ -372,7 +367,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleDialogCancel}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDialogSave} disabled={!!codeError}>
+            <AlertDialogAction onClick={handleDialogSave}>
               Save
             </AlertDialogAction>
           </AlertDialogFooter>
