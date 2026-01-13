@@ -3,10 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LoRecord, LoVersionRecord } from '@/hooks/useLoData';
 import { VideoRecord, VideoVersionRecord } from '@/hooks/useVideoData';
-import { Undo2, Redo2, Save, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Undo2, Redo2, Save, Plus, Trash2 } from 'lucide-react';
 
 export type SourceActiveTab = 'lo' | 'video';
 
@@ -123,30 +122,41 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
 
   return (
     <div className="panel flex flex-col h-full min-h-0">
-      {/* Main Header */}
-      <div className="panel-header shrink-0">
+      {/* Main Header with LO/Video toggle buttons */}
+      <div className="panel-header shrink-0 flex items-center justify-between">
         <span className="panel-title">1. Source</span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant={activeTab === 'lo' ? 'default' : 'outline'}
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => onActiveTabChange('lo')}
+          >
+            LO
+          </Button>
+          <Button
+            variant={activeTab === 'video' ? 'default' : 'outline'}
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => onActiveTabChange('video')}
+          >
+            Video
+          </Button>
+        </div>
       </div>
       
-      {/* Collapsible Panels Container */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* LO Panel */}
-        <Collapsible 
-          open={isLoExpanded} 
-          onOpenChange={(open) => open && onActiveTabChange('lo')}
-          className={`flex flex-col ${isLoExpanded ? 'flex-1 min-h-0' : 'shrink-0'}`}
+      {/* Horizontal Panels Container */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* LO Panel - expands horizontally when selected */}
+        <div 
+          className={`flex flex-col min-h-0 overflow-hidden border-r border-border transition-all duration-200 ${
+            isLoExpanded ? 'flex-1' : 'w-0 opacity-0'
+          }`}
         >
-          <CollapsibleTrigger className="flex items-center gap-2 px-2 py-1.5 bg-muted/50 hover:bg-muted border-b border-border cursor-pointer">
-            {isLoExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-            <span className="text-xs font-medium">LO Panel</span>
-            
-            {/* LO Action buttons */}
-            {isLoExpanded && (
-              <div className="flex items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
+          {isLoExpanded && (
+            <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
+              {/* Action buttons row */}
+              <div className="shrink-0 flex items-center gap-1 justify-end">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -197,11 +207,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                   <Redo2 className="h-3 w-3" />
                 </Button>
               </div>
-            )}
-          </CollapsibleTrigger>
-          
-          <CollapsibleContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
+
               {/* Row 1: LO selector and LO Code input */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
@@ -265,26 +271,19 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 />
               </div>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          )}
+        </div>
         
-        {/* Video Panel */}
-        <Collapsible 
-          open={isVideoExpanded} 
-          onOpenChange={(open) => open && onActiveTabChange('video')}
-          className={`flex flex-col ${isVideoExpanded ? 'flex-1 min-h-0' : 'shrink-0'}`}
+        {/* Video Panel - expands horizontally when selected */}
+        <div 
+          className={`flex flex-col min-h-0 overflow-hidden transition-all duration-200 ${
+            isVideoExpanded ? 'flex-1' : 'w-0 opacity-0'
+          }`}
         >
-          <CollapsibleTrigger className="flex items-center gap-2 px-2 py-1.5 bg-muted/50 hover:bg-muted border-b border-border cursor-pointer">
-            {isVideoExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-            <span className="text-xs font-medium">Video Panel</span>
-            
-            {/* Video Action buttons */}
-            {isVideoExpanded && (
-              <div className="flex items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
+          {isVideoExpanded && (
+            <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
+              {/* Action buttons row */}
+              <div className="shrink-0 flex items-center gap-1 justify-end">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -335,11 +334,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                   <Redo2 className="h-3 w-3" />
                 </Button>
               </div>
-            )}
-          </CollapsibleTrigger>
-          
-          <CollapsibleContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
+
               {/* Row 1: Video selector */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Video:</Label>
@@ -416,8 +411,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 )}
               </div>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          )}
+        </div>
       </div>
     </div>
   );
