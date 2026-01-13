@@ -318,6 +318,30 @@ function evaluateParsed(
       return texStdlib.paren(resolvedExprArgs[0] as string);
     case 'tex.matrix':
       return texStdlib.matrix(resolvedExprArgs[0] as (string | number)[][]);
+    case 'tex.area_left':
+      return texStdlib.areaLeft(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | undefined
+      );
+    case 'tex.area_right':
+      return texStdlib.areaRight(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | undefined
+      );
+    case 'tex.area_center':
+      return texStdlib.areaCenter(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | undefined
+      );
+    case 'tex.color':
+      return texStdlib.color(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string
+      );
+    case 'tex.bold':
+      return texStdlib.bold(resolvedExprArgs[0] as string | number);
+    case 'tex.italic':
+      return texStdlib.italic(resolvedExprArgs[0] as string | number);
     // Geometry functions
     case 'geom.square_corners':
       return geomStdlib.squareCorners(

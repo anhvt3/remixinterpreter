@@ -154,3 +154,55 @@ export function matrix(rows: (string | number)[][]): string {
   const rowStrings = rows.map(row => row.join(' & ')).join(' \\\\ ');
   return `\\begin{pmatrix} ${rowStrings} \\end{pmatrix}`;
 }
+
+/**
+ * Create a left-aligned area/box in LaTeX (colorbox on left)
+ * Returns content with optional left highlight/emphasis
+ */
+export function areaLeft(content: string | number, color?: string): string {
+  if (color) {
+    return `\\colorbox{${color}}{${content}}`;
+  }
+  return `\\boxed{${content}}`;
+}
+
+/**
+ * Create a right-aligned area/box in LaTeX
+ */
+export function areaRight(content: string | number, color?: string): string {
+  if (color) {
+    return `\\colorbox{${color}}{${content}}`;
+  }
+  return `\\boxed{${content}}`;
+}
+
+/**
+ * Create a centered area/box in LaTeX
+ */
+export function areaCenter(content: string | number, color?: string): string {
+  if (color) {
+    return `\\colorbox{${color}}{${content}}`;
+  }
+  return `\\boxed{${content}}`;
+}
+
+/**
+ * Create a colored text in LaTeX
+ */
+export function color(content: string | number, colorName: string): string {
+  return `\\textcolor{${colorName}}{${content}}`;
+}
+
+/**
+ * Create bold text in LaTeX math mode
+ */
+export function bold(content: string | number): string {
+  return `\\mathbf{${content}}`;
+}
+
+/**
+ * Create italic text in LaTeX math mode
+ */
+export function italic(content: string | number): string {
+  return `\\mathit{${content}}`;
+}
