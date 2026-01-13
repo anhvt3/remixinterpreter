@@ -159,31 +159,34 @@ export function matrix(rows: (string | number)[][]): string {
  * Create a left-aligned area/box in LaTeX (colorbox on left)
  * Returns content with optional left highlight/emphasis
  */
-export function areaLeft(content: string | number, color?: string): string {
+export function areaLeft(content?: string | number, color?: string): string {
+  const safe = content ?? '';
   if (color) {
-    return `\\colorbox{${color}}{${content}}`;
+    return `\\colorbox{${color}}{${safe}}`;
   }
-  return `\\boxed{${content}}`;
+  return `\\boxed{${safe}}`;
 }
 
 /**
  * Create a right-aligned area/box in LaTeX
  */
-export function areaRight(content: string | number, color?: string): string {
+export function areaRight(content?: string | number, color?: string): string {
+  const safe = content ?? '';
   if (color) {
-    return `\\colorbox{${color}}{${content}}`;
+    return `\\colorbox{${color}}{${safe}}`;
   }
-  return `\\boxed{${content}}`;
+  return `\\boxed{${safe}}`;
 }
 
 /**
  * Create a centered area/box in LaTeX
  */
-export function areaCenter(content: string | number, color?: string): string {
+export function areaCenter(content?: string | number, color?: string): string {
+  const safe = content ?? '';
   if (color) {
-    return `\\colorbox{${color}}{${content}}`;
+    return `\\colorbox{${color}}{${safe}}`;
   }
-  return `\\boxed{${content}}`;
+  return `\\boxed{${safe}}`;
 }
 
 /**
