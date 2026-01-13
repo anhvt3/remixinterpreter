@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Undo2, Redo2, Save, Plus, Trash2 } from 'lucide-react';
 import type { SourceActiveTab } from './SourcePanel';
 
 interface DescVersion {
@@ -35,6 +37,15 @@ interface DescPanelProps {
   // Video link for VideoDesc tab
   descVideoLink: string;
   setDescVideoLink: React.Dispatch<React.SetStateAction<string>>;
+  // Action callbacks
+  onCreateDesc?: () => void;
+  onDeleteDesc?: () => void;
+  onSaveDesc?: () => void;
+  onUndoDesc?: () => void;
+  onRedoDesc?: () => void;
+  canUndoDesc?: boolean;
+  canRedoDesc?: boolean;
+  hasUnsavedDescChanges?: boolean;
 }
 
 // Convert Google Drive share link to embeddable preview URL
@@ -64,6 +75,14 @@ export const DescPanel: React.FC<DescPanelProps> = ({
   setDescContents,
   descVideoLink,
   setDescVideoLink,
+  onCreateDesc,
+  onDeleteDesc,
+  onSaveDesc,
+  onUndoDesc,
+  onRedoDesc,
+  canUndoDesc = false,
+  canRedoDesc = false,
+  hasUnsavedDescChanges = false,
 }) => {
   const fontSize = Math.round(12 * (zoomLevel / 100));
   const embedUrl = getGdriveEmbedUrl(descVideoLink);
@@ -90,7 +109,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
   return (
     <div className="panel h-full flex flex-col bg-card" style={{ fontSize: `${fontSize}px` }}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="panel-header shrink-0 flex items-center justify-between">
+        <div className="panel-header shrink-0 flex items-center gap-2">
           <span className="panel-title">Desc</span>
           <TabsList className="h-6">
             <TabsTrigger value="1" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>1</TabsTrigger>
@@ -100,6 +119,58 @@ export const DescPanel: React.FC<DescPanelProps> = ({
             <TabsTrigger value="5" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'lo'}>5</TabsTrigger>
             <TabsTrigger value="video" className="text-xs h-5 px-2" disabled={sourceActiveTab !== 'video'}>Video</TabsTrigger>
           </TabsList>
+          
+          {/* Action buttons - aligned right */}
+          <div className="flex items-center gap-1 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onCreateDesc}
+              title="Create New Desc"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onDeleteDesc}
+              title="Delete Desc"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onSaveDesc}
+              disabled={!hasUnsavedDescChanges}
+              title="Save"
+            >
+              <Save className={`h-3.5 w-3.5 ${hasUnsavedDescChanges ? 'text-orange-500' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onUndoDesc}
+              disabled={!canUndoDesc}
+              title="Undo"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRedoDesc}
+              disabled={!canRedoDesc}
+              title="Redo"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {/* Tabs 1-5: LODesc with version dropdown */}
