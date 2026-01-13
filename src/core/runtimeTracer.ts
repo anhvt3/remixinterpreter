@@ -358,6 +358,9 @@ function executeIRTraced(
     }
   }
   
+  // Get current function context from call stack
+  const currentFrame = callStack.length > 0 ? callStack[callStack.length - 1] : null;
+  
   const irStep: RuntimeStep = {
     id: `step_${stepCounter++}`,
     type: 'ir',
@@ -365,6 +368,8 @@ function executeIRTraced(
     resolvedArgs,
     depth,
     createdElementIds: createdIds,
+    fnName: currentFrame?.fnName,
+    stmtIndex: currentFrame?.stmtIndex,
   };
   steps.push(irStep);
   stepCallChains.set(irStep.id, [...callStack].reverse());
