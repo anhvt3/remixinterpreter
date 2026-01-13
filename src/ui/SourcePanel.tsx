@@ -120,27 +120,97 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   const isLoExpanded = activeTab === 'lo';
   const isVideoExpanded = activeTab === 'video';
 
+  // Determine which handlers to use based on active tab
+  const handleCreate = isLoExpanded ? onCreateNewLo : onCreateNewVideo;
+  const handleDelete = isLoExpanded ? onDeleteLo : onDeleteVideo;
+  const handleSaveAction = isLoExpanded ? onSave : onVideoSave;
+  const handleUndoAction = isLoExpanded ? onUndo : onVideoUndo;
+  const handleRedoAction = isLoExpanded ? onRedo : onVideoRedo;
+  const currentCanUndo = isLoExpanded ? canUndo : canVideoUndo;
+  const currentCanRedo = isLoExpanded ? canRedo : canVideoRedo;
+  const currentHasUnsaved = isLoExpanded ? hasUnsavedChanges : hasUnsavedVideoChanges;
+  const currentCanDelete = isLoExpanded ? !!selectedLoId : !!selectedVideoId;
+
   return (
     <div className="panel flex flex-col h-full min-h-0">
-      {/* Main Header with LO/Video toggle buttons */}
-      <div className="panel-header shrink-0 flex items-center justify-between">
+      {/* Main Header with LO/Video toggle and action buttons */}
+      <div className="panel-header shrink-0 flex items-center gap-2">
         <span className="panel-title">1. Source</span>
-        <div className="flex items-center gap-1">
-          <Button
-            variant={activeTab === 'lo' ? 'default' : 'outline'}
-            size="sm"
-            className="h-6 px-2 text-xs"
+        
+        {/* LO/Video toggle - same style as TreeView/CodeView */}
+        <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
+          <button
             onClick={() => onActiveTabChange('lo')}
+            className={`text-xs h-5 px-2 rounded transition-colors ${
+              activeTab === 'lo' 
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
             LO
-          </Button>
-          <Button
-            variant={activeTab === 'video' ? 'default' : 'outline'}
-            size="sm"
-            className="h-6 px-2 text-xs"
+          </button>
+          <button
             onClick={() => onActiveTabChange('video')}
+            className={`text-xs h-5 px-2 rounded transition-colors ${
+              activeTab === 'video' 
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
             Video
+          </button>
+        </div>
+
+        {/* Action buttons - aligned right */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleCreate}
+            title={isLoExpanded ? "Create New LO" : "Create New Video"}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleDelete}
+            disabled={!currentCanDelete}
+            title={isLoExpanded ? "Delete LO" : "Delete Video"}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleSaveAction}
+            disabled={!currentHasUnsaved}
+            title="Save"
+          >
+            <Save className={`h-3 w-3 ${currentHasUnsaved ? 'text-orange-500' : 'text-muted-foreground/50'}`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleUndoAction}
+            disabled={!currentCanUndo}
+            title="Undo"
+          >
+            <Undo2 className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleRedoAction}
+            disabled={!currentCanRedo}
+            title="Redo"
+          >
+            <Redo2 className="h-3 w-3" />
           </Button>
         </div>
       </div>
@@ -149,65 +219,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* LO Panel - expands horizontally when selected */}
         <div 
-          className={`flex flex-col min-h-0 overflow-hidden border-r border-border transition-all duration-200 ${
+          className={`flex flex-col min-h-0 overflow-hidden transition-all duration-200 ${
             isLoExpanded ? 'flex-1' : 'w-0 opacity-0'
           }`}
         >
           {isLoExpanded && (
             <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
-              {/* Action buttons row */}
-              <div className="shrink-0 flex items-center gap-1 justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onCreateNewLo}
-                  title="Create New LO"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onDeleteLo}
-                  disabled={!selectedLoId}
-                  title="Delete LO"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onSave}
-                  disabled={!hasUnsavedChanges}
-                  title="Save"
-                >
-                  <Save className={`h-3 w-3 ${hasUnsavedChanges ? 'text-orange-500' : 'text-muted-foreground/50'}`} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onUndo}
-                  disabled={!canUndo}
-                  title="Undo"
-                >
-                  <Undo2 className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onRedo}
-                  disabled={!canRedo}
-                  title="Redo"
-                >
-                  <Redo2 className="h-3 w-3" />
-                </Button>
-              </div>
-
               {/* Row 1: LO selector and LO Code input */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
@@ -282,59 +299,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         >
           {isVideoExpanded && (
             <div className="flex-1 flex flex-col min-h-0 p-2 gap-2">
-              {/* Action buttons row */}
-              <div className="shrink-0 flex items-center gap-1 justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onCreateNewVideo}
-                  title="Create New Video"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onDeleteVideo}
-                  disabled={!selectedVideoId}
-                  title="Delete Video"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onVideoSave}
-                  disabled={!hasUnsavedVideoChanges}
-                  title="Save"
-                >
-                  <Save className={`h-3 w-3 ${hasUnsavedVideoChanges ? 'text-orange-500' : 'text-muted-foreground/50'}`} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onVideoUndo}
-                  disabled={!canVideoUndo}
-                  title="Undo"
-                >
-                  <Undo2 className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onVideoRedo}
-                  disabled={!canVideoRedo}
-                  title="Redo"
-                >
-                  <Redo2 className="h-3 w-3" />
-                </Button>
-              </div>
-
               {/* Row 1: Video selector */}
               <div className="shrink-0 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Video:</Label>
