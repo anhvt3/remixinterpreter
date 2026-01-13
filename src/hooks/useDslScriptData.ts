@@ -72,7 +72,20 @@ export function useDslScriptData() {
       // Map versions to scripts
       const scriptsWithVersions: DslScriptWithVersions[] = scripts.map(script => {
         const scriptVersions = (versions || []).filter(v => v.dsl_script_id === script.id);
-        const latestVersion = scriptVersions[0] || null;
+
+        // Prefer the newest *valid* version (some old versions might only contain params)
+        const latestValidVersion = scriptVersions.find(v => {
+          const c = v.content || '';
+          return (
+            typeof c === 'string' &&
+            c.includes('schema_version:') &&
+            c.includes('dialect:') &&
+            c.includes('defs:')
+          );
+        }) || null;
+
+        const latestVersion = latestValidVersion || scriptVersions[0] || null;
+
         return {
           ...script,
           versions: scriptVersions,
@@ -98,7 +111,7 @@ export function useDslScriptData() {
       .from('dsl_script_version')
       .select('content')
       .eq('id', versionId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching dsl_script_version content:', error);
