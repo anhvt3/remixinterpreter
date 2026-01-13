@@ -598,7 +598,7 @@ export const App: React.FC = () => {
         <Tabs defaultValue="editing" className="h-full flex flex-col" onValueChange={setActiveTab}>
           <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-4">
             <TabsList className="bg-muted">
-              <TabsTrigger value="editing" className="text-xs">Editing</TabsTrigger>
+              <TabsTrigger value="editing" className="text-xs">LO WF</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
             
