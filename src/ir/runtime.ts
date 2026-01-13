@@ -200,9 +200,12 @@ export function applyAnimations(state: RuntimeState): void {
   const time = state.currentTime;
   
   // Reset nodes from baseNodes so scrubbing backwards works correctly
-  state.nodes.clear();
-  for (const [id, node] of state.baseNodes) {
-    state.nodes.set(id, JSON.parse(JSON.stringify(node)));
+  // Guard: only reset if baseNodes exists and is iterable
+  if (state.baseNodes && state.baseNodes.size > 0) {
+    state.nodes.clear();
+    for (const [id, node] of state.baseNodes) {
+      state.nodes.set(id, JSON.parse(JSON.stringify(node)));
+    }
   }
   
   for (const anim of state.animations) {
