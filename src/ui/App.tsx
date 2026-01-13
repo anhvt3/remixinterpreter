@@ -477,8 +477,15 @@ export const App: React.FC = () => {
     loopRange,
   };
 
-  // Panel expansion state
+  // Panel expansion state for LO WF tab
   const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible } = usePanelExpansion(['dsl', 'runtime', 'anim']);
+  
+  // Panel expansion state for EngWF tab
+  const { 
+    sortedVisiblePanelIds: engwfSortedVisiblePanelIds, 
+    handlePanelClick: engwfHandlePanelClick, 
+    isPanelVisible: engwfIsPanelVisible 
+  } = usePanelExpansion(['dsl', 'runtime', 'anim']);
 
   // Panel configurations
   const panelConfigs = useMemo(() => [
@@ -603,12 +610,21 @@ export const App: React.FC = () => {
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
             
-            {/* Panel selector for Editing tab - shown inline only when Editing is active */}
+            {/* Panel selector for LO WF tab */}
             {activeTab === 'editing' && (
               <PanelSelector
                 panels={panelConfigs}
                 isPanelVisible={isPanelVisible}
                 onPanelClick={handlePanelClick}
+              />
+            )}
+            
+            {/* Panel selector for EngWF tab */}
+            {activeTab === 'engwf' && (
+              <PanelSelector
+                panels={panelConfigs}
+                isPanelVisible={engwfIsPanelVisible}
+                onPanelClick={engwfHandlePanelClick}
               />
             )}
             
@@ -643,12 +659,7 @@ export const App: React.FC = () => {
 
             {/* EngWF Tab */}
             <TabsContent value="engwf" className="flex-1 min-h-0 m-0 relative overflow-hidden">
-              <div className="h-full flex items-center justify-center bg-background">
-                <div className="text-center text-muted-foreground">
-                  <h2 className="text-lg font-semibold mb-2">Engineering Workflow</h2>
-                  <p className="text-sm">Content coming soon...</p>
-                </div>
-              </div>
+              <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={engwfSortedVisiblePanelIds} />
             </TabsContent>
 
             {/* Config Tab */}
