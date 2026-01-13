@@ -1332,7 +1332,7 @@ export const App: React.FC = () => {
                 {CONFIG_SUBTABS.map((subtab) => (
                   <React.Fragment key={subtab.id}>
                     {subtab.labelBefore && (
-                      <span className="text-xs text-muted-foreground font-medium px-1">
+                      <span className="text-xs text-muted-foreground font-medium px-1 ml-4">
                         {subtab.labelBefore}
                       </span>
                     )}
