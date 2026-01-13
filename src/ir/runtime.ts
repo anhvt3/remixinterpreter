@@ -175,24 +175,34 @@ function isTransform(v: unknown): v is Transform {
 
 /**
  * Apply all active animations to nodes at current time
+ * 
+ * Animation behavior:
+ * - Before t0: Use fromValue
+ * - Between t0 and t1: Interpolate with easing
+ * - After t1: Use toValue (animation "sticks" at final value)
  */
 export function applyAnimations(state: RuntimeState): void {
   const time = state.currentTime;
   
   for (const anim of state.animations) {
-    // Skip if outside animation time range
-    if (time < anim.t0 || time > anim.t1) continue;
-    
     const node = state.nodes.get(anim.nodeId);
     if (!node) continue;
     
-    // Calculate progress with easing
-    const rawProgress = getProgress(time, anim.t0, anim.t1);
-    const easingFn = getEasingFunction(anim.easing);
-    const easedProgress = easingFn(rawProgress);
+    let value: unknown;
     
-    // Interpolate value
-    const value = interpolateProperty(anim.fromValue, anim.toValue, easedProgress);
+    if (time < anim.t0) {
+      // Before animation starts - use initial value
+      value = anim.fromValue;
+    } else if (time >= anim.t1) {
+      // After animation ends - stick at final value
+      value = anim.toValue;
+    } else {
+      // During animation - interpolate with easing
+      const rawProgress = getProgress(time, anim.t0, anim.t1);
+      const easingFn = getEasingFunction(anim.easing);
+      const easedProgress = easingFn(rawProgress);
+      value = interpolateProperty(anim.fromValue, anim.toValue, easedProgress);
+    }
     
     // Apply to node via property path
     setPropertyByPath(node, anim.propertyPath, value);
