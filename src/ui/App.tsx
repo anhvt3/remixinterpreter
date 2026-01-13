@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
+import { SourcePanel } from './SourcePanel';
 import { ChatPanel } from './ChatPanel';
 import { ConfigPanel, CONFIG_SUBTABS } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
@@ -48,7 +49,9 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
 
 export const App: React.FC = () => {
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
-  const [loContent, setLoContent] = useState('# LO Content\n\nThis panel shows the Learning Objective or high-level description of the animation.');
+  const [loCode, setLoCode] = useState('');
+  const [loContent, setLoContent] = useState('');
+  const [gdriveLink, setGdriveLink] = useState('');
   const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
   
   // Config tab password protection
@@ -483,14 +486,16 @@ export const App: React.FC = () => {
   // Panel configurations
   const panelConfigs = useMemo(() => [
     {
-      id: 'lo' as PanelId,
-      label: 'LO',
+      id: 'source' as PanelId,
+      label: 'Source',
       render: () => (
-        <CodePanel
-          title="LO"
-          content={loContent}
-          onChange={setLoContent}
-          language="text"
+        <SourcePanel
+          loCode={loCode}
+          onLoCodeChange={setLoCode}
+          loContent={loContent}
+          onLoContentChange={setLoContent}
+          gdriveLink={gdriveLink}
+          onGdriveLinkChange={setGdriveLink}
           zoomLevel={zoomLevel}
         />
       ),
@@ -544,7 +549,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loContent, descContent, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
+  ], [loCode, loContent, gdriveLink, descContent, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
