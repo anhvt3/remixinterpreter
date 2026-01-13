@@ -317,20 +317,23 @@ export const App: React.FC = () => {
   }, [getDslVersionContent]);
 
   // Save DSL script: create a new version and trigger rebuild
-  const handleSaveDslVersion = useCallback(async (content: string) => {
+  const handleSaveDslVersion = useCallback(async (paramsContent: string) => {
     // Get the current script ID
     const currentScript = dslScripts[0];
     if (!currentScript) return;
+
+    // Merge the edited params back into the full YAML
+    const fullContent = mergeParams(fullYamlContent, paramsContent);
 
     // Calculate next version number
     const nextVersion = currentScript.versions.length + 1;
     const versionName = `v${nextVersion}`;
 
-    // Create new version
-    const newVersion = await createDslScriptVersion(currentScript.id, versionName, content);
+    // Create new version with the FULL merged content
+    const newVersion = await createDslScriptVersion(currentScript.id, versionName, fullContent);
     if (newVersion) {
       // Update content immediately (triggers rebuild via useEffect)
-      setFullYamlContent(content);
+      setFullYamlContent(fullContent);
       // Refresh the versions list
       if (activeDescId) {
         await fetchDslScriptsForDesc(activeDescId);
@@ -338,7 +341,7 @@ export const App: React.FC = () => {
       // Select the new version
       setSelectedDslVersionId(newVersion.id);
     }
-  }, [dslScripts, createDslScriptVersion, activeDescId, fetchDslScriptsForDesc]);
+  }, [dslScripts, createDslScriptVersion, activeDescId, fetchDslScriptsForDesc, fullYamlContent]);
   
   // LO data management
   const { los, versions, fetchVersionsForLo, getVersionContent, createLo, deleteLo, createVersion, fetchLos } = useLoData();
