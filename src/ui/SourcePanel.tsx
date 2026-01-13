@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { LoRecord, LoVersionRecord } from '@/hooks/useLoData';
+import { Undo2, Redo2, Save, Plus } from 'lucide-react';
 
 export type SourceActiveTab = 'lo' | 'video';
 
@@ -24,6 +26,15 @@ interface SourcePanelProps {
   onSelectLo: (loId: string | null) => void;
   selectedVersionId: string | null;
   onSelectVersion: (versionId: string | null) => void;
+  // Undo/Redo/Save props
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onSave?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  hasUnsavedChanges?: boolean;
+  // Create new LO
+  onCreateNewLo?: () => void;
 }
 
 // Convert Google Drive share link to embeddable video URL
@@ -63,6 +74,13 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   onSelectLo,
   selectedVersionId,
   onSelectVersion,
+  onUndo,
+  onRedo,
+  onSave,
+  canUndo = false,
+  canRedo = false,
+  hasUnsavedChanges = false,
+  onCreateNewLo,
 }) => {
   const embedUrl = getGdriveEmbedUrl(gdriveLink);
 
@@ -79,25 +97,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         </TabsList>
         
         <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
-          {/* LO and Version Dropdowns */}
+          {/* Version and LO Dropdowns (swapped) + Action buttons */}
           <div className="shrink-0 flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
-            <Select
-              value={selectedLoId || ''}
-              onValueChange={(value) => onSelectLo(value || null)}
-            >
-              <SelectTrigger className="h-7 text-xs flex-1">
-                <SelectValue placeholder="Select LO..." />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                {los.map((lo) => (
-                  <SelectItem key={lo.id} value={lo.id} className="text-xs">
-                    {lo.code} - {lo.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Label className="text-xs text-muted-foreground whitespace-nowrap">Version:</Label>
             <Select
               value={selectedVersionId || ''}
@@ -115,6 +116,69 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 ))}
               </SelectContent>
             </Select>
+
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
+            <Select
+              value={selectedLoId || ''}
+              onValueChange={(value) => {
+                if (value === '__create_new__') {
+                  onCreateNewLo?.();
+                } else {
+                  onSelectLo(value || null);
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1">
+                <SelectValue placeholder="Select LO..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                <SelectItem value="__create_new__" className="text-xs text-primary font-medium">
+                  <span className="flex items-center gap-1">
+                    <Plus className="h-3 w-3" />
+                    Create New
+                  </span>
+                </SelectItem>
+                {los.map((lo) => (
+                  <SelectItem key={lo.id} value={lo.id} className="text-xs">
+                    {lo.code} - {lo.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-1 ml-auto">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${hasUnsavedChanges ? 'text-orange-500' : ''}`}
+                onClick={onSave}
+                disabled={!hasUnsavedChanges}
+                title="Save"
+              >
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {/* LO Code - 1 line input */}
