@@ -97,7 +97,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
           </TabsList>
         </div>
         
-        <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
+        <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2 data-[state=active]:flex">
           {/* Row 1: LO selector and LO Code input */}
           <div className="shrink-0 flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
@@ -204,12 +204,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
           </div>
           
           {/* LO Content - rest of the panel */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <textarea
               value={loContent}
               onChange={(e) => onLoContentChange(e.target.value)}
               placeholder="Enter LO content..."
-              className="w-full h-full resize-none bg-muted/30 border border-border rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-full resize-none bg-muted/30 border border-border rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring overflow-auto"
               style={{ fontSize: `${zoomLevel}%` }}
             />
           </div>
