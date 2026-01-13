@@ -114,59 +114,64 @@ const RuntimeStepRow: React.FC<{
   // Show nav buttons only on the current navigation position
   const showNavButtons = isCurrentNav;
 
-  // Auto-scroll to the highlighted IR step when element selection changes
-  useEffect(() => {
-    if ((isDeepestHighlighted || highlightLevel === 'primary' || isCurrentNav) && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isDeepestHighlighted, highlightLevel, isCurrentNav, elementHighlightedStepId]);
+  // No auto-scroll - user controls scroll position manually
 
-  // Match TreeView color scheme
+  // Match TreeView primary/secondary color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
     call: 'text-purple-400',
-    let: 'text-purple-400',
-    foreach: 'text-purple-400',
-    return: 'text-purple-400',
-    ir: 'text-cyan-400',
+    let: 'text-yellow-400',
+    foreach: 'text-pink-400',
+    return: 'text-green-400',
+    ir: 'text-orange-400',
   };
 
-  // Highlight styles: current position is bright green, chain (anchor + ancestors) is dim yellow
+  // Unified highlight styles: primary for current position, secondary for chain
   const highlightStyles = isCurrentNav
-    ? 'bg-green-500/40 border-l-4 border-green-400 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
+    ? 'bg-primary/30 ring-2 ring-primary/60'
     : isInChain
-    ? 'bg-yellow-500/10 border-l-2 border-yellow-400/40'
+    ? 'bg-primary/10 ring-1 ring-primary/30'
     : isSelected
-    ? 'bg-yellow-500/30 border-l-4 border-yellow-400 ring-2 ring-yellow-400/70 shadow-lg shadow-yellow-500/20'
+    ? 'bg-primary/30 ring-2 ring-primary/60'
     : isHighlightedFromTreeView
-    ? 'bg-yellow-500/20 border-l-2 border-yellow-400/60 ring-1 ring-yellow-400/40'
+    ? 'bg-primary/10 ring-1 ring-primary/30'
     : highlightLevel === 'primary'
-    ? 'bg-primary/30 border-l-2 border-primary'
+    ? 'bg-primary/30 ring-2 ring-primary/60'
     : highlightLevel === 'secondary'
-    ? 'bg-primary/10 border-l-2 border-primary/40'
+    ? 'bg-primary/10 ring-1 ring-primary/30'
     : '';
 
-  const handleClick = (e: React.MouseEvent) => {
+  // Separate expand/collapse from highlighting - clicking toggles highlight, chevron toggles expand
+  const handleRowClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStepClick?.(step);
+  };
+
+  const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasChildren) {
       onToggle(step.id);
     }
-    onStepClick?.(step);
   };
 
   return (
     <>
       <div 
         ref={rowRef}
-        className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono ${highlightStyles}`}
+        className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono rounded ${highlightStyles}`}
         style={{ paddingLeft: `${8 + indent}px` }}
-        onClick={handleClick}
+        onClick={handleRowClick}
       >
-        {/* Expand/collapse */}
-        <span className="w-4 shrink-0 flex items-center justify-center">
-          {hasChildren ? (
-            isExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />
-          ) : null}
-        </span>
+        {/* Expand/collapse button - separate from row click */}
+        {hasChildren ? (
+          <button
+            onClick={handleExpandClick}
+            className="w-4 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+          </button>
+        ) : (
+          <span className="w-4 shrink-0" />
+        )}
         
         {/* Icon */}
         <span className={`shrink-0 ${typeColors[step.type]}`}>
@@ -305,11 +310,19 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   highlightedStepIds = [],
   stepCallChains,
 }) => {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Initialize with top-level items expanded
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    return new Set(steps.filter(s => s.depth === 0).map(s => s.id));
+  });
   
   // Navigation state: anchor is the clicked step, navIndex is current position in chain
   const [anchorStepId, setAnchorStepId] = useState<string | null>(null);
   const [navIndex, setNavIndex] = useState<number>(0);
+  
+  // Reinitialize expanded when steps change
+  useEffect(() => {
+    setExpanded(new Set(steps.filter(s => s.depth === 0).map(s => s.id)));
+  }, [steps]);
   
   // Build flat list of all steps for lookup
   const allStepsMap = useMemo(() => {
@@ -421,34 +434,45 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   };
   
 
-  // Auto-expand top-level items and the highlighted IR step's parents
+  // Auto-expand upstream items only (NOT the clicked item itself) so highlights are visible
   useEffect(() => {
-    const topLevel = new Set(steps.filter(s => s.depth === 0).map(s => s.id));
+    if (!anchorStepId || ancestorChain.length === 0) return;
     
-    // Expand parents of the highlighted IR step
-    if (elementHighlightedStepId) {
-      const expandParents = (items: RuntimeStep[], parentIds: string[] = []) => {
+    // Only expand ancestor chain items, NOT the anchor itself
+    setExpanded(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      
+      // Also need to expand parents in the tree structure for ancestor steps to be visible
+      const parentMap = new Map<string, string>();
+      const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
         for (const step of items) {
-          if (step.id === elementHighlightedStepId) {
-            parentIds.forEach(id => topLevel.add(id));
-            topLevel.add(step.id);
+          if (parentId) {
+            parentMap.set(step.id, parentId);
           }
           if (step.children) {
-            expandParents(step.children, [...parentIds, step.id]);
+            buildParentMap(step.children, step.id);
           }
         }
       };
-      expandParents(steps);
-    }
-    
-    // Also expand ancestors when navigating
-    if (anchorStepId) {
-      topLevel.add(anchorStepId);
-      ancestorChain.forEach(id => topLevel.add(id));
-    }
-    
-    setExpanded(topLevel);
-  }, [steps, elementHighlightedStepId, anchorStepId, ancestorChain]);
+      buildParentMap(steps);
+      
+      // Expand parent tree for each ancestor
+      for (const ancestorId of ancestorChain) {
+        let currentId: string | undefined = ancestorId;
+        while (currentId) {
+          const parentId = parentMap.get(currentId);
+          if (parentId && !next.has(parentId)) {
+            next.add(parentId);
+            changed = true;
+          }
+          currentId = parentId;
+        }
+      }
+      
+      return changed ? next : prev;
+    });
+  }, [anchorStepId, ancestorChain, steps]);
 
   // Auto-expand ancestors and scroll to deepest highlighted step when highlightedStepIds changes
   // This is triggered when clicking a TreeView statement or function definition
