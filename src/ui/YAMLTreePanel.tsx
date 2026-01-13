@@ -954,8 +954,24 @@ const StatementRow: React.FC<StatementRowProps> = ({
               const exprObj = isExpr ? v as { expr: string; args: Record<string, unknown> } : null;
               const canEditLet = editable && isSafelyEditable(v);
               
+              // Check if this let variable is highlighted
+              const paramPath = `let.${k}`;
+              const isParamHighlighted = highlightedParams.some(
+                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
+              );
+              const paramHighlightClass = isParamHighlighted 
+                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+                : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+              
               return (
-                <div key={k}>
+                <div 
+                  key={k}
+                  className={paramHighlightClass}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onParamClick?.(fnName, stmtIndex, paramPath);
+                  }}
+                >
                   <div className="flex gap-2 items-center">
                     <span className="text-green-400">{k}</span>
                     <span className="text-muted-foreground">=</span>
@@ -983,8 +999,23 @@ const StatementRow: React.FC<StatementRowProps> = ({
                     <div className="ml-4 pl-2 border-l border-border/30 mt-1 space-y-0.5">
                       {Object.entries(exprObj.args).map(([argK, argV]) => {
                         const canEditArg = editable && isSafelyEditable(argV);
+                        const exprArgPath = `let.${k}.args.${argK}`;
+                        const isExprArgHighlighted = highlightedParams.some(
+                          p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === exprArgPath
+                        );
+                        const exprArgClass = isExprArgHighlighted 
+                          ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+                          : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+                        
                         return (
-                          <div key={argK} className="flex items-center gap-2">
+                          <div 
+                            key={argK} 
+                            className={`flex items-center gap-2 ${exprArgClass}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onParamClick?.(fnName, stmtIndex, exprArgPath);
+                            }}
+                          >
                             <span className="text-orange-400 text-xs min-w-[50px]">{argK}:</span>
                             {canEditArg ? (
                               <Input
@@ -1095,8 +1126,23 @@ const StatementRow: React.FC<StatementRowProps> = ({
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
+              const paramPath = `args.${k}`;
+              const isParamHighlighted = highlightedParams.some(
+                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
+              );
+              const paramHighlightClass = isParamHighlighted 
+                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+                : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+              
               return (
-                <div key={k} className="flex items-center gap-2">
+                <div 
+                  key={k} 
+                  className={`flex items-center gap-2 ${paramHighlightClass}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onParamClick?.(fnName, stmtIndex, paramPath);
+                  }}
+                >
                   <span className="text-orange-400 min-w-[50px]">{k}:</span>
                   {canEdit ? (
                     <Input
@@ -1797,7 +1843,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   
   // Build param origin chain: trace a param value through the call chain to find all contributing params
   // Example: If we click on "N" in Present_Micro_LadderRow, and it has value "$N", we trace up to find 
-  // where $N comes from in the parent caller's args
+  // Build a tree of all params/values that contributed to the clicked param
+  // Traces variable references ($N) back through let statements and function params
   const highlightedParams = useMemo((): ParamHighlightKey[] => {
     if (!anchorParam || !spec?.defs) return [];
     
@@ -1822,73 +1869,114 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       paramValue = stmt.ir.args[argKey];
     }
     
-    // If the value is a variable reference like $N, trace it through the call chain
-    if (typeof paramValue === 'string' && paramValue.startsWith('$') && !paramValue.startsWith('$.')) {
-      const varName = paramValue.substring(1).split('.')[0]; // Get variable name without path
+    // Helper: find let statement that defines a variable in the current function
+    const findLetStatement = (fnName: string, varName: string): { stmtIndex: number; value: unknown } | null => {
+      const fn = spec.defs[fnName];
+      if (!fn) return null;
       
-      // Build upstream chain for this function and trace the variable
-      const chain = buildUpstreamChain(anchorParam.fnName, spec);
-      
-      // Track current function and variable we're looking for
-      let currentFn = anchorParam.fnName;
-      let currentVar = varName;
-      
-      for (const caller of chain) {
-        const callerFnDef = spec.defs[caller.fnName];
-        if (!callerFnDef) break;
-        
-        const callerStmt = callerFnDef.body[caller.stmtIndex];
-        if (!callerStmt || !('call' in callerStmt)) break;
-        
-        // Check if this caller passes the variable we're tracing
-        const calledFn = callerStmt.call.fn;
-        if (calledFn !== currentFn) break;
-        
-        // Find which arg in the caller corresponds to our variable
-        // The callee's params define the variable names
-        const calleeDef = spec.defs[currentFn];
-        if (!calleeDef?.params) break;
-        
-        const paramIndex = calleeDef.params.indexOf(currentVar);
-        if (paramIndex === -1) break;
-        
-        // The caller's args should be in the same order as callee's params
-        // Or we can look up by param name if the caller uses named args
-        const callerArgs = Object.entries(callerStmt.call.args);
-        let callerArgKey: string | null = null;
-        let callerArgValue: unknown = null;
-        
-        // Try to find by param name (most common case)
-        if (currentVar in callerStmt.call.args) {
-          callerArgKey = currentVar;
-          callerArgValue = callerStmt.call.args[currentVar];
-        } else {
-          // Fallback: try positional matching
-          if (paramIndex < callerArgs.length) {
-            [callerArgKey, callerArgValue] = callerArgs[paramIndex];
-          }
-        }
-        
-        if (callerArgKey) {
-          // Add this to highlighted params
-          result.push({
-            fnName: caller.fnName,
-            stmtIndex: caller.stmtIndex,
-            paramPath: `args.${callerArgKey}`
-          });
-          
-          // If the value is another variable reference, continue tracing
-          if (typeof callerArgValue === 'string' && callerArgValue.startsWith('$') && !callerArgValue.startsWith('$.')) {
-            currentVar = callerArgValue.substring(1).split('.')[0];
-            currentFn = caller.fnName;
-          } else {
-            // Reached a literal value, stop tracing
-            break;
-          }
-        } else {
-          break;
+      // Search statements in reverse order (later let can override)
+      for (let i = fn.body.length - 1; i >= 0; i--) {
+        const s = fn.body[i];
+        if ('let' in s && varName in s.let) {
+          return { stmtIndex: i, value: s.let[varName] };
         }
       }
+      return null;
+    };
+    
+    // Helper: trace a variable reference recursively
+    const traceVariable = (
+      fnName: string, 
+      varName: string, 
+      visited: Set<string> = new Set()
+    ): void => {
+      const visitKey = `${fnName}:${varName}`;
+      if (visited.has(visitKey)) return;
+      visited.add(visitKey);
+      
+      const fn = spec.defs[fnName];
+      if (!fn) return;
+      
+      // First, check if this variable comes from a let statement in the same function
+      const letDef = findLetStatement(fnName, varName);
+      if (letDef) {
+        // Add the let statement as a highlighted param
+        result.push({
+          fnName,
+          stmtIndex: letDef.stmtIndex,
+          paramPath: `let.${varName}`
+        });
+        
+        // If the let value is another variable reference, trace it
+        const letValue = letDef.value;
+        if (typeof letValue === 'string' && letValue.startsWith('$') && !letValue.startsWith('$.')) {
+          const nextVar = letValue.substring(1).split('.')[0];
+          traceVariable(fnName, nextVar, visited);
+        } else if (typeof letValue === 'object' && letValue !== null && 'args' in letValue) {
+          // Expression with args - trace each arg that's a variable
+          const exprArgs = (letValue as { args: Record<string, unknown> }).args;
+          for (const [argKey, argVal] of Object.entries(exprArgs)) {
+            if (typeof argVal === 'string' && argVal.startsWith('$') && !argVal.startsWith('$.')) {
+              const nextVar = argVal.substring(1).split('.')[0];
+              traceVariable(fnName, nextVar, visited);
+            }
+          }
+        }
+        return;
+      }
+      
+      // If not from a let, check if it's a function parameter
+      if (fn.params?.includes(varName)) {
+        // Trace upstream through the call chain
+        const chain = buildUpstreamChain(fnName, spec);
+        
+        if (chain.length > 0) {
+          const caller = chain[0];
+          const callerFnDef = spec.defs[caller.fnName];
+          if (callerFnDef) {
+            const callerStmt = callerFnDef.body[caller.stmtIndex];
+            if (callerStmt && 'call' in callerStmt && callerStmt.call.fn === fnName) {
+              // Find the arg that corresponds to this param
+              let callerArgKey: string | null = null;
+              let callerArgValue: unknown = null;
+              
+              // Try by param name first
+              if (varName in callerStmt.call.args) {
+                callerArgKey = varName;
+                callerArgValue = callerStmt.call.args[varName];
+              } else {
+                // Try positional matching
+                const paramIndex = fn.params.indexOf(varName);
+                const callerArgs = Object.entries(callerStmt.call.args);
+                if (paramIndex < callerArgs.length) {
+                  [callerArgKey, callerArgValue] = callerArgs[paramIndex];
+                }
+              }
+              
+              if (callerArgKey) {
+                // Add this to highlighted params
+                result.push({
+                  fnName: caller.fnName,
+                  stmtIndex: caller.stmtIndex,
+                  paramPath: `args.${callerArgKey}`
+                });
+                
+                // If the value is another variable reference, trace it in the caller
+                if (typeof callerArgValue === 'string' && callerArgValue.startsWith('$') && !callerArgValue.startsWith('$.')) {
+                  const nextVar = callerArgValue.substring(1).split('.')[0];
+                  traceVariable(caller.fnName, nextVar, visited);
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    // If the value is a variable reference like $N, trace it
+    if (typeof paramValue === 'string' && paramValue.startsWith('$') && !paramValue.startsWith('$.')) {
+      const varName = paramValue.substring(1).split('.')[0];
+      traceVariable(anchorParam.fnName, varName);
     }
     
     return result;
