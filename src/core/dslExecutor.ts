@@ -87,8 +87,27 @@ function executeCall(call: CallStatement, spec: YAMLSpec, timeline: TimelineEven
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.') || call.fn.startsWith('shape.')) {
       return executeIR({ fn: call.fn, args: call.args }, spec, timeline, env);
     }
-    // Report as missing DSL function and return undefined instead of throwing
+    // Report as missing DSL function
     reportMissingFunctionOnce(call.fn, 'dsl');
+    
+    // Create a text element displaying the missing function name
+    const missingId = `missing_${call.fn}_${eventCounter}`;
+    timeline.push({
+      id: `event_${eventCounter++}`,
+      type: 'text.create' as TimelineEvent['type'],
+      args: {
+        id: missingId,
+        content: `⚠ ${call.fn}()`,
+        mode: 'text',
+        atX: 0,
+        atY: 0,
+        fontSize: 0.3,
+        color: '#ff6b6b',
+        opacity: 0.7,
+      },
+      timestamp: eventCounter,
+    });
+    
     return undefined;
   }
   
