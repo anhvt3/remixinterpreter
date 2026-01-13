@@ -88,15 +88,14 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
 
   return (
     <div className="panel flex flex-col h-full min-h-0 overflow-hidden">
-      <div className="panel-header shrink-0">
-        <span className="panel-title">Source</span>
-      </div>
-      
       <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="shrink-0 mx-2 mt-1">
-          <TabsTrigger value="lo" className="text-xs">LO</TabsTrigger>
-          <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>
-        </TabsList>
+        <div className="panel-header shrink-0 flex items-center justify-between">
+          <span className="panel-title">Source</span>
+          <TabsList className="h-6">
+            <TabsTrigger value="lo" className="text-xs h-5 px-2">LO</TabsTrigger>
+            <TabsTrigger value="video" className="text-xs h-5 px-2">Video</TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
           {/* Row 1: LO selector and LO Code input */}
