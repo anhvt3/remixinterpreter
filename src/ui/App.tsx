@@ -850,6 +850,9 @@ export const App: React.FC = () => {
         return;
       }
       
+      // Update the last valid YAML reference for future merges
+      lastValidFullYamlRef.current = fullYamlContent;
+      
       const result = executeWithTrace(spec);
       setEvents(result.timeline);
       setRuntimeSteps(result.steps);
@@ -868,7 +871,7 @@ export const App: React.FC = () => {
       setStepCreatedElements(new Map());
       addLog('error', 'Runtime', `Build failed: ${errorMsg}`);
     }
-  }, [fullYamlContent, addLog]);
+  }, [fullYamlContent, addLog, clearMissingFunctions]);
 
   // Get call chain for the selected element (when clicking Anim panel)
   const selectedElementCallChain = useMemo(() => {
