@@ -504,10 +504,18 @@ export const App: React.FC = () => {
   
   
   // Handle params changes by merging back into full YAML (from code editor)
-  const handleParamsChange = (newParams: string) => {
-    const merged = mergeParams(fullYamlContent, newParams);
-    setFullYamlContent(merged);
-  };
+  // This triggers a rebuild of TreeView, Runtime, and Anim via the fullYamlContent useEffect
+  const handleParamsChange = useCallback((newParams: string) => {
+    try {
+      const fullSpec = yaml.load(fullYamlContent) as YAMLSpec;
+      const paramsObj = yaml.load(newParams) as { params: YAMLSpec['params'] };
+      fullSpec.params = paramsObj.params;
+      const merged = yaml.dump(fullSpec, { indent: 2, lineWidth: -1 });
+      setFullYamlContent(merged);
+    } catch (e) {
+      console.error('Failed to merge params:', e);
+    }
+  }, [fullYamlContent]);
   
   // Handle params object changes (from tree view editor)
   const handleParamsObjectChange = (newParams: Params) => {
