@@ -343,9 +343,9 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
   const lines = content.split('\n');
 
   if (language !== 'yaml') {
-    // For non-YAML, just render plain text
+    // For non-YAML, just render plain text (inherit font size from parent)
     return (
-      <pre className="font-mono text-sm text-foreground whitespace-pre">
+      <pre className="font-mono text-foreground whitespace-pre">
         {content}
       </pre>
     );
@@ -360,7 +360,7 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
   });
 
   return (
-    <pre className="font-mono text-sm whitespace-pre">
+    <pre className="font-mono whitespace-pre">
       {processedLines.map((lineTokens, lineIdx) => (
         <div key={lineIdx} style={{ lineHeight: '1.6' }}>
           {lineTokens.map((token, tokenIdx) => (
