@@ -19,6 +19,7 @@ import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
 import { useLoData } from '@/hooks/useLoData';
+import { useDescData } from '@/hooks/useDescData';
 
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
@@ -55,8 +56,85 @@ export const App: React.FC = () => {
   const [loContent, setLoContent] = useState('');
   const [gdriveLink, setGdriveLink] = useState('');
   const [sourceActiveTab, setSourceActiveTab] = useState<'lo' | 'video'>('lo');
-  const [descContents, setDescContents] = useState<string[]>(['', '', '', '', '']);
+  const [descContents, setDescContents] = useState<string[]>(['', '', '', '', '', '']); // 5 LODesc + 1 VideoDesc
   const [descVideoLink, setDescVideoLink] = useState('');
+  
+  // Desc data management
+  const { loDescs, videoDesc, fetchLoDescs, fetchVideoDesc, getVersionContent: getDescVersionContent } = useDescData();
+  const [selectedDescVersionIds, setSelectedDescVersionIds] = useState<(string | null)[]>([null, null, null, null, null, null]);
+  
+  // Fetch desc data on mount
+  useEffect(() => {
+    fetchLoDescs();
+    fetchVideoDesc();
+  }, [fetchLoDescs, fetchVideoDesc]);
+  
+  // Auto-select latest versions when descs are loaded
+  useEffect(() => {
+    const newVersionIds: (string | null)[] = [...selectedDescVersionIds];
+    let hasChanges = false;
+    
+    // Set latest versions for LODescs (indices 0-4)
+    loDescs.forEach((desc, index) => {
+      if (desc.latestVersionId && !selectedDescVersionIds[index]) {
+        newVersionIds[index] = desc.latestVersionId;
+        hasChanges = true;
+      }
+    });
+    
+    // Set latest version for VideoDesc (index 5)
+    if (videoDesc?.latestVersionId && !selectedDescVersionIds[5]) {
+      newVersionIds[5] = videoDesc.latestVersionId;
+      hasChanges = true;
+    }
+    
+    if (hasChanges) {
+      setSelectedDescVersionIds(newVersionIds);
+    }
+  }, [loDescs, videoDesc]);
+  
+  // Load content when version selection changes
+  useEffect(() => {
+    const loadContents = async () => {
+      const newContents = [...descContents];
+      let hasChanges = false;
+      
+      for (let i = 0; i < 6; i++) {
+        const versionId = selectedDescVersionIds[i];
+        if (versionId) {
+          const content = await getDescVersionContent(versionId);
+          if (content !== null && content !== descContents[i]) {
+            newContents[i] = content;
+            hasChanges = true;
+          }
+        }
+      }
+      
+      if (hasChanges) {
+        setDescContents(newContents);
+      }
+    };
+    
+    loadContents();
+  }, [selectedDescVersionIds, getDescVersionContent]);
+  
+  // Handle desc version selection
+  const handleSelectDescVersion = useCallback(async (tabIndex: number, versionId: string | null) => {
+    setSelectedDescVersionIds(prev => {
+      const newIds = [...prev];
+      newIds[tabIndex] = versionId;
+      return newIds;
+    });
+    
+    if (versionId) {
+      const content = await getDescVersionContent(versionId);
+      setDescContents(prev => {
+        const newContents = [...prev];
+        newContents[tabIndex] = content || '';
+        return newContents;
+      });
+    }
+  }, [getDescVersionContent]);
   
   // LO data management
   const { los, versions, fetchVersionsForLo, getVersionContent } = useLoData();
@@ -552,11 +630,15 @@ export const App: React.FC = () => {
       render: () => (
         <DescPanel
           zoomLevel={zoomLevel}
+          sourceActiveTab={sourceActiveTab}
+          loDescs={loDescs}
+          videoDesc={videoDesc}
+          selectedVersionIds={selectedDescVersionIds}
+          onSelectVersion={handleSelectDescVersion}
           descContents={descContents}
           setDescContents={setDescContents}
           descVideoLink={descVideoLink}
           setDescVideoLink={setDescVideoLink}
-          sourceActiveTab={sourceActiveTab}
         />
       ),
     },
@@ -596,7 +678,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">

@@ -50,6 +50,71 @@ export type Database = {
         }
         Relationships: []
       }
+      desc: {
+        Row: {
+          created_at: string
+          id: string
+          is_deleted: boolean | null
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      desc_version: {
+        Row: {
+          content: string | null
+          created_at: string
+          desc_id: string
+          id: string
+          is_deleted: boolean | null
+          updated_at: string
+          version_name: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          desc_id: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          desc_id?: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desc_version_desc_id_fkey"
+            columns: ["desc_id"]
+            isOneToOne: false
+            referencedRelation: "desc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lo: {
         Row: {
           code: string
