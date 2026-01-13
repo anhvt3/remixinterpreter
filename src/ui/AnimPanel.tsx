@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { TimelineEvent } from '../core/types';
 import { normalizeTimeline } from '../core/timeline';
-import { AnimRenderer } from '../renderer/AnimRenderer';
+import { IRAnimRenderer } from '../ir/IRAnimRenderer';
 import { PlayerControls } from './PlayerControls';
 
 interface AnimPanelProps {
   events: TimelineEvent[];
+  useIRRenderer?: boolean; // Toggle between old and new renderer
 }
 
-export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
+export const AnimPanel: React.FC<AnimPanelProps> = ({ events, useIRRenderer = true }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +100,7 @@ export const AnimPanel: React.FC<AnimPanelProps> = ({ events }) => {
   return (
     <div className="flex flex-col h-full min-h-0 w-full">
       <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden">
-        <AnimRenderer
+        <IRAnimRenderer
           events={events}
           currentTime={currentTime}
           width={dimensions.width}
