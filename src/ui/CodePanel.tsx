@@ -261,6 +261,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                 <div
                   className="absolute left-2 right-4 top-0 py-4 pointer-events-none select-none"
                   aria-hidden="true"
+                  style={{
+                    lineHeight: '1.6',
+                    minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                  }}
                 >
                   <SyntaxHighlighter content={localContent} language={language} />
                 </div>
