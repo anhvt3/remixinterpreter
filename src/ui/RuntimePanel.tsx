@@ -415,7 +415,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   };
   
-  
+
   // Auto-expand top-level items and items in call chain
   useEffect(() => {
     const topLevel = new Set(steps.filter(s => s.depth === 0).map(s => s.id));
