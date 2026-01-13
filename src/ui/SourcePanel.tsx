@@ -104,24 +104,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
             <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
             <Select
               value={selectedLoId || ''}
-              onValueChange={(value) => {
-                if (value === '__create_new__') {
-                  onCreateNewLo?.();
-                } else {
-                  onSelectLo(value || null);
-                }
-              }}
+              onValueChange={(value) => onSelectLo(value || null)}
             >
               <SelectTrigger className="h-7 text-xs flex-1">
                 <SelectValue placeholder="Select LO..." />
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
-                <SelectItem value="__create_new__" className="text-xs text-primary font-medium">
-                  <span className="flex items-center gap-1">
-                    <Plus className="h-3 w-3" />
-                    Create New
-                  </span>
-                </SelectItem>
                 {los.map((lo) => (
                   <SelectItem key={lo.id} value={lo.id} className="text-xs">
                     {lo.code} - {lo.name}
