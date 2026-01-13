@@ -80,13 +80,17 @@ const isExpandable = (value: unknown): boolean => {
   return false;
 };
 
-// Recursive component for rendering values (arrays and objects)
+// Recursive component for rendering values (arrays and objects) with click support
 const ValueRow: React.FC<{
   label: string;
   value: unknown;
   indent: number;
   labelColor?: string;
-}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60' }) => {
+  valueKey: string;
+  isSelected?: boolean;
+  isInChain?: boolean;
+  onValueClick?: (valueKey: string) => void;
+}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, isSelected = false, isInChain = false, onValueClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
@@ -103,11 +107,21 @@ const ValueRow: React.FC<{
     return formatValue(value);
   };
 
+  const highlight = isSelected 
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+    : isInChain 
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
+    : '';
+
   return (
     <>
       <div 
-        className="flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30"
+        className={`flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30 cursor-pointer ${highlight}`}
         style={{ paddingLeft: `${indent}px` }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onValueClick?.(valueKey);
+        }}
       >
         {expandable ? (
           <button
@@ -138,6 +152,10 @@ const ValueRow: React.FC<{
               label={`[${idx}]`}
               value={item}
               indent={indent + 16}
+              valueKey={`${valueKey}[${idx}]`}
+              isSelected={isSelected}
+              isInChain={isInChain}
+              onValueClick={onValueClick}
             />
           ))}
           {isObject && Object.entries(value as object).map(([k, v]) => (
@@ -147,6 +165,10 @@ const ValueRow: React.FC<{
               value={v}
               indent={indent + 16}
               labelColor="text-cyan-400/70"
+              valueKey={`${valueKey}.${k}`}
+              isSelected={isSelected}
+              isInChain={isInChain}
+              onValueClick={onValueClick}
             />
           ))}
           <div 
@@ -234,6 +256,10 @@ const ParamRow: React.FC<{
               label={`[${idx}]`}
               value={item}
               indent={indent + 16}
+              valueKey={`${paramKey}[${idx}]`}
+              isSelected={isSelected}
+              isInChain={isInChain}
+              onValueClick={() => onParamClick()}
             />
           ))}
           {isObject && Object.entries(paramValue as object).map(([k, v]) => (
@@ -243,6 +269,10 @@ const ParamRow: React.FC<{
               value={v}
               indent={indent + 16}
               labelColor="text-cyan-400/70"
+              valueKey={`${paramKey}.${k}`}
+              isSelected={isSelected}
+              isInChain={isInChain}
+              onValueClick={() => onParamClick()}
             />
           ))}
           <div 
