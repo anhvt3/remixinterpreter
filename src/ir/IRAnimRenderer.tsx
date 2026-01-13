@@ -280,15 +280,15 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           }}
         />
         
-        {/* LaTeX overlay layer - clickable */}
-        <div className="absolute inset-0">
+        {/* LaTeX overlay layer - pointer-events-none so canvas clicks pass through */}
+        <div className="absolute inset-0 pointer-events-none">
           {latexOverlays.map((overlay) => {
             const isSelected = overlay.id === selectedElementId;
             const isHighlighted = highlightedElementIds.includes(overlay.id);
             return (
               <div
                 key={overlay.id}
-                className={`absolute cursor-pointer rounded transition-all ${
+                className={`absolute cursor-pointer rounded transition-all pointer-events-auto ${
                   isSelected 
                     ? 'outline outline-2 outline-primary ring-2 ring-primary/50' 
                     : isHighlighted 
