@@ -2,6 +2,7 @@ import type { Environment, Power } from './types';
 import * as mathStdlib from '../stdlib/math';
 import * as texStdlib from '../stdlib/tex';
 import * as geomStdlib from '../stdlib/geom';
+import { reportMissingFunctionOnce } from './missingFunctionRegistry';
 
 /**
  * Evaluate an expression with its arguments
@@ -497,7 +498,10 @@ function evaluateParsed(
         resolvedExprArgs[4] as number | undefined
       );
     default:
-      throw new Error(`Unknown function: ${fn}`);
+      // Report missing function instead of throwing
+      reportMissingFunctionOnce(fn, 'expression');
+      // Return a default value instead of throwing
+      return undefined;
   }
 }
 

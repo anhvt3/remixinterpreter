@@ -9,6 +9,7 @@ import type {
 } from './types';
 import { resolve } from './resolver';
 import { evaluate, isExpression } from './exprEngine';
+import { reportMissingFunctionOnce } from './missingFunctionRegistry';
 
 export interface ExecutionResult {
   timeline: TimelineEvent[];
@@ -82,10 +83,13 @@ function executeCall(call: CallStatement, spec: YAMLSpec, timeline: TimelineEven
   const fnDef = spec.defs[call.fn];
   
   if (!fnDef) {
-    if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
+    // Check if it's a known IR pattern
+    if (call.fn.startsWith('board.') || call.fn.startsWith('text.') || call.fn.startsWith('shape.')) {
       return executeIR({ fn: call.fn, args: call.args }, spec, timeline, env);
     }
-    throw new Error(`Function "${call.fn}" not found`);
+    // Report as missing DSL function and return undefined instead of throwing
+    reportMissingFunctionOnce(call.fn, 'dsl');
+    return undefined;
   }
   
   const resolvedArgs: Record<string, unknown> = {};
