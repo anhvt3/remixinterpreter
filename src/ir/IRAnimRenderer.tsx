@@ -16,6 +16,7 @@ import {
   attachCanvas,
   setLatexReadyCallback,
   applyAnimations,
+  getWorldTransform,
   type RuntimeState,
 } from './runtime';
 import type { IRProgram, TextProps } from './types';
@@ -104,82 +105,194 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
   
   // Handle canvas click for element selection
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!runtimeRef.current || !onElementClick) return;
-    
+    const runtime = runtimeRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    
+    if (!runtime || !canvas || !onElementClick) return;
+
     const rect = canvas.getBoundingClientRect();
     const sceneWidth = program?.scene.width || 800;
     const sceneHeight = program?.scene.height || 600;
-    const scale = rect.width / sceneWidth;
-    
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
-    
-    // Hit testing for all node types - check in reverse order (top elements first)
-    const runtime = runtimeRef.current;
-    const nodes = Array.from(runtime.nodes.values()).reverse();
-    
-    console.log('[IRAnimRenderer] Click at scene coords:', x.toFixed(1), y.toFixed(1));
-    
-    for (const node of nodes) {
-      // Skip invisible nodes (opacity 0 is effectively invisible)
-      if (!node.visible || node.style.opacity <= 0) continue;
-      
-      const tx = node.transform.x;
-      const ty = node.transform.y;
-      let hitWidth = 0;
-      let hitHeight = 0;
-      
-      if (node.type === 'text') {
-        // Approximate text hit box - more generous for small text
-        const fontSize = node.style.text?.fontSize || 24;
-        const content = (node as { content: string }).content || '';
-        // Minimum 40px hit area for small text, otherwise use content size
-        hitWidth = Math.max(content.length * fontSize * 0.6, 40);
-        hitHeight = Math.max(fontSize * 1.5, 40);
-      } else if (node.type === 'rect' || node.type === 'roundedRect') {
-        // Rectangle hit box
-        const rectNode = node as { width: number; height: number };
-        hitWidth = rectNode.width || 50;
-        hitHeight = rectNode.height || 50;
-      } else if (node.type === 'circle') {
-        // Circle hit box (use diameter)
-        const circleNode = node as { radius: number };
-        const diameter = (circleNode.radius || 25) * 2;
-        hitWidth = diameter;
-        hitHeight = diameter;
-      } else if (node.type === 'ellipse') {
-        // Ellipse hit box
-        const ellipseNode = node as { radiusX: number; radiusY: number };
-        hitWidth = (ellipseNode.radiusX || 25) * 2;
-        hitHeight = (ellipseNode.radiusY || 25) * 2;
-      } else if (node.type === 'line') {
-        // Line hit box - use a generous area around the line
-        const lineNode = node as { x1: number; y1: number; x2: number; y2: number };
-        hitWidth = Math.abs((lineNode.x2 || 0) - (lineNode.x1 || 0)) + 20;
-        hitHeight = Math.abs((lineNode.y2 || 0) - (lineNode.y1 || 0)) + 20;
-      } else {
-        // Default hit box for other shapes
-        hitWidth = 50;
-        hitHeight = 50;
+
+    // Use independent scales to avoid drift from rounding/letterboxing.
+    const scaleX = rect.width / sceneWidth;
+    const scaleY = rect.height / sceneHeight;
+
+    const worldX = (e.clientX - rect.left) / scaleX;
+    const worldY = (e.clientY - rect.top) / scaleY;
+
+    const ctx = runtime.ctx;
+    if (!ctx) return;
+
+    const isVisibleAtTime = (node: RuntimeState['nodes'] extends Map<string, infer N> ? N : never) => {
+      if (!node.visible) return false;
+      if (node.style.opacity <= 0) return false;
+      if (node.visibilitySpan) {
+        const { t0, t1 } = node.visibilitySpan;
+        if (currentTime < t0 || currentTime > t1) return false;
       }
-      
-      // Check if click is within the node's bounding box
-      if (
-        x >= tx - hitWidth / 2 &&
-        x <= tx + hitWidth / 2 &&
-        y >= ty - hitHeight / 2 &&
-        y <= ty + hitHeight / 2
-      ) {
-        console.log('[IRAnimRenderer] Clicked node:', node.id, 'type:', node.type, 'at:', tx.toFixed(1), ty.toFixed(1));
+      return true;
+    };
+
+    const worldToLocal = (
+      worldPoint: { x: number; y: number },
+      t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
+    ) => {
+      // Inverse of: T(x,y) · R(rot) · S(scale) · T(-origin)
+      let x = worldPoint.x - t.x;
+      let y = worldPoint.y - t.y;
+
+      const cos = Math.cos(-t.rotation);
+      const sin = Math.sin(-t.rotation);
+      const rx = x * cos - y * sin;
+      const ry = x * sin + y * cos;
+
+      const sx = t.scaleX === 0 ? rx : rx / t.scaleX;
+      const sy = t.scaleY === 0 ? ry : ry / t.scaleY;
+
+      return { x: sx + t.originX, y: sy + t.originY };
+    };
+
+    const hitTestText = (node: TextProps, localX: number, localY: number) => {
+      const textStyle = node.style.text;
+      if (!textStyle) return false;
+
+      ctx.save();
+      ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
+
+      const content = node.content ?? '';
+      const widthPx = ctx.measureText(content).width;
+      const heightPx = textStyle.fontSize;
+
+      let x0 = 0;
+      if (textStyle.textAlign === 'center') x0 = -widthPx / 2;
+      if (textStyle.textAlign === 'right') x0 = -widthPx;
+
+      let y0 = 0;
+      switch (textStyle.textBaseline) {
+        case 'middle':
+          y0 = -heightPx / 2;
+          break;
+        case 'bottom':
+          y0 = -heightPx;
+          break;
+        case 'alphabetic':
+          y0 = -heightPx * 0.8;
+          break;
+        case 'top':
+        default:
+          y0 = 0;
+      }
+
+      // Slight padding so small numerals are easy to pick.
+      const pad = 8;
+      const hit =
+        localX >= x0 - pad &&
+        localX <= x0 + widthPx + pad &&
+        localY >= y0 - pad &&
+        localY <= y0 + heightPx + pad;
+
+      ctx.restore();
+      return hit;
+    };
+
+    const hitTestShapePath = (path: Path2D, nodeStyle: { fill: { enabled: boolean }; stroke: { enabled: boolean; width: number; lineCap?: CanvasLineCap; lineJoin?: CanvasLineJoin; dashArray?: number[]; dashOffset?: number } }, localX: number, localY: number) => {
+      let hit = false;
+
+      if (nodeStyle.fill.enabled) {
+        hit = hit || ctx.isPointInPath(path, localX, localY);
+      }
+
+      if (nodeStyle.stroke.enabled) {
+        ctx.save();
+        ctx.lineWidth = Math.max(nodeStyle.stroke.width || 1, 10);
+        ctx.lineCap = nodeStyle.stroke.lineCap || 'round';
+        ctx.lineJoin = nodeStyle.stroke.lineJoin || 'round';
+        if (nodeStyle.stroke.dashArray) {
+          ctx.setLineDash(nodeStyle.stroke.dashArray);
+          ctx.lineDashOffset = nodeStyle.stroke.dashOffset || 0;
+        }
+        hit = hit || ctx.isPointInStroke(path, localX, localY);
+        ctx.restore();
+      }
+
+      return hit;
+    };
+
+    // Match render order: sorted by zIndex (ties preserve insertion order), then pick from top-most.
+    const candidates = Array.from(runtime.nodes.values())
+      .filter((n) => n.type !== 'group' && isVisibleAtTime(n))
+      .sort((a, b) => a.zIndex - b.zIndex);
+
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const node = candidates[i];
+      const wt = getWorldTransform(runtime, node.id);
+      const local = worldToLocal({ x: worldX, y: worldY }, wt);
+
+      if (node.type === 'text') {
+        if (hitTestText(node as TextProps, local.x, local.y)) {
+          onElementClick(node.id);
+          return;
+        }
+        continue;
+      }
+
+      // Shapes
+      const path = new Path2D();
+      switch (node.type) {
+        case 'rect':
+        case 'roundedRect':
+          path.rect(0, 0, (node as any).width, (node as any).height);
+          break;
+        case 'circle':
+          path.arc(0, 0, (node as any).radius, 0, Math.PI * 2);
+          break;
+        case 'ellipse':
+          path.ellipse(0, 0, (node as any).radiusX, (node as any).radiusY, 0, 0, Math.PI * 2);
+          break;
+        case 'line':
+          path.moveTo((node as any).x1, (node as any).y1);
+          path.lineTo((node as any).x2, (node as any).y2);
+          break;
+        case 'polyline': {
+          const pts = (node as any).points as Array<{ x: number; y: number }>;
+          if (pts.length) {
+            path.moveTo(pts[0].x, pts[0].y);
+            for (let p = 1; p < pts.length; p++) path.lineTo(pts[p].x, pts[p].y);
+          }
+          break;
+        }
+        case 'polygon': {
+          const pts = (node as any).points as Array<{ x: number; y: number }>;
+          if (pts.length) {
+            path.moveTo(pts[0].x, pts[0].y);
+            for (let p = 1; p < pts.length; p++) path.lineTo(pts[p].x, pts[p].y);
+            path.closePath();
+          }
+          break;
+        }
+        case 'arc':
+          path.arc(0, 0, (node as any).radius, (node as any).startAngle, (node as any).endAngle, (node as any).counterClockwise);
+          break;
+        case 'path':
+          // Replace the empty path with the SVG path data.
+          // Note: Path2D(string) is widely supported in modern browsers.
+          // eslint-disable-next-line no-case-declarations
+          const svgPath = new Path2D((node as any).d);
+          if (hitTestShapePath(svgPath, node.style as any, local.x, local.y)) {
+            onElementClick(node.id);
+            return;
+          }
+          continue;
+        default:
+          continue;
+      }
+
+      if (hitTestShapePath(path, node.style as any, local.x, local.y)) {
         onElementClick(node.id);
         return;
       }
     }
-    console.log('[IRAnimRenderer] No node hit at', x.toFixed(1), y.toFixed(1), '- checked', nodes.length, 'nodes');
-  }, [onElementClick, program]);
+  }, [currentTime, onElementClick, program]);
   
   // Calculate display dimensions maintaining aspect ratio
   const aspectRatio = compiledProgram 
