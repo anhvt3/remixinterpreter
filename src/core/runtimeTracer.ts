@@ -195,7 +195,52 @@ function executeCallTraced(
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
       return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
     }
-    throw new Error(`Function "${call.fn}" not found`);
+    
+    // Report missing function and create a placeholder text element
+    const { reportMissingFunctionOnce } = require('./missingFunctionRegistry');
+    reportMissingFunctionOnce(call.fn, 'dsl');
+    
+    // Create a text element displaying the missing function name
+    const missingId = `missing_${call.fn}_${stepCounter}`;
+    const missingArgs = {
+      id: missingId,
+      content: `⚠ ${call.fn}()`,
+      mode: 'text',
+      atX: 0,
+      atY: 0,
+      fontSize: 0.3,
+      color: '#ff6b6b',
+      opacity: 0.7,
+    };
+    
+    // Add to timeline
+    timeline.push({
+      id: `event_${eventCounter++}`,
+      type: 'text.create' as TimelineEvent['type'],
+      args: missingArgs,
+      timestamp: eventCounter,
+    });
+    
+    // Create runtime step for the missing function
+    const missingStep: RuntimeStep = {
+      id: `step_${stepCounter++}`,
+      type: 'ir',
+      functionName: `⚠ ${call.fn}`,
+      args: missingArgs,
+      resolvedArgs: missingArgs,
+      depth,
+      createdElementIds: [missingId],
+    };
+    steps.push(missingStep);
+    stepCallChains.set(missingStep.id, [...callStack].reverse());
+    
+    // Track element
+    elementCallChains.set(missingId, [...callStack].reverse());
+    if (parentStep?.createdElementIds) {
+      parentStep.createdElementIds.push(missingId);
+    }
+    
+    return undefined;
   }
   
   const resolvedArgs: Record<string, unknown> = {};
