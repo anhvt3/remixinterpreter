@@ -1156,7 +1156,7 @@ interface TreeNodeProps {
   onFunctionDefinitionClick?: (fnName: string) => void;
   // Currently selected function definition for highlighting
   selectedFunctionDefinition?: string | null;
-  // Chain navigation props
+  // Statement chain navigation props
   currentNavStatement?: StatementKey | null;
   chainStatements?: StatementKey[];
   canGoUp?: boolean;
@@ -1165,6 +1165,15 @@ interface TreeNodeProps {
   onNavigateDown?: () => void;
   navIndex?: number;
   chainLength?: number;
+  // Function chain navigation props
+  currentNavFnKey?: StatementKey | null;
+  fnChainStatements?: StatementKey[];
+  fnCanGoUp?: boolean;
+  fnCanGoDown?: boolean;
+  onFnNavigateUp?: () => void;
+  onFnNavigateDown?: () => void;
+  fnNavIndex?: number;
+  fnChainLength?: number;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1191,10 +1200,41 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onNavigateDown,
   navIndex = 0,
   chainLength = 0,
+  // Function navigation props
+  currentNavFnKey,
+  fnChainStatements = [],
+  fnCanGoUp = false,
+  fnCanGoDown = false,
+  onFnNavigateUp,
+  onFnNavigateDown,
+  fnNavIndex = 0,
+  fnChainLength = 0,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
   const isSelected = selected === node.name;
+  const headerRef = useRef<HTMLDivElement>(null);
+  
+  // Check if this function header is the current navigation position
+  const isFnCurrentNav = currentNavFnKey?.fnName === node.name && currentNavFnKey?.stmtIndex === -1;
+  
+  // Check if this function header is in the chain (as a statement caller, not the header itself)
+  const isFnInChain = fnChainStatements.some(s => s.fnName === node.name && s.stmtIndex === -1);
+  
+  // Check if a statement in this function is the current navigation position for function chain
+  const isStmtFnCurrentNav = currentNavFnKey?.fnName === node.name && currentNavFnKey?.stmtIndex >= 0;
+  const fnNavStmtIndex = currentNavFnKey?.stmtIndex ?? -1;
+  
+  // Check if a statement in this function is in the function chain
+  const getStmtFnInChain = (stmtIdx: number) => 
+    fnChainStatements.some(s => s.fnName === node.name && s.stmtIndex === stmtIdx);
+  
+  // Auto-scroll function header into view when current nav
+  useEffect(() => {
+    if (isFnCurrentNav && headerRef.current) {
+      headerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isFnCurrentNav]);
   
   // Check if any statement in this node creates/targets the highlighted element
   // This returns an array of all element IDs that could be created by this statement
@@ -1261,16 +1301,60 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     return false;
   };
   
-  // Check if this function definition is selected for highlighting
+// Check if this function definition is selected for highlighting
   const isFnDefSelected = selectedFunctionDefinition === node.name;
+  
+  // Determine function header highlight class
+  const fnHeaderHighlightClass = isFnCurrentNav
+    ? 'bg-green-500/40 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
+    : isFnInChain
+    ? 'bg-yellow-500/10 ring-1 ring-yellow-400/40'
+    : isFnDefSelected 
+    ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70' 
+    : isSelected 
+    ? 'bg-primary/20 ring-1 ring-primary/40' 
+    : 'hover:bg-muted/50';
+  
+  // Render function navigation buttons
+  const renderFnNavButtons = () => {
+    if (!isFnCurrentNav) return null;
+    return (
+      <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted"
+          onClick={(e) => { e.stopPropagation(); onFnNavigateUp?.(); }}
+          disabled={!fnCanGoUp}
+          title="Navigate up to parent caller"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </Button>
+        <span className="text-[10px] text-muted-foreground w-8 text-center">
+          {fnNavIndex}/{fnChainLength}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted -ml-1"
+          onClick={(e) => { e.stopPropagation(); onFnNavigateDown?.(); }}
+          disabled={!fnCanGoDown}
+          title="Navigate down toward anchor"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
   
   return (
     <div>
       {/* Function header */}
       <div
+        ref={headerRef}
         className={`
           flex items-center gap-1.5 px-2 py-1.5 cursor-pointer rounded transition-colors
-          ${isFnDefSelected ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70' : isSelected ? 'bg-primary/20 ring-1 ring-primary/40' : 'hover:bg-muted/50'}
+          ${fnHeaderHighlightClass}
         `}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => {
@@ -1319,10 +1403,15 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           </span>
         )}
         
-        {/* Category badge */}
-        <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${categoryColors[node.category]} bg-current/10`}>
-          {categoryLabels[node.category]}
-        </span>
+        {/* Function navigation buttons */}
+        {renderFnNavButtons()}
+        
+        {/* Category badge - push to end if no nav buttons */}
+        {!isFnCurrentNav && (
+          <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${categoryColors[node.category]} bg-current/10`}>
+            {categoryLabels[node.category]}
+          </span>
+        )}
       </div>
       
       {/* Expanded content - just the function body */}
@@ -1345,16 +1434,29 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                 }
               }
               
-              // Check if this statement is selected
+// Check if this statement is selected
               const isStatementSelected = selectedStatement?.fnName === node.name && selectedStatement?.stmtIndex === idx;
               
-              // Check if this statement is the current navigation position
+              // Check if this statement is the current navigation position (statement chain)
               const isCurrentNav = currentNavStatement?.fnName === node.name && currentNavStatement?.stmtIndex === idx;
               
-              // Check if this statement is in the chain (but not current nav)
+              // Check if this statement is in the statement chain (but not current nav)
               const isInNavChain = !isCurrentNav && chainStatements.some(
                 s => s.fnName === node.name && s.stmtIndex === idx
               );
+              
+              // Check if this statement is the current navigation position (function chain)
+              const isFnChainCurrentNav = isStmtFnCurrentNav && fnNavStmtIndex === idx;
+              
+              // Check if this statement is in the function chain (but not current nav)
+              const isInFnChain = !isFnChainCurrentNav && getStmtFnInChain(idx);
+              
+              // Combine chain highlighting - function chain takes priority if active
+              const effectiveIsCurrentNav = isCurrentNav || isFnChainCurrentNav;
+              const effectiveIsInChain = isInNavChain || isInFnChain;
+              
+              // Use function chain nav controls if function chain is active
+              const usesFnNav = isFnChainCurrentNav;
               
               return (
                 <StatementRow 
@@ -1365,14 +1467,14 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   highlightLevel={highlightLevel}
                   onClick={onStatementClick ? () => onStatementClick(node.name, idx) : undefined}
                   isSelected={isStatementSelected}
-                  isCurrentNav={isCurrentNav}
-                  isInChain={isInNavChain}
-                  canGoUp={isCurrentNav ? canGoUp : false}
-                  canGoDown={isCurrentNav ? canGoDown : false}
-                  onNavigateUp={onNavigateUp}
-                  onNavigateDown={onNavigateDown}
-                  navIndex={navIndex}
-                  chainLength={chainLength}
+                  isCurrentNav={effectiveIsCurrentNav}
+                  isInChain={effectiveIsInChain}
+                  canGoUp={effectiveIsCurrentNav ? (usesFnNav ? fnCanGoUp : canGoUp) : false}
+                  canGoDown={effectiveIsCurrentNav ? (usesFnNav ? fnCanGoDown : canGoDown) : false}
+                  onNavigateUp={usesFnNav ? onFnNavigateUp : onNavigateUp}
+                  onNavigateDown={usesFnNav ? onFnNavigateDown : onNavigateDown}
+                  navIndex={usesFnNav ? fnNavIndex : navIndex}
+                  chainLength={usesFnNav ? fnChainLength : chainLength}
                 />
               );
             })}
@@ -1587,9 +1689,13 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
-  // Chain navigation state
+// Chain navigation state for statements
   const [anchorStatement, setAnchorStatement] = useState<StatementKey | null>(null);
-  const [navIndex, setNavIndex] = useState<number>(0);
+  const [stmtNavIndex, setStmtNavIndex] = useState<number>(0);
+  
+  // Chain navigation state for function definitions
+  const [anchorFunction, setAnchorFunction] = useState<string | null>(null);
+  const [fnNavIndex, setFnNavIndex] = useState<number>(0);
   
   const nodes = useMemo(() => {
     if (!spec) return new Map();
@@ -1602,16 +1708,16 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return buildUpstreamChain(anchorStatement.fnName, spec);
   }, [anchorStatement, spec]);
   
-  // Current navigation position
-  // navIndex 0 = anchor, navIndex 1 = first upstream caller, etc.
+// Current statement navigation position
+  // stmtNavIndex 0 = anchor, stmtNavIndex 1 = first upstream caller, etc.
   const currentNavStatement = useMemo((): StatementKey | null => {
     if (!anchorStatement) return null;
-    if (navIndex === 0) return anchorStatement;
-    if (navIndex > 0 && navIndex <= upstreamChain.length) {
-      return upstreamChain[navIndex - 1];
+    if (stmtNavIndex === 0) return anchorStatement;
+    if (stmtNavIndex > 0 && stmtNavIndex <= upstreamChain.length) {
+      return upstreamChain[stmtNavIndex - 1];
     }
     return null;
-  }, [anchorStatement, navIndex, upstreamChain]);
+  }, [anchorStatement, stmtNavIndex, upstreamChain]);
   
   // All statements in the chain (for dim highlighting)
   const chainStatements = useMemo((): StatementKey[] => {
@@ -1623,44 +1729,120 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     );
   }, [anchorStatement, upstreamChain, currentNavStatement]);
   
+  // Build upstream call chain for the anchor function (all functions that call this function)
+  const fnUpstreamChain = useMemo(() => {
+    if (!anchorFunction || !spec) return [];
+    return buildUpstreamChain(anchorFunction, spec);
+  }, [anchorFunction, spec]);
+  
+  // Current function navigation position
+  // fnNavIndex 0 = anchor function, fnNavIndex 1+ = upstream callers
+  const currentNavFnKey = useMemo((): StatementKey | null => {
+    if (!anchorFunction) return null;
+    if (fnNavIndex === 0) return { fnName: anchorFunction, stmtIndex: -1 }; // -1 = function header
+    if (fnNavIndex > 0 && fnNavIndex <= fnUpstreamChain.length) {
+      return fnUpstreamChain[fnNavIndex - 1];
+    }
+    return null;
+  }, [anchorFunction, fnNavIndex, fnUpstreamChain]);
+  
+  // All functions/statements in the function chain (for dim highlighting)
+  const fnChainStatements = useMemo((): StatementKey[] => {
+    if (!anchorFunction) return [];
+    const allInChain: StatementKey[] = [
+      { fnName: anchorFunction, stmtIndex: -1 },
+      ...fnUpstreamChain
+    ];
+    // Exclude the current navigation position
+    return allInChain.filter(s => 
+      !(s.fnName === currentNavFnKey?.fnName && s.stmtIndex === currentNavFnKey?.stmtIndex)
+    );
+  }, [anchorFunction, fnUpstreamChain, currentNavFnKey]);
+  
   // Handle statement click - set as anchor
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
     console.log('YAMLTreePanel: Statement clicked', { fnName, stmtIndex });
     const clickedKey = { fnName, stmtIndex };
     
+    // Clear function navigation when statement is clicked
+    setAnchorFunction(null);
+    setFnNavIndex(0);
+    
     if (anchorStatement?.fnName === fnName && anchorStatement?.stmtIndex === stmtIndex) {
       // Click same statement - clear navigation
       console.log('YAMLTreePanel: Clearing anchor');
       setAnchorStatement(null);
-      setNavIndex(0);
+      setStmtNavIndex(0);
     } else {
       // Set new anchor
       console.log('YAMLTreePanel: Setting new anchor');
       setAnchorStatement(clickedKey);
-      setNavIndex(0);
+      setStmtNavIndex(0);
     }
     
     // Also call external handler if provided
     onStatementClick?.(fnName, stmtIndex);
   }, [anchorStatement, onStatementClick]);
   
-  // Navigate up (to higher level / parent caller)
+  // Handle function definition click - set as anchor for function chain navigation
+  const handleFunctionDefinitionClickInternal = useCallback((fnName: string) => {
+    console.log('YAMLTreePanel: Function definition clicked', { fnName });
+    
+    // Clear statement navigation when function is clicked
+    setAnchorStatement(null);
+    setStmtNavIndex(0);
+    
+    if (anchorFunction === fnName) {
+      // Click same function - clear navigation
+      console.log('YAMLTreePanel: Clearing function anchor');
+      setAnchorFunction(null);
+      setFnNavIndex(0);
+    } else {
+      // Set new function anchor
+      console.log('YAMLTreePanel: Setting new function anchor');
+      setAnchorFunction(fnName);
+      setFnNavIndex(0);
+    }
+    
+    // Also call external handler if provided
+    onFunctionDefinitionClick?.(fnName);
+  }, [anchorFunction, onFunctionDefinitionClick]);
+  
+  // Statement navigation: Navigate up (to higher level / parent caller)
   const navigateUp = useCallback(() => {
-    if (navIndex < upstreamChain.length) {
-      setNavIndex(navIndex + 1);
+    if (stmtNavIndex < upstreamChain.length) {
+      setStmtNavIndex(stmtNavIndex + 1);
     }
-  }, [navIndex, upstreamChain.length]);
+  }, [stmtNavIndex, upstreamChain.length]);
   
-  // Navigate down (back toward anchor)
+  // Statement navigation: Navigate down (back toward anchor)
   const navigateDown = useCallback(() => {
-    if (navIndex > 0) {
-      setNavIndex(navIndex - 1);
+    if (stmtNavIndex > 0) {
+      setStmtNavIndex(stmtNavIndex - 1);
     }
-  }, [navIndex]);
+  }, [stmtNavIndex]);
   
-  const canGoUp = !!anchorStatement && navIndex < upstreamChain.length;
-  const canGoDown = !!anchorStatement && navIndex > 0;
+  // Function navigation: Navigate up (to higher level / parent caller)
+  const fnNavigateUp = useCallback(() => {
+    if (fnNavIndex < fnUpstreamChain.length) {
+      setFnNavIndex(fnNavIndex + 1);
+    }
+  }, [fnNavIndex, fnUpstreamChain.length]);
+  
+  // Function navigation: Navigate down (back toward anchor)
+  const fnNavigateDown = useCallback(() => {
+    if (fnNavIndex > 0) {
+      setFnNavIndex(fnNavIndex - 1);
+    }
+  }, [fnNavIndex]);
+  
+  const canGoUp = !!anchorStatement && stmtNavIndex < upstreamChain.length;
+  const canGoDown = !!anchorStatement && stmtNavIndex > 0;
   const chainLength = upstreamChain.length + 1; // +1 for anchor
+  
+  const fnCanGoUp = !!anchorFunction && fnNavIndex < fnUpstreamChain.length;
+  const fnCanGoDown = !!anchorFunction && fnNavIndex > 0;
+  const fnChainLength = fnUpstreamChain.length + 1; // +1 for anchor
   
   // Auto-expand functions in the navigation chain
   useEffect(() => {
@@ -1689,6 +1871,26 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorStatement, upstreamChain, expandedFunctions, onExpandedFunctionsChange]);
   
+  // Auto-expand functions in the function navigation chain
+  useEffect(() => {
+    if (!anchorFunction) return;
+    
+    const functionsToExpand = [anchorFunction, ...fnUpstreamChain.map(s => s.fnName)];
+    const next = new Set(expandedFunctions);
+    let changed = false;
+    
+    for (const fnName of functionsToExpand) {
+      if (!next.has(fnName)) {
+        next.add(fnName);
+        changed = true;
+      }
+    }
+    
+    if (changed) {
+      onExpandedFunctionsChange?.(next);
+    }
+  }, [anchorFunction, fnUpstreamChain, expandedFunctions, onExpandedFunctionsChange]);
+
   // Helper to check if a statement contains the highlighted element ID (including pattern-based)
   const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
     // Check direct literal IDs
@@ -1821,7 +2023,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
           
           <div className="py-2">
           {allFunctions.map(node => (
-            <TreeNode
+<TreeNode
               key={node.name}
               node={node}
               allNodes={nodes}
@@ -1836,7 +2038,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               elementCallChain={elementCallChain}
               onStatementClick={handleStatementClickInternal}
               selectedStatement={selectedStatement}
-              onFunctionDefinitionClick={onFunctionDefinitionClick}
+              onFunctionDefinitionClick={handleFunctionDefinitionClickInternal}
               selectedFunctionDefinition={selectedFunctionDefinition}
               currentNavStatement={currentNavStatement}
               chainStatements={chainStatements}
@@ -1844,8 +2046,17 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               canGoDown={canGoDown}
               onNavigateUp={navigateUp}
               onNavigateDown={navigateDown}
-              navIndex={navIndex}
+              navIndex={stmtNavIndex}
               chainLength={chainLength}
+              // Function chain navigation props
+              currentNavFnKey={currentNavFnKey}
+              fnChainStatements={fnChainStatements}
+              fnCanGoUp={fnCanGoUp}
+              fnCanGoDown={fnCanGoDown}
+              onFnNavigateUp={fnNavigateUp}
+              onFnNavigateDown={fnNavigateDown}
+              fnNavIndex={fnNavIndex}
+              fnChainLength={fnChainLength}
             />
           ))}
           </div>
