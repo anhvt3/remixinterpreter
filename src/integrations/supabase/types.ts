@@ -136,6 +136,82 @@ export type Database = {
           },
         ]
       }
+      dsl_script: {
+        Row: {
+          code: string
+          created_at: string
+          desc_id: string
+          id: string
+          is_deleted: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          desc_id: string
+          id?: string
+          is_deleted?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          desc_id?: string
+          id?: string
+          is_deleted?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dsl_script_desc_id_fkey"
+            columns: ["desc_id"]
+            isOneToOne: false
+            referencedRelation: "desc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dsl_script_version: {
+        Row: {
+          content: string | null
+          created_at: string
+          dsl_script_id: string
+          id: string
+          is_deleted: boolean | null
+          updated_at: string
+          version_name: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          dsl_script_id: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          dsl_script_id?: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dsl_script_version_dsl_script_id_fkey"
+            columns: ["dsl_script_id"]
+            isOneToOne: false
+            referencedRelation: "dsl_script"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lo: {
         Row: {
           code: string

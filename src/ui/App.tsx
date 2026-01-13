@@ -20,6 +20,7 @@ import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
 import { useLoData } from '@/hooks/useLoData';
 import { useDescData } from '@/hooks/useDescData';
+import { useDslScriptData } from '@/hooks/useDslScriptData';
 
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
@@ -135,6 +136,63 @@ export const App: React.FC = () => {
       });
     }
   }, [getDescVersionContent]);
+
+  // DSL Script data management
+  const { dslScripts, fetchDslScriptsForDesc, getVersionContent: getDslVersionContent } = useDslScriptData();
+  const [selectedDslVersionId, setSelectedDslVersionId] = useState<string | null>(null);
+
+  // Get the currently active desc ID based on sourceActiveTab and selected desc
+  const activeDescId = useMemo(() => {
+    if (sourceActiveTab === 'video') {
+      return videoDesc?.id || null;
+    } else {
+      // For LO tab, get the first LODesc that's selected (index 0)
+      const firstLoDesc = loDescs[0];
+      return firstLoDesc?.id || null;
+    }
+  }, [sourceActiveTab, loDescs, videoDesc]);
+
+  // Fetch DSL scripts when active desc changes
+  useEffect(() => {
+    if (activeDescId) {
+      fetchDslScriptsForDesc(activeDescId);
+      setSelectedDslVersionId(null); // Reset selection when desc changes
+    }
+  }, [activeDescId, fetchDslScriptsForDesc]);
+
+  // Auto-select latest DSL version when scripts are loaded
+  useEffect(() => {
+    if (dslScripts.length > 0 && !selectedDslVersionId) {
+      const firstScript = dslScripts[0];
+      if (firstScript?.latestVersionId) {
+        setSelectedDslVersionId(firstScript.latestVersionId);
+      }
+    }
+  }, [dslScripts, selectedDslVersionId]);
+
+  // Load DSL content when version selection changes
+  useEffect(() => {
+    const loadDslContent = async () => {
+      if (selectedDslVersionId) {
+        const content = await getDslVersionContent(selectedDslVersionId);
+        if (content) {
+          setFullYamlContent(content);
+        }
+      }
+    };
+    loadDslContent();
+  }, [selectedDslVersionId, getDslVersionContent]);
+
+  // Handle DSL version selection
+  const handleSelectDslVersion = useCallback(async (versionId: string | null) => {
+    setSelectedDslVersionId(versionId);
+    if (versionId) {
+      const content = await getDslVersionContent(versionId);
+      if (content) {
+        setFullYamlContent(content);
+      }
+    }
+  }, [getDslVersionContent]);
   
   // LO data management
   const { los, versions, fetchVersionsForLo, getVersionContent } = useLoData();
@@ -583,6 +641,9 @@ export const App: React.FC = () => {
     selectedStatement,
     onFunctionDefinitionClick: handleFunctionDefinitionClick,
     selectedFunctionDefinition,
+    dslScripts,
+    selectedVersionId: selectedDslVersionId,
+    onSelectVersion: handleSelectDslVersion,
   };
 
   // Common Anim panel props
@@ -678,7 +739,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, dslScripts, selectedDslVersionId, handleSelectDslVersion]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
