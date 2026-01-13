@@ -247,7 +247,7 @@ const ParamRow: React.FC<{
         )}
       </div>
       
-      {/* Expanded children - using recursive ValueRow */}
+      {/* Expanded children - using recursive ValueRow (no highlight inheritance) */}
       {expandable && isExpanded && (
         <>
           {isArray && (paramValue as unknown[]).map((item, idx) => (
@@ -257,8 +257,6 @@ const ParamRow: React.FC<{
               value={item}
               indent={indent + 16}
               valueKey={`${paramKey}[${idx}]`}
-              isSelected={isSelected}
-              isInChain={isInChain}
               onValueClick={() => onParamClick()}
             />
           ))}
@@ -270,8 +268,6 @@ const ParamRow: React.FC<{
               indent={indent + 16}
               labelColor="text-cyan-400/70"
               valueKey={`${paramKey}.${k}`}
-              isSelected={isSelected}
-              isInChain={isInChain}
               onValueClick={() => onParamClick()}
             />
           ))}
