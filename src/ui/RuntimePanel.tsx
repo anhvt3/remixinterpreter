@@ -393,22 +393,24 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   const canGoUp = anchorStepId && navIndex < ancestorChain.length;
   const canGoDown = anchorStepId && navIndex > 0;
   
-  // Build a map of step ID -> highlight level from the call chain
-  // Only highlight the IR step that directly created the element (first entry in chain)
-  const highlightMap = React.useMemo(() => {
-    const map = new Map<string, 'primary' | 'secondary'>();
+  // Get the specific IR step to highlight (first entry in chain = lowest level creator)
+  const highlightedIRKey = React.useMemo(() => {
     if (elementCallChain && elementCallChain.length > 0) {
-      // Only highlight the first entry (the IR that directly created the element)
       const firstEntry = elementCallChain[0];
-      map.set(firstEntry.fnName, 'primary');
+      return `${firstEntry.fnName}:${firstEntry.stmtIndex}`;
     }
-    return map;
+    return null;
   }, [elementCallChain]);
 
-  // Get highlight level for a step
+  // Get highlight level for a step - only highlight the specific IR step
   const getHighlightLevel = (step: RuntimeStep): 'primary' | 'secondary' | null => {
-    if (step.functionName && highlightMap.has(step.functionName)) {
-      return highlightMap.get(step.functionName) || null;
+    if (!highlightedIRKey) return null;
+    // Only highlight IR steps that match both fnName and stmtIndex
+    if (step.type === 'ir' && step.fnName !== undefined && step.stmtIndex !== undefined) {
+      const stepKey = `${step.fnName}:${step.stmtIndex}`;
+      if (stepKey === highlightedIRKey) {
+        return 'primary';
+      }
     }
     return null;
   };
@@ -418,12 +420,16 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   useEffect(() => {
     const topLevel = new Set(steps.filter(s => s.depth === 0).map(s => s.id));
     
-    // Also expand parents of highlighted steps
-    if (elementCallChain && elementCallChain.length > 0) {
+    // Also expand parents of the highlighted IR step
+    if (highlightedIRKey) {
       const expandParents = (items: RuntimeStep[], parentIds: string[] = []) => {
         for (const step of items) {
-          const shouldExpand = step.functionName && highlightMap.has(step.functionName);
-          if (shouldExpand) {
+          // Check if this is the highlighted IR step
+          const isHighlightedIR = step.type === 'ir' && 
+            step.fnName !== undefined && 
+            step.stmtIndex !== undefined &&
+            `${step.fnName}:${step.stmtIndex}` === highlightedIRKey;
+          if (isHighlightedIR) {
             parentIds.forEach(id => topLevel.add(id));
             topLevel.add(step.id);
           }
@@ -442,7 +448,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
     
     setExpanded(topLevel);
-  }, [steps, elementCallChain, highlightMap, anchorStepId, ancestorChain]);
+  }, [steps, highlightedIRKey, anchorStepId, ancestorChain]);
 
   // Auto-expand ancestors and scroll to deepest highlighted step when highlightedStepIds changes
   // This is triggered when clicking a TreeView statement or function definition
