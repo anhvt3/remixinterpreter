@@ -102,7 +102,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
                     width={shapeWidth}
                     height={shapeHeight}
                     fill={element.fill || 'transparent'}
-                    stroke={element.stroke || '#ffffff'}
+                    stroke={element.stroke || 'hsl(var(--foreground))'}
                     strokeWidth={element.strokeWidth || 2}
                   />
                 )}
@@ -112,7 +112,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
                     cy={shapeRadius}
                     r={shapeRadius}
                     fill={element.fill || 'transparent'}
-                    stroke={element.stroke || '#ffffff'}
+                    stroke={element.stroke || 'hsl(var(--foreground))'}
                     strokeWidth={element.strokeWidth || 2}
                   />
                 )}
@@ -122,7 +122,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
                     y1={0}
                     x2={(element.to.x - element.from.x) * (width / (viewbox[2] - viewbox[0]))}
                     y2={(element.from.y - element.to.y) * (height / (viewbox[1] - viewbox[3]))}
-                    stroke={element.stroke || '#ffffff'}
+                    stroke={element.stroke || 'hsl(var(--foreground))'}
                     strokeWidth={element.strokeWidth || 2}
                   />
                 )}
@@ -138,7 +138,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
                         orient="auto"
                         markerUnits="strokeWidth"
                       >
-                        <path d="M0,0 L0,6 L9,3 z" fill={element.stroke || '#ffffff'} />
+                        <path d="M0,0 L0,6 L9,3 z" fill={element.stroke || 'hsl(var(--foreground))'} />
                       </marker>
                     </defs>
                     <line
@@ -146,7 +146,7 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
                       y1={0}
                       x2={(element.to.x - element.from.x) * (width / (viewbox[2] - viewbox[0]))}
                       y2={(element.from.y - element.to.y) * (height / (viewbox[1] - viewbox[3]))}
-                      stroke={element.stroke || '#ffffff'}
+                      stroke={element.stroke || 'hsl(var(--foreground))'}
                       strokeWidth={element.strokeWidth || 2}
                       markerEnd={`url(#arrow-${element.id})`}
                     />

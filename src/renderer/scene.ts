@@ -53,7 +53,7 @@ export function computeScene(
   // Build a map of element t1 times for static rendering
   const elementT1Map = new Map<string, number>();
   for (const event of events) {
-    if (event.type === 'text.create' || event.type === 'text.update') {
+    if (event.type === 'text.create' || event.type === 'text.update' || event.type === 'shape.create' || event.type === 'shape.update') {
       const args = event.args as { id?: string; t1?: number };
       if (args.id && typeof args.t1 === 'number') {
         const existing = elementT1Map.get(args.id) || 0;
@@ -237,14 +237,17 @@ function processTextUpdate(scene: Scene, event: TimelineEvent, t: number): void 
 function processShapeCreate(scene: Scene, event: TimelineEvent, t: number): void {
   const args = event.args as Record<string, unknown>;
   const id = args.id as string;
-  const shapeType = (args.shapeType as SceneElement['shapeType']) || 'rect';
+  const shapeTypeRaw = (args.shapeType ?? args.type) as unknown;
+  const shapeType = (['rect', 'circle', 'line', 'arrow', 'polygon'] as const).includes(String(shapeTypeRaw) as any)
+    ? (String(shapeTypeRaw) as SceneElement['shapeType'])
+    : 'rect';
   const ease = (args.ease as string) || 'easeOutCubic';
-  
+
   // Parse time values
   const t0 = typeof args.t0 === 'number' ? args.t0 : parseFloat(String(args.t0)) || 0;
   const t1 = typeof args.t1 === 'number' ? args.t1 : parseFloat(String(args.t1)) || 0;
-  
-  // Parse position
+
+  // Parse position (support both {at:{x,y}} and flat {x,y})
   let at: LayoutPosition;
   if (args.at && typeof args.at === 'object') {
     const rawAt = args.at as Record<string, unknown>;
@@ -253,39 +256,46 @@ function processShapeCreate(scene: Scene, event: TimelineEvent, t: number): void
       x: typeof rawAt.x === 'number' ? rawAt.x : parseFloat(String(rawAt.x)) || 0,
       y: typeof rawAt.y === 'number' ? rawAt.y : parseFloat(String(rawAt.y)) || 0,
     };
+  } else if (args.x !== undefined || args.y !== undefined) {
+    at = {
+      anchor: 'Center',
+      x: typeof args.x === 'number' ? (args.x as number) : parseFloat(String(args.x)) || 0,
+      y: typeof args.y === 'number' ? (args.y as number) : parseFloat(String(args.y)) || 0,
+    };
   } else {
     at = { anchor: 'Center', x: 0, y: 0 };
   }
-  
+
   // Element not yet visible
-  if (t < t0) {
-    return;
-  }
-  
+  if (t < t0) return;
+
   const progress = calculateProgress(t, t0, t1, ease);
   const opacity = Math.max(0.01, progress);
-  
+
+  const style = (args.style as StyleDef) || { color: 'hsl(var(--foreground))', scale: 1 };
+  const stroke = (args.stroke as string) || style.color || 'hsl(var(--foreground))';
+
   const element: SceneElement = {
     id,
     type: 'shape',
     mode: 'text',
     content: '',
     at,
-    style: args.style as StyleDef || { color: '#ffffff', scale: 1 },
+    style,
     opacity,
     visible: true,
     shapeType,
-    width: typeof args.width === 'number' ? args.width : parseFloat(String(args.width)) || 1,
-    height: typeof args.height === 'number' ? args.height : parseFloat(String(args.height)) || 1,
-    radius: typeof args.radius === 'number' ? args.radius : parseFloat(String(args.radius)) || 0.5,
-    fill: args.fill as string || 'transparent',
-    stroke: args.stroke as string || '#ffffff',
-    strokeWidth: typeof args.strokeWidth === 'number' ? args.strokeWidth : parseFloat(String(args.strokeWidth)) || 2,
-    points: args.points as { x: number; y: number }[] || [],
+    width: typeof args.width === 'number' ? (args.width as number) : parseFloat(String(args.width)) || 1,
+    height: typeof args.height === 'number' ? (args.height as number) : parseFloat(String(args.height)) || 1,
+    radius: typeof args.radius === 'number' ? (args.radius as number) : parseFloat(String(args.radius)) || 0.5,
+    fill: (args.fill as string) || 'transparent',
+    stroke,
+    strokeWidth: typeof args.strokeWidth === 'number' ? (args.strokeWidth as number) : parseFloat(String(args.strokeWidth)) || 2,
+    points: (args.points as { x: number; y: number }[]) || [],
     from: args.from as { x: number; y: number },
     to: args.to as { x: number; y: number },
   };
-  
+
   scene.elements.set(id, element);
 }
 

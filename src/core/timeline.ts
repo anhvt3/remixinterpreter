@@ -26,13 +26,22 @@ export function normalizeTimeline(events: TimelineEvent[]): NormalizedTimeline {
   let duration = 0;
   
   for (const event of sorted) {
+    // Duration should include ALL animated events (not just text)
+    const args = event.args as Record<string, unknown>;
+    const rawT0 = args?.t0;
+    const rawT1 = args?.t1;
+    const t0 = typeof rawT0 === 'number' ? rawT0 : typeof rawT0 === 'string' ? parseFloat(rawT0) : undefined;
+    const t1 = typeof rawT1 === 'number' ? rawT1 : typeof rawT1 === 'string' ? parseFloat(rawT1) : undefined;
+    const tCandidate = Math.max(
+      typeof t0 === 'number' && Number.isFinite(t0) ? t0 : 0,
+      typeof t1 === 'number' && Number.isFinite(t1) ? t1 : 0
+    );
+    if (tCandidate > duration) {
+      duration = tCandidate;
+    }
+
     if (event.type === 'text.create') {
       const textEvent = event as TextCreateEvent;
-      const t1 = textEvent.args.t1;
-      if (t1 > duration) {
-        duration = t1;
-      }
-      
       const id = textEvent.args.id;
       if (!textElements.has(id)) {
         textElements.set(id, { id, creates: [], updates: [] });
@@ -42,11 +51,6 @@ export function normalizeTimeline(events: TimelineEvent[]): NormalizedTimeline {
     
     if (event.type === 'text.update') {
       const updateEvent = event as TextUpdateEvent;
-      const t1 = updateEvent.args.t1;
-      if (t1 > duration) {
-        duration = t1;
-      }
-      
       const id = updateEvent.args.id;
       if (!textElements.has(id)) {
         textElements.set(id, { id, creates: [], updates: [] });
