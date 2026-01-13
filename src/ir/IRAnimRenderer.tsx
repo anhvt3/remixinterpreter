@@ -57,21 +57,25 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     const runtime = createRuntime();
     runtimeRef.current = runtime;
     
-    // Load program
-    loadProgram(runtime, compiledProgram);
-    
-    // Attach canvas with correct dimensions
+    // Attach canvas FIRST with correct dimensions
     const canvas = canvasRef.current;
     canvas.width = compiledProgram.scene.width;
     canvas.height = compiledProgram.scene.height;
     attachCanvas(runtime, canvas);
+    
+    // Load program AFTER canvas is attached
+    loadProgram(runtime, compiledProgram);
+    
+    // Set initial time and render
+    setTime(runtime, currentTime);
+    render(runtime);
     
     setProgram(compiledProgram);
     
     return () => {
       runtimeRef.current = null;
     };
-  }, [compiledProgram]);
+  }, [compiledProgram]); // Note: currentTime not in deps - we handle time updates separately
   
   // Render on time change
   useEffect(() => {
