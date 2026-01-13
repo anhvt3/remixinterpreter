@@ -650,10 +650,14 @@ function formatValue(v: unknown): string {
   return String(v);
 }
 
-// Helper to check if value is expandable (array or object with keys)
+// Helper to check if value is expandable (array or object with keys, but not expr objects)
 const isExpandableValue = (value: unknown): boolean => {
   if (Array.isArray(value)) return value.length > 0;
-  if (value && typeof value === 'object' && !('expr' in value)) return Object.keys(value).length > 0;
+  if (value && typeof value === 'object') {
+    // Exclude expr objects - they have a special format
+    if ('expr' in (value as object)) return false;
+    return Object.keys(value as object).length > 0;
+  }
   return false;
 };
 
