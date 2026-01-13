@@ -2000,9 +2000,15 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return result;
   }, [anchorParam, spec]);
   
-  // Handle param click
+  // Handle param click - clears other highlights
   const handleParamClick = useCallback((fnName: string, stmtIndex: number, paramPath: string) => {
     console.log('YAMLTreePanel: Param clicked', { fnName, stmtIndex, paramPath });
+    
+    // Clear other navigation types
+    setAnchorStatement(null);
+    setStmtNavIndex(0);
+    setAnchorFunction(null);
+    setFnNavIndex(0);
     
     // Toggle: if clicking the same param, clear it
     if (anchorParam?.fnName === fnName && anchorParam?.stmtIndex === stmtIndex && anchorParam?.paramPath === paramPath) {
@@ -2012,14 +2018,15 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorParam]);
   
-  // Handle statement click - set as anchor
+  // Handle statement click - clears other highlights
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
     console.log('YAMLTreePanel: Statement clicked', { fnName, stmtIndex });
     const clickedKey = { fnName, stmtIndex };
     
-    // Clear function navigation when statement is clicked
+    // Clear other navigation types
     setAnchorFunction(null);
     setFnNavIndex(0);
+    setAnchorParam(null);
     
     if (anchorStatement?.fnName === fnName && anchorStatement?.stmtIndex === stmtIndex) {
       // Click same statement - clear navigation
@@ -2037,13 +2044,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     onStatementClick?.(fnName, stmtIndex);
   }, [anchorStatement, onStatementClick]);
   
-  // Handle function definition click - set as anchor for function chain navigation
+  // Handle function definition click - clears other highlights
   const handleFunctionDefinitionClickInternal = useCallback((fnName: string) => {
     console.log('YAMLTreePanel: Function definition clicked', { fnName });
     
-    // Clear statement navigation when function is clicked
+    // Clear other navigation types
     setAnchorStatement(null);
     setStmtNavIndex(0);
+    setAnchorParam(null);
     
     if (anchorFunction === fnName) {
       // Click same function - clear navigation
