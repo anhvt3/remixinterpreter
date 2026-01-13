@@ -1175,9 +1175,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </Tooltip>
         
         {/* Params */}
-        <span className="text-xs text-muted-foreground">
-          ({node.def.params.join(', ')})
-        </span>
+        {node.def.params && node.def.params.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            ({node.def.params.join(', ')})
+          </span>
+        )}
         
         {/* Category badge */}
         <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${categoryColors[node.category]} bg-current/10`}>
