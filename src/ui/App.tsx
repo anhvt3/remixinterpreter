@@ -21,6 +21,7 @@ import yaml from 'js-yaml';
 import { useLoData } from '@/hooks/useLoData';
 import { useDescData } from '@/hooks/useDescData';
 import { useDslScriptData } from '@/hooks/useDslScriptData';
+import { useVideoData } from '@/hooks/useVideoData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 
 // Extract only the params section from the full YAML
@@ -459,6 +460,152 @@ export const App: React.FC = () => {
       originalLoContentRef.current = loContent;
     }
   }, [selectedLoId, hasUnsavedChanges, versions, createVersion, loContent]);
+  
+  // ============================================================
+  // VIDEO DATA MANAGEMENT
+  // ============================================================
+  
+  const { 
+    videos, 
+    videoVersions, 
+    fetchVersionsForVideo, 
+    getVideoVersionContent, 
+    createVideo, 
+    deleteVideo: deleteVideoRecord, 
+    createVideoVersion 
+  } = useVideoData();
+  
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [selectedVideoVersionId, setSelectedVideoVersionId] = useState<string | null>(null);
+  
+  // Track original gdriveLink for unsaved changes detection
+  const originalGdriveLinkRef = useRef<string>('');
+  
+  // Undo/Redo for Video gdriveLink
+  const {
+    setValue: setGdriveLinkUndoable,
+    undo: handleVideoUndo,
+    redo: handleVideoRedo,
+    canUndo: canVideoUndo,
+    canRedo: canVideoRedo,
+    reset: resetVideoUndoRedo,
+  } = useUndoRedo(gdriveLink, setGdriveLink);
+  
+  // Auto-select first video when videos are loaded
+  useEffect(() => {
+    if (videos.length > 0 && !selectedVideoId) {
+      const firstVideo = videos[0];
+      setSelectedVideoId(firstVideo.id);
+      fetchVersionsForVideo(firstVideo.id);
+    }
+  }, [videos, selectedVideoId, fetchVersionsForVideo]);
+  
+  // Auto-select latest version when versions are loaded for a new Video selection
+  useEffect(() => {
+    if (videoVersions.length > 0 && selectedVideoId && !selectedVideoVersionId) {
+      const latestVersion = videoVersions[0];
+      setSelectedVideoVersionId(latestVersion.id);
+      getVideoVersionContent(latestVersion.id).then(content => {
+        const contentValue = content || '';
+        setGdriveLink(contentValue);
+        originalGdriveLinkRef.current = contentValue;
+        resetVideoUndoRedo(contentValue);
+      });
+    }
+  }, [videoVersions, selectedVideoId, selectedVideoVersionId, getVideoVersionContent, resetVideoUndoRedo]);
+  
+  // Detect unsaved video changes
+  const hasUnsavedVideoChanges = useMemo(() => {
+    return gdriveLink !== originalGdriveLinkRef.current && selectedVideoId !== null;
+  }, [gdriveLink, selectedVideoId]);
+  
+  // When Video selection changes, fetch versions
+  const handleSelectVideo = useCallback(async (videoId: string | null) => {
+    setSelectedVideoId(videoId);
+    setSelectedVideoVersionId(null);
+    
+    if (videoId) {
+      await fetchVersionsForVideo(videoId);
+    } else {
+      setGdriveLink('');
+      originalGdriveLinkRef.current = '';
+      resetVideoUndoRedo('');
+    }
+  }, [fetchVersionsForVideo, resetVideoUndoRedo]);
+  
+  // When video version selection changes, load content
+  const handleSelectVideoVersion = useCallback(async (versionId: string | null) => {
+    setSelectedVideoVersionId(versionId);
+    
+    if (versionId) {
+      const content = await getVideoVersionContent(versionId);
+      const contentValue = content || '';
+      setGdriveLink(contentValue);
+      originalGdriveLinkRef.current = contentValue;
+      resetVideoUndoRedo(contentValue);
+    } else {
+      setGdriveLink('');
+      originalGdriveLinkRef.current = '';
+      resetVideoUndoRedo('');
+    }
+  }, [getVideoVersionContent, resetVideoUndoRedo]);
+  
+  // Create new Video with version 1
+  const handleCreateNewVideo = useCallback(async () => {
+    const code = `VID${String(videos.length + 1).padStart(3, '0')}`;
+    const name = `New Video ${videos.length + 1}`;
+    
+    const newVideo = await createVideo(code, name);
+    if (newVideo) {
+      // Create version 1 with empty content
+      await createVideoVersion(newVideo.id, 'v1', '');
+      // Select the new Video
+      setSelectedVideoId(newVideo.id);
+      await fetchVersionsForVideo(newVideo.id);
+      // Auto-select the first version
+      const { data } = await import('@/integrations/supabase/client').then(m => 
+        m.supabase.from('video_version').select('id').eq('video_id', newVideo.id).eq('is_deleted', false).order('created_at', { ascending: false }).limit(1).single()
+      );
+      if (data) {
+        setSelectedVideoVersionId(data.id);
+        setGdriveLink('');
+        originalGdriveLinkRef.current = '';
+        resetVideoUndoRedo('');
+      }
+    }
+  }, [videos, createVideo, createVideoVersion, fetchVersionsForVideo, resetVideoUndoRedo]);
+  
+  // Delete current Video
+  const handleDeleteVideo = useCallback(async () => {
+    if (!selectedVideoId) return;
+    
+    const confirmed = window.confirm('Are you sure you want to delete this Video?');
+    if (!confirmed) return;
+    
+    const success = await deleteVideoRecord(selectedVideoId);
+    if (success) {
+      setSelectedVideoId(null);
+      setSelectedVideoVersionId(null);
+      setGdriveLink('');
+      originalGdriveLinkRef.current = '';
+      resetVideoUndoRedo('');
+    }
+  }, [selectedVideoId, deleteVideoRecord, resetVideoUndoRedo]);
+  
+  // Save: create a new version of the current Video
+  const handleVideoSave = useCallback(async () => {
+    if (!selectedVideoId || !hasUnsavedVideoChanges) return;
+    
+    // Calculate next version number
+    const nextVersion = videoVersions.length + 1;
+    const versionName = `v${nextVersion}`;
+    
+    const newVersion = await createVideoVersion(selectedVideoId, versionName, gdriveLink);
+    if (newVersion) {
+      setSelectedVideoVersionId(newVersion.id);
+      originalGdriveLinkRef.current = gdriveLink;
+    }
+  }, [selectedVideoId, hasUnsavedVideoChanges, videoVersions, createVideoVersion, gdriveLink]);
   
   // Config tab password protection
   const [configAuthenticated, setConfigAuthenticated] = useState(false);
@@ -912,7 +1059,7 @@ export const App: React.FC = () => {
           loContent={loContent}
           onLoContentChange={setLoContentUndoable}
           gdriveLink={gdriveLink}
-          onGdriveLinkChange={setGdriveLink}
+          onGdriveLinkChange={setGdriveLinkUndoable}
           zoomLevel={zoomLevel}
           activeTab={sourceActiveTab}
           onActiveTabChange={setSourceActiveTab}
@@ -930,6 +1077,21 @@ export const App: React.FC = () => {
           hasUnsavedChanges={hasUnsavedChanges}
           onCreateNewLo={handleCreateNewLo}
           onDeleteLo={handleDeleteLo}
+          // Video props
+          videos={videos}
+          videoVersions={videoVersions}
+          selectedVideoId={selectedVideoId}
+          onSelectVideo={handleSelectVideo}
+          selectedVideoVersionId={selectedVideoVersionId}
+          onSelectVideoVersion={handleSelectVideoVersion}
+          onVideoUndo={handleVideoUndo}
+          onVideoRedo={handleVideoRedo}
+          onVideoSave={handleVideoSave}
+          canVideoUndo={canVideoUndo}
+          canVideoRedo={canVideoRedo}
+          hasUnsavedVideoChanges={hasUnsavedVideoChanges}
+          onCreateNewVideo={handleCreateNewVideo}
+          onDeleteVideo={handleDeleteVideo}
         />
       ),
     },
@@ -995,7 +1157,7 @@ export const App: React.FC = () => {
         <ChatPanel title="6. Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion, videos, videoVersions, selectedVideoId, handleSelectVideo, selectedVideoVersionId, handleSelectVideoVersion, handleVideoUndo, handleVideoRedo, handleVideoSave, canVideoUndo, canVideoRedo, hasUnsavedVideoChanges, handleCreateNewVideo, handleDeleteVideo, setGdriveLinkUndoable]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
