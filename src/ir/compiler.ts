@@ -256,7 +256,7 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
     t1: midTime + 0.001,
     easing: 'linear',
     fromValue: (existingNode as { content: string }).content,
-    toValue: mode === 'math' ? `\\\\\\\\(${toText}\\\\\\\\)` : toText,
+    toValue: mode === 'math' ? `\\(${toText}\\)` : toText,
   });
   
   // Fade in new content
