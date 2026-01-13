@@ -2124,9 +2124,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const fnCanGoDown = !!anchorFunction && fnNavIndex > 0;
   const fnChainLength = fnUpstreamChain.length + 1; // +1 for anchor
   
-  // Auto-expand functions in the navigation chain
+  // Auto-expand functions in the navigation chain (only upstream, NOT the anchor itself)
   useEffect(() => {
-    if (!anchorStatement) return;
+    if (!anchorStatement || upstreamChain.length === 0) return;
     
     console.log('YAMLTreePanel: Auto-expand effect', { 
       anchorStatement, 
@@ -2134,7 +2134,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       chainLength: upstreamChain.length 
     });
     
-    const functionsToExpand = [anchorStatement.fnName, ...upstreamChain.map(s => s.fnName)];
+    // Only expand upstream chain functions, NOT the clicked anchor function
+    const functionsToExpand = upstreamChain.map(s => s.fnName);
     const next = new Set(expandedFunctions);
     let changed = false;
     
@@ -2151,11 +2152,12 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorStatement, upstreamChain, expandedFunctions, onExpandedFunctionsChange]);
   
-  // Auto-expand functions in the function navigation chain
+  // Auto-expand functions in the function navigation chain (only upstream, NOT the anchor itself)
   useEffect(() => {
-    if (!anchorFunction) return;
+    if (!anchorFunction || fnUpstreamChain.length === 0) return;
     
-    const functionsToExpand = [anchorFunction, ...fnUpstreamChain.map(s => s.fnName)];
+    // Only expand upstream chain functions, NOT the clicked anchor function
+    const functionsToExpand = fnUpstreamChain.map(s => s.fnName);
     const next = new Set(expandedFunctions);
     let changed = false;
     
@@ -2171,12 +2173,19 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorFunction, fnUpstreamChain, expandedFunctions, onExpandedFunctionsChange]);
 
-  // Auto-expand functions and statements containing highlighted params
+  // Auto-expand functions containing highlighted params (only upstream, NOT the anchor's function)
   useEffect(() => {
-    if (highlightedParams.length === 0) return;
+    if (highlightedParams.length === 0 || !anchorParam) return;
     
-    // Expand all functions that contain highlighted params
-    const functionsToExpand = [...new Set(highlightedParams.map(p => p.fnName))];
+    // Expand all functions that contain highlighted params EXCEPT the anchor's function
+    const functionsToExpand = [...new Set(
+      highlightedParams
+        .filter(p => p.fnName !== anchorParam.fnName) // Exclude anchor's function
+        .map(p => p.fnName)
+    )];
+    
+    if (functionsToExpand.length === 0) return;
+    
     const nextFunctions = new Set(expandedFunctions);
     let functionsChanged = false;
     
@@ -2191,7 +2200,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
       console.log('YAMLTreePanel: Auto-expanding functions for param tracing', functionsToExpand);
       onExpandedFunctionsChange?.(nextFunctions);
     }
-  }, [highlightedParams, expandedFunctions, onExpandedFunctionsChange]);
+  }, [highlightedParams, anchorParam, expandedFunctions, onExpandedFunctionsChange]);
 
   const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
     // Check direct literal IDs
