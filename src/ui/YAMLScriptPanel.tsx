@@ -332,10 +332,10 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             size="icon"
             className="h-7 w-7"
             onClick={() => handleSave()}
-            disabled={!hasUnsavedChanges}
+            disabled={!hasUnsavedChanges || panelState.viewMode !== 'code'}
             title="Save"
           >
-            <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
+            <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges && panelState.viewMode === 'code' ? 'text-orange-500' : ''}`} />
           </Button>
           <Button
             variant="ghost"
@@ -427,17 +427,25 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
         )}
       </div>
 
-      {/* Cancel/Save Dialog */}
+      {/* Discard/Save Dialog */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes. Would you like to save them?
+              You have unsaved changes. Would you like to save or discard them?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleDialogCancel}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={() => {
+              handleDiscard();
+              if (pendingViewMode) {
+                onPanelStateChange?.({ ...panelState, viewMode: pendingViewMode });
+              }
+            }}>
+              Discard
+            </Button>
             <AlertDialogAction onClick={handleDialogSave}>
               Save
             </AlertDialogAction>
