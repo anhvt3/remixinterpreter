@@ -319,7 +319,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
             <div className="flex">
               <TooltipProvider delayDuration={200}>
                 <div className="w-14 bg-muted/20 border-r border-border/30 select-none shrink-0">
-                  <div className="py-4 pr-1">
+                  <div className="py-4 pr-1" style={{ minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em` }}>
                     {localContent.split('\n').map((_, idx) => {
                       const lineErrors = errorsByLine.get(idx);
                       const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
