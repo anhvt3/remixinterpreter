@@ -810,11 +810,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
   };
   
   // Auto-scroll into view when current nav, primary highlight, or has highlighted params
-  useEffect(() => {
-    if ((isCurrentNav || highlightLevel === 'primary' || forceExpanded) && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isCurrentNav, highlightLevel, forceExpanded]);
+  // No auto-scroll - user controls scroll position manually
   
   const handleArgChange = (key: string, value: string, originalValue: unknown) => {
     if (!onArgsChange || !('call' in stmt)) return;
@@ -1351,11 +1347,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     fnChainStatements.some(s => s.fnName === node.name && s.stmtIndex === stmtIdx);
   
   // Auto-scroll function header into view when current nav
-  useEffect(() => {
-    if (isFnCurrentNav && headerRef.current) {
-      headerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isFnCurrentNav]);
+  // No auto-scroll - user controls scroll position manually
   
   // Check if any statement in this node creates/targets the highlighted element
   // This returns an array of all element IDs that could be created by this statement
