@@ -102,6 +102,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [pendingViewMode, setPendingViewMode] = useState<'tree' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const dirtyRef = useRef(false);
 
   // Prevent a "save" click from being overwritten by a sync that runs before the parent updates `content`.
@@ -130,6 +131,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     resetUndo(content);
     setIsDirty(false);
     setPendingViewMode(null);
+    setIsSaving(false);
   }, [content, resetUndo]);
 
   // "Recent changes not saved" should track user edits since last save, not string formatting differences.
@@ -150,6 +152,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       try {
         const obj = yaml.load(text) as unknown;
         if (!obj || typeof obj !== 'object') return 'YAML must be an object.';
+        // CodeView is intended to edit the params payload, so we require (or will auto-wrap) a top-level "params".
         if (!('params' in (obj as Record<string, unknown>))) return 'Missing top-level "params:" key.';
         return null;
       } catch (e) {
@@ -170,6 +173,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   }, [setUndoValue, validateParamsYaml]);
 
   const handleSave = useCallback(async (draft?: string): Promise<boolean> => {
+    if (isSaving) return false;
+
     const text = draft ?? codeDraftRef.current;
 
     const err = validateParamsYaml(text);
@@ -178,6 +183,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       return false;
     }
 
+    setIsSaving(true);
+
     // Mark the current prop-content so our sync effect won't immediately overwrite the draft
     // before the parent applies `onChange`.
     saveFromContentRef.current = content;
@@ -185,23 +192,30 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     // Ensure state reflects exactly what we saved
     codeDraftRef.current = text;
     setCodeDraft(text);
-    
-    // Call parent save handler to create new version and rebuild
-    if (onSaveVersion) {
-      await onSaveVersion(text);
-    } else {
-      // Fallback to just updating content
-      onChange(text);
+
+    try {
+      // Call parent save handler to create new version and rebuild
+      if (onSaveVersion) {
+        await onSaveVersion(text);
+      } else {
+        // Fallback to just updating content
+        onChange(text);
+      }
+
+      dirtyRef.current = false;
+      setIsDirty(false);
+      setCodeError(null);
+      setShowSaveDialog(false);
+      setPendingViewMode(null);
+      return true;
+    } catch (e) {
+      console.error('Failed to save DSLScript:', e);
+      setCodeError(e instanceof Error ? e.message : 'Failed to save.');
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-
-    dirtyRef.current = false;
-    setIsDirty(false);
-    setCodeError(null);
-    setShowSaveDialog(false);
-    setPendingViewMode(null);
-
-    return true;
-  }, [content, onChange, onSaveVersion, validateParamsYaml]);
+  }, [content, isSaving, onChange, onSaveVersion, validateParamsYaml]);
 
   const handleDiscard = useCallback(() => {
     codeDraftRef.current = content;
@@ -209,6 +223,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     resetUndo(content);
     dirtyRef.current = false;
     setIsDirty(false);
+    setIsSaving(false);
     setCodeError(null);
     setShowSaveDialog(false);
     setPendingViewMode(null);
@@ -228,18 +243,21 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     }
   }, [handleSave, onPanelStateChange, panelState, pendingViewMode]);
 
-  // Handle panel blur for save prompt
-  const handlePanelBlur = useCallback((e: React.FocusEvent) => {
+  // Handle panel blur for save prompt (robust against browsers where relatedTarget is null)
+  const handlePanelBlur = useCallback(() => {
     if (panelState.viewMode !== 'code') return;
+    if (!hasUnsavedChanges) return;
+    if (showSaveDialog) return;
 
-    const relatedTarget = e.relatedTarget as HTMLElement | null;
-    const isInsidePanel = panelRef.current?.contains(relatedTarget);
-
-    if (!isInsidePanel && hasUnsavedChanges) {
-      setPendingViewMode(null);
-      setShowSaveDialog(true);
-    }
-  }, [hasUnsavedChanges, panelState.viewMode]);
+    window.setTimeout(() => {
+      const active = document.activeElement as HTMLElement | null;
+      const isInside = active ? panelRef.current?.contains(active) : false;
+      if (!isInside) {
+        setPendingViewMode(null);
+        setShowSaveDialog(true);
+      }
+    }, 0);
+  }, [hasUnsavedChanges, panelState.viewMode, showSaveDialog]);
 
   // Get all function names from spec for expand/collapse
   const allFunctionNames = spec?.defs ? Object.keys(spec.defs) : [];
