@@ -394,16 +394,13 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   const canGoDown = anchorStepId && navIndex > 0;
   
   // Build a map of step ID -> highlight level from the call chain
+  // Only highlight the IR step that directly created the element (first entry in chain)
   const highlightMap = React.useMemo(() => {
     const map = new Map<string, 'primary' | 'secondary'>();
     if (elementCallChain && elementCallChain.length > 0) {
-      // First entry is the lowest-level creator (primary)
-      // Rest are higher-level callers (secondary)
-      elementCallChain.forEach((entry, index) => {
-        const level = index === 0 ? 'primary' : 'secondary';
-        // Match by function name - we'll highlight all steps for that function
-        map.set(entry.fnName, level);
-      });
+      // Only highlight the first entry (the IR that directly created the element)
+      const firstEntry = elementCallChain[0];
+      map.set(firstEntry.fnName, 'primary');
     }
     return map;
   }, [elementCallChain]);
