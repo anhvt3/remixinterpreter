@@ -1128,11 +1128,14 @@ export const App: React.FC = () => {
 
   // Handle element click in Anim panel (modified to clear runtime step selection)
   const handleElementClickWithClear = useCallback((elementId: string) => {
+    console.log('[App] Element clicked:', elementId);
+    console.log('[App] elementCallChains has element:', elementCallChains.has(elementId));
+    console.log('[App] elementCallChains for element:', elementCallChains.get(elementId));
     setSelectedRuntimeStepId(null);
     setSelectedStatement(null);
     setSelectedFunctionDefinition(null);
     setSelectedElementId(elementId === selectedElementId ? null : elementId);
-  }, [selectedElementId]);
+  }, [selectedElementId, elementCallChains]);
 
   // Handle statement click in TreeView
   const handleStatementClick = useCallback((fnName: string, stmtIndex: number) => {

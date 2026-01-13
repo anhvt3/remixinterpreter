@@ -110,8 +110,12 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     if (!canvas) return;
     
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const sceneWidth = program?.scene.width || 800;
+    const sceneHeight = program?.scene.height || 600;
+    const scale = rect.width / sceneWidth;
+    
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
     
     // Simple hit testing - check text nodes first (they're usually on top)
     const runtime = runtimeRef.current;
@@ -124,8 +128,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         const ty = node.transform.y;
         const fontSize = node.style.text?.fontSize || 24;
         const content = (node as { content: string }).content || '';
-        const approxWidth = content.length * fontSize * 0.6;
-        const approxHeight = fontSize * 1.2;
+        const approxWidth = Math.max(content.length * fontSize * 0.6, 100);
+        const approxHeight = fontSize * 1.5;
         
         if (
           x >= tx - approxWidth / 2 &&
@@ -133,12 +137,14 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           y >= ty - approxHeight / 2 &&
           y <= ty + approxHeight / 2
         ) {
+          console.log('[IRAnimRenderer] Clicked node:', node.id);
           onElementClick(node.id);
           return;
         }
       }
     }
-  }, [onElementClick]);
+    console.log('[IRAnimRenderer] No node hit at', x, y);
+  }, [onElementClick, program]);
   
   // Calculate display dimensions maintaining aspect ratio
   const aspectRatio = compiledProgram 
@@ -242,29 +248,47 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           }}
         />
         
-        {/* LaTeX overlay layer */}
-        <div className="absolute inset-0 pointer-events-none">
-          {latexOverlays.map((overlay) => (
-            <div
-              key={overlay.id}
-              className="absolute"
-              style={{
-                left: overlay.x,
-                top: overlay.y,
-                transform: 'translate(-50%, -50%)',
-                fontSize: overlay.fontSize,
-                color: overlay.color,
-                opacity: overlay.opacity,
-                textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
-              }}
-              dangerouslySetInnerHTML={{
-                __html: katex.renderToString(overlay.latex, {
-                  throwOnError: false,
-                  displayMode: false,
-                }),
-              }}
-            />
-          ))}
+        {/* LaTeX overlay layer - clickable */}
+        <div className="absolute inset-0">
+          {latexOverlays.map((overlay) => {
+            const isSelected = overlay.id === selectedElementId;
+            const isHighlighted = highlightedElementIds.includes(overlay.id);
+            return (
+              <div
+                key={overlay.id}
+                className={`absolute cursor-pointer rounded transition-all ${
+                  isSelected 
+                    ? 'outline outline-2 outline-primary ring-2 ring-primary/50' 
+                    : isHighlighted 
+                    ? 'outline outline-1 outline-yellow-400/60' 
+                    : 'hover:outline hover:outline-2 hover:outline-primary/50'
+                }`}
+                style={{
+                  left: overlay.x,
+                  top: overlay.y,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: overlay.fontSize,
+                  color: overlay.color,
+                  opacity: overlay.opacity,
+                  textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
+                  padding: '4px 8px',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onElementClick) {
+                    console.log('[IRAnimRenderer] Clicked LaTeX overlay:', overlay.id);
+                    onElementClick(overlay.id);
+                  }
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: katex.renderToString(overlay.latex, {
+                    throwOnError: false,
+                    displayMode: false,
+                  }),
+                }}
+              />
+            );
+          })}
         </div>
       </div>
       
