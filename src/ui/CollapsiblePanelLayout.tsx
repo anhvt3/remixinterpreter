@@ -1,5 +1,4 @@
 import React, { useState, useCallback, ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export type PanelId = 'source' | 'desc' | 'dsl' | 'runtime' | 'anim' | 'chat';
 
@@ -67,7 +66,7 @@ export const PanelSelector: React.FC<PanelSelectorProps> = ({
             key={panel.id}
             onClick={() => onPanelClick(panel.id)}
             className={`
-              flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all
+              px-2 py-1 rounded text-xs font-medium transition-all
               ${isVisible
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -75,12 +74,7 @@ export const PanelSelector: React.FC<PanelSelectorProps> = ({
             `}
             title={isVisible ? 'Click to close' : 'Click to expand'}
           >
-            {isVisible ? (
-              <ChevronLeft className="w-3 h-3" />
-            ) : (
-              <ChevronRight className="w-3 h-3" />
-            )}
-            <span>{panel.label}</span>
+            {panel.label}
           </button>
         );
       })}
