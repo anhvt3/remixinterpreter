@@ -250,34 +250,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       {/* Header row with title, tabs and controls */}
       <div className="panel-header shrink-0 flex items-center justify-between">
         <span className="panel-title">DSLScript</span>
-        <div className="flex items-center gap-2">
-          {/* Version dropdown */}
-          {dslScripts.length > 0 && (
-            <Select
-              value={selectedVersionId || ''}
-              onValueChange={(value) => onSelectVersion?.(value || null)}
-            >
-              <SelectTrigger className="h-6 w-32 text-xs bg-muted border-border">
-                <SelectValue placeholder="Select version" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border z-50">
-                {dslScripts.flatMap(script => 
-                  script.versions.map(version => (
-                    <SelectItem 
-                      key={version.id} 
-                      value={version.id}
-                      className="text-xs"
-                    >
-                      {script.name} - {version.version_name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* View mode tabs - styled like Source panel LO/Video */}
-          <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
+        {/* View mode tabs - styled like Source panel LO/Video */}
+        <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
           <button
             onClick={() => setViewMode('tree')}
             className={`text-xs h-5 px-2 rounded transition-colors ${
@@ -298,12 +272,36 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           >
             CodeView
           </button>
-          </div>
         </div>
       </div>
 
       {/* Secondary controls row */}
       <div className="flex items-center gap-2 px-2 py-1 shrink-0">
+        {/* Version dropdown */}
+        {dslScripts.length > 0 && (
+          <Select
+            value={selectedVersionId || ''}
+            onValueChange={(value) => onSelectVersion?.(value || null)}
+          >
+            <SelectTrigger className="h-6 w-32 text-xs bg-muted border-border">
+              <SelectValue placeholder="Select version" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border z-50">
+              {dslScripts.flatMap(script => 
+                script.versions.map(version => (
+                  <SelectItem 
+                    key={version.id} 
+                    value={version.id}
+                    className="text-xs"
+                  >
+                    {script.name} - {version.version_name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Code view controls */}
         {panelState.viewMode === 'code' && (
           <div className="flex items-center gap-1">
