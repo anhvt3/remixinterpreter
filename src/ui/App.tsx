@@ -1280,7 +1280,8 @@ export const App: React.FC = () => {
       render: () => (
         <RuntimePanel 
           steps={runtimeSteps} 
-          elementCallChain={selectedElementCallChain} 
+          elementCallChain={selectedElementCallChain}
+          selectedElementId={selectedElementId}
           zoomLevel={zoomLevel}
           onStepClick={handleRuntimeStepClick}
           selectedStepId={selectedRuntimeStepId}

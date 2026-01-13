@@ -26,7 +26,10 @@ export interface RuntimeStep {
 interface RuntimePanelProps {
   steps: RuntimeStep[];
   currentTime?: number;
+  // Legacy: kept for compatibility, but we now highlight by element ID for single-step accuracy
   elementCallChain?: CallChainEntry[] | null;
+  // Element selected in the Anim panel (used to highlight exactly one IR step)
+  selectedElementId?: string | null;
   zoomLevel?: number;
   // New: callback when a runtime step is clicked
   onStepClick?: (step: RuntimeStep) => void;
@@ -89,13 +92,13 @@ const RuntimeStepRow: React.FC<{
   chainLength?: number;
   // ID of the deepest highlighted step (for auto-scroll)
   deepestHighlightedStepId?: string | null;
-  // Key to trigger scroll when element selection changes
-  highlightedIRKey?: string | null;
+  // Trigger for scroll when anim-element selection changes
+  elementHighlightedStepId?: string | null;
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
   currentNavigationStepId, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
-  deepestHighlightedStepId, highlightedIRKey
+  deepestHighlightedStepId, elementHighlightedStepId
 }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
@@ -116,7 +119,7 @@ const RuntimeStepRow: React.FC<{
     if ((isDeepestHighlighted || highlightLevel === 'primary' || isCurrentNav) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isDeepestHighlighted, highlightLevel, isCurrentNav, highlightedIRKey]);
+  }, [isDeepestHighlighted, highlightLevel, isCurrentNav, elementHighlightedStepId]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -285,7 +288,7 @@ const RuntimeStepRow: React.FC<{
           navIndex={navIndex}
           chainLength={chainLength}
           deepestHighlightedStepId={deepestHighlightedStepId}
-          highlightedIRKey={highlightedIRKey}
+          elementHighlightedStepId={elementHighlightedStepId}
         />
       ))}
     </>
@@ -601,7 +604,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 navIndex={navIndex}
                 chainLength={ancestorChain.length}
                 deepestHighlightedStepId={deepestHighlightedStepRef.current}
-                highlightedIRKey={highlightedIRKey}
+                elementHighlightedStepId={elementHighlightedStepId}
               />
             ))
           )}
