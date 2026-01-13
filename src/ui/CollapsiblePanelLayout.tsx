@@ -1,10 +1,10 @@
 import React, { useState, useCallback, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export type PanelId = 'lo' | 'desc' | 'dsl' | 'runtime' | 'anim' | 'chat';
+export type PanelId = 'source' | 'desc' | 'dsl' | 'runtime' | 'anim' | 'chat';
 
 // Canonical order of panels
-const PANEL_ORDER: PanelId[] = ['lo', 'desc', 'dsl', 'runtime', 'anim', 'chat'];
+const PANEL_ORDER: PanelId[] = ['source', 'desc', 'dsl', 'runtime', 'anim', 'chat'];
 
 interface PanelConfig {
   id: PanelId;
