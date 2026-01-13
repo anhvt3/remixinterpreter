@@ -89,12 +89,65 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   return (
     <div className="panel flex flex-col h-full min-h-0">
       <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0 h-full">
-        <div className="panel-header shrink-0 flex items-center justify-between">
+        <div className="panel-header shrink-0 flex items-center gap-2">
           <span className="panel-title">Source</span>
           <TabsList className="h-6">
             <TabsTrigger value="lo" className="text-xs h-5 px-2">LO</TabsTrigger>
             <TabsTrigger value="video" className="text-xs h-5 px-2">Video</TabsTrigger>
           </TabsList>
+          
+          {/* Action buttons - aligned right */}
+          <div className="flex items-center gap-1 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onCreateNewLo}
+              title="Create New LO"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onDeleteLo}
+              disabled={!selectedLoId}
+              title="Delete LO"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onSave}
+              disabled={!hasUnsavedChanges}
+              title="Save"
+            >
+              <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         
         <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2 h-full data-[state=active]:flex data-[state=active]:h-full">
@@ -129,7 +182,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
             />
           </div>
 
-          {/* Row 2: Version selector + Action buttons */}
+          {/* Row 2: Version selector */}
           <div className="shrink-0 flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">Version:</Label>
             <Select
@@ -148,59 +201,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 ))}
               </SelectContent>
             </Select>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-1 ml-auto">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onCreateNewLo}
-                title="Create New LO"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onDeleteLo}
-                disabled={!selectedLoId}
-                title="Delete LO"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onSave}
-                disabled={!hasUnsavedChanges}
-                title="Save"
-              >
-                <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title="Undo"
-              >
-                <Undo2 className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onRedo}
-                disabled={!canRedo}
-                title="Redo"
-              >
-                <Redo2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
           </div>
           
           {/* LO Content - rest of the panel */}
