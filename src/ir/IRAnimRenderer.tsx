@@ -218,25 +218,39 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       return hit;
     };
 
+    // Ensure the runtime node snapshot matches the current time before hit testing.
+    // (When scrubbing/playing, a click can happen between renders.)
+    setTime(runtime, currentTime);
+    applyAnimations(runtime);
+
     // Match render order: sorted by zIndex (ties preserve insertion order), then pick from top-most.
     const candidates = Array.from(runtime.nodes.values())
       .filter((n) => n.type !== 'group' && isVisibleAtTime(n))
       .sort((a, b) => a.zIndex - b.zIndex);
 
+    // PASS 1: Prefer text nodes so small glyphs like "2"/"3" are always selectable
+    // even if they overlap a stroked box/line.
     for (let i = candidates.length - 1; i >= 0; i--) {
       const node = candidates[i];
+      if (node.type !== 'text') continue;
+
       const wt = getWorldTransform(runtime, node.id);
       const local = worldToLocal({ x: worldX, y: worldY }, wt);
 
-      if (node.type === 'text') {
-        if (hitTestText(node as TextProps, local.x, local.y)) {
-          onElementClick(node.id);
-          return;
-        }
-        continue;
+      if (hitTestText(node as TextProps, local.x, local.y)) {
+        onElementClick(node.id);
+        return;
       }
+    }
 
-      // Shapes
+    // PASS 2: Shapes
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const node = candidates[i];
+      if (node.type === 'text') continue;
+
+      const wt = getWorldTransform(runtime, node.id);
+      const local = worldToLocal({ x: worldX, y: worldY }, wt);
+
       const path = new Path2D();
       switch (node.type) {
         case 'rect':
@@ -273,16 +287,14 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         case 'arc':
           path.arc(0, 0, (node as any).radius, (node as any).startAngle, (node as any).endAngle, (node as any).counterClockwise);
           break;
-        case 'path':
-          // Replace the empty path with the SVG path data.
-          // Note: Path2D(string) is widely supported in modern browsers.
-          // eslint-disable-next-line no-case-declarations
+        case 'path': {
           const svgPath = new Path2D((node as any).d);
           if (hitTestShapePath(svgPath, node.style as any, local.x, local.y)) {
             onElementClick(node.id);
             return;
           }
           continue;
+        }
         default:
           continue;
       }
