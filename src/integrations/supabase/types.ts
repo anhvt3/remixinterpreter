@@ -50,6 +50,71 @@ export type Database = {
         }
         Relationships: []
       }
+      lo: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_deleted: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lo_version: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_deleted: boolean | null
+          lo_id: string
+          updated_at: string
+          version_name: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          lo_id: string
+          updated_at?: string
+          version_name: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          lo_id?: string
+          updated_at?: string
+          version_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lo_version_lo_id_fkey"
+            columns: ["lo_id"]
+            isOneToOne: false
+            referencedRelation: "lo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

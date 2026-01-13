@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LoRecord, LoVersionRecord } from '@/hooks/useLoData';
 
 export type SourceActiveTab = 'lo' | 'video';
 
@@ -15,16 +17,18 @@ interface SourcePanelProps {
   zoomLevel?: number;
   activeTab: SourceActiveTab;
   onActiveTabChange: (tab: SourceActiveTab) => void;
+  // LO selection props
+  los: LoRecord[];
+  versions: LoVersionRecord[];
+  selectedLoId: string | null;
+  onSelectLo: (loId: string | null) => void;
+  selectedVersionId: string | null;
+  onSelectVersion: (versionId: string | null) => void;
 }
 
 // Convert Google Drive share link to embeddable video URL
 function getGdriveEmbedUrl(link: string): string | null {
   if (!link) return null;
-  
-  // Extract file ID from various Google Drive URL formats
-  // Format 1: https://drive.google.com/file/d/FILE_ID/view
-  // Format 2: https://drive.google.com/open?id=FILE_ID
-  // Format 3: https://drive.google.com/uc?id=FILE_ID
   
   let fileId: string | null = null;
   
@@ -40,7 +44,6 @@ function getGdriveEmbedUrl(link: string): string | null {
   
   if (!fileId) return null;
   
-  // Return preview embed URL
   return `https://drive.google.com/file/d/${fileId}/preview`;
 }
 
@@ -54,6 +57,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   zoomLevel = 100,
   activeTab,
   onActiveTabChange,
+  los,
+  versions,
+  selectedLoId,
+  onSelectLo,
+  selectedVersionId,
+  onSelectVersion,
 }) => {
   const embedUrl = getGdriveEmbedUrl(gdriveLink);
 
@@ -70,6 +79,44 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         </TabsList>
         
         <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
+          {/* LO and Version Dropdowns */}
+          <div className="shrink-0 flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
+            <Select
+              value={selectedLoId || ''}
+              onValueChange={(value) => onSelectLo(value || null)}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1">
+                <SelectValue placeholder="Select LO..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {los.map((lo) => (
+                  <SelectItem key={lo.id} value={lo.id} className="text-xs">
+                    {lo.code} - {lo.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Version:</Label>
+            <Select
+              value={selectedVersionId || ''}
+              onValueChange={(value) => onSelectVersion(value || null)}
+              disabled={!selectedLoId || versions.length === 0}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1">
+                <SelectValue placeholder="Select version..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {versions.map((version) => (
+                  <SelectItem key={version.id} value={version.id} className="text-xs">
+                    {version.version_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* LO Code - 1 line input */}
           <div className="shrink-0 flex items-center gap-2">
             <Label htmlFor="lo-code" className="text-xs text-muted-foreground whitespace-nowrap">
