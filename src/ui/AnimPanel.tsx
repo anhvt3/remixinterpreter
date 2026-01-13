@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { TimelineEvent } from '../core/types';
 import { normalizeTimeline } from '../core/timeline';
+import { AnimRenderer } from '../renderer/AnimRenderer';
 import { IRAnimRenderer } from '../ir/IRAnimRenderer';
 import { PlayerControls } from './PlayerControls';
 
@@ -100,12 +101,21 @@ export const AnimPanel: React.FC<AnimPanelProps> = ({ events, useIRRenderer = tr
   return (
     <div className="flex flex-col h-full min-h-0 w-full">
       <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden">
-        <IRAnimRenderer
-          events={events}
-          currentTime={currentTime}
-          width={dimensions.width}
-          height={Math.max(dimensions.height, 200)}
-        />
+        {useIRRenderer ? (
+          <IRAnimRenderer
+            events={events}
+            currentTime={currentTime}
+            width={dimensions.width}
+            height={Math.max(dimensions.height, 200)}
+          />
+        ) : (
+          <AnimRenderer
+            events={events}
+            currentTime={currentTime}
+            width={dimensions.width}
+            height={Math.max(dimensions.height, 200)}
+          />
+        )}
       </div>
       <div className="shrink-0">
         <PlayerControls
