@@ -276,9 +276,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                   </SelectContent>
                 </Select>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-7 text-xs whitespace-nowrap"
+                  className="h-7 text-xs whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white"
                   disabled={!selectedVersionId}
                   title="Generate Short Description"
                 >
