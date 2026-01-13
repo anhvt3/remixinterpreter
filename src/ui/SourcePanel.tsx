@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+export type SourceActiveTab = 'lo' | 'video';
 
 interface SourcePanelProps {
   loCode: string;
@@ -11,6 +13,8 @@ interface SourcePanelProps {
   gdriveLink: string;
   onGdriveLinkChange: (link: string) => void;
   zoomLevel?: number;
+  activeTab: SourceActiveTab;
+  onActiveTabChange: (tab: SourceActiveTab) => void;
 }
 
 // Convert Google Drive share link to embeddable video URL
@@ -48,8 +52,9 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   gdriveLink,
   onGdriveLinkChange,
   zoomLevel = 100,
+  activeTab,
+  onActiveTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState('lo');
   const embedUrl = getGdriveEmbedUrl(gdriveLink);
 
   return (
@@ -58,7 +63,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         <span className="panel-title">Source</span>
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={(v) => onActiveTabChange(v as SourceActiveTab)} className="flex-1 flex flex-col min-h-0">
         <TabsList className="shrink-0 mx-2 mt-1">
           <TabsTrigger value="lo" className="text-xs">LO</TabsTrigger>
           <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>

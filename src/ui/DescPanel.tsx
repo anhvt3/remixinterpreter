@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import type { SourceActiveTab } from './SourcePanel';
 
 interface DescPanelProps {
   zoomLevel: number;
@@ -10,6 +11,7 @@ interface DescPanelProps {
   setDescContents: React.Dispatch<React.SetStateAction<string[]>>;
   descVideoLink: string;
   setDescVideoLink: React.Dispatch<React.SetStateAction<string>>;
+  sourceActiveTab: SourceActiveTab;
 }
 
 // Convert Google Drive share link to embeddable preview URL
@@ -34,9 +36,21 @@ export const DescPanel: React.FC<DescPanelProps> = ({
   setDescContents,
   descVideoLink,
   setDescVideoLink,
+  sourceActiveTab,
 }) => {
   const fontSize = Math.round(12 * (zoomLevel / 100));
   const embedUrl = getGdriveEmbedUrl(descVideoLink);
+  
+  // Determine which tab should be active based on source
+  const allowedTabs = sourceActiveTab === 'lo' ? ['1', '2', '3', '4', '5'] : ['video'];
+  const [activeTab, setActiveTab] = useState(allowedTabs[0]);
+  
+  // Auto-switch tab when source changes
+  useEffect(() => {
+    if (!allowedTabs.includes(activeTab)) {
+      setActiveTab(allowedTabs[0]);
+    }
+  }, [sourceActiveTab, allowedTabs, activeTab]);
 
   const handleContentChange = (index: number, value: string) => {
     setDescContents(prev => {
@@ -48,15 +62,15 @@ export const DescPanel: React.FC<DescPanelProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-card" style={{ fontSize: `${fontSize}px` }}>
-      <Tabs defaultValue="1" className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <div className="px-2 py-1 border-b border-border shrink-0">
           <TabsList className="h-7 bg-muted">
-            <TabsTrigger value="1" className="text-xs px-3 h-6">1</TabsTrigger>
-            <TabsTrigger value="2" className="text-xs px-3 h-6">2</TabsTrigger>
-            <TabsTrigger value="3" className="text-xs px-3 h-6">3</TabsTrigger>
-            <TabsTrigger value="4" className="text-xs px-3 h-6">4</TabsTrigger>
-            <TabsTrigger value="5" className="text-xs px-3 h-6">5</TabsTrigger>
-            <TabsTrigger value="video" className="text-xs px-3 h-6">Video</TabsTrigger>
+            <TabsTrigger value="1" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>1</TabsTrigger>
+            <TabsTrigger value="2" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>2</TabsTrigger>
+            <TabsTrigger value="3" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>3</TabsTrigger>
+            <TabsTrigger value="4" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>4</TabsTrigger>
+            <TabsTrigger value="5" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'lo'}>5</TabsTrigger>
+            <TabsTrigger value="video" className="text-xs px-3 h-6" disabled={sourceActiveTab !== 'video'}>Video</TabsTrigger>
           </TabsList>
         </div>
 

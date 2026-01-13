@@ -53,6 +53,7 @@ export const App: React.FC = () => {
   const [loCode, setLoCode] = useState('');
   const [loContent, setLoContent] = useState('');
   const [gdriveLink, setGdriveLink] = useState('');
+  const [sourceActiveTab, setSourceActiveTab] = useState<'lo' | 'video'>('lo');
   const [descContents, setDescContents] = useState<string[]>(['', '', '', '', '']);
   const [descVideoLink, setDescVideoLink] = useState('');
   
@@ -499,6 +500,8 @@ export const App: React.FC = () => {
           gdriveLink={gdriveLink}
           onGdriveLinkChange={setGdriveLink}
           zoomLevel={zoomLevel}
+          activeTab={sourceActiveTab}
+          onActiveTabChange={setSourceActiveTab}
         />
       ),
     },
@@ -512,6 +515,7 @@ export const App: React.FC = () => {
           setDescContents={setDescContents}
           descVideoLink={descVideoLink}
           setDescVideoLink={setDescVideoLink}
+          sourceActiveTab={sourceActiveTab}
         />
       ),
     },
@@ -551,7 +555,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
