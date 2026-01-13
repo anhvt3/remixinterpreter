@@ -182,6 +182,7 @@ function evaluateParsed(
       return doAdd(resolvedExprArgs);
     case 'mul':
     case 'core.mul':
+    case 'math.mul':
       return doMul(resolvedExprArgs);
     case 'core.div':
       return doDiv(resolvedExprArgs);
