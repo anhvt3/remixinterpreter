@@ -478,6 +478,9 @@ export const App: React.FC = () => {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [selectedVideoVersionId, setSelectedVideoVersionId] = useState<string | null>(null);
   
+  // Track if we just created a new video (to enable save button)
+  const [isNewVideoRecord, setIsNewVideoRecord] = useState(false);
+  
   // Track original gdriveLink for unsaved changes detection
   const originalGdriveLinkRef = useRef<string>('');
   
@@ -514,15 +517,18 @@ export const App: React.FC = () => {
     }
   }, [videoVersions, selectedVideoId, selectedVideoVersionId, getVideoVersionContent, resetVideoUndoRedo]);
   
-  // Detect unsaved video changes
+  // Detect unsaved video changes: enabled when gdriveLink changed OR a new record was created
   const hasUnsavedVideoChanges = useMemo(() => {
-    return gdriveLink !== originalGdriveLinkRef.current && selectedVideoId !== null;
-  }, [gdriveLink, selectedVideoId]);
+    const hasLinkChanged = gdriveLink !== originalGdriveLinkRef.current;
+    return (hasLinkChanged || isNewVideoRecord) && selectedVideoId !== null;
+  }, [gdriveLink, selectedVideoId, isNewVideoRecord]);
   
   // When Video selection changes, fetch versions
   const handleSelectVideo = useCallback(async (videoId: string | null) => {
     setSelectedVideoId(videoId);
     setSelectedVideoVersionId(null);
+    // Reset new record flag when selecting a different video
+    setIsNewVideoRecord(false);
     
     if (videoId) {
       await fetchVersionsForVideo(videoId);
@@ -571,6 +577,8 @@ export const App: React.FC = () => {
         setGdriveLink('');
         originalGdriveLinkRef.current = '';
         resetVideoUndoRedo('');
+        // Mark as new record so Save button is enabled
+        setIsNewVideoRecord(true);
       }
     }
   }, [videos, createVideo, createVideoVersion, fetchVersionsForVideo, resetVideoUndoRedo]);
@@ -604,6 +612,8 @@ export const App: React.FC = () => {
     if (newVersion) {
       setSelectedVideoVersionId(newVersion.id);
       originalGdriveLinkRef.current = gdriveLink;
+      // Reset new record flag after saving
+      setIsNewVideoRecord(false);
     }
   }, [selectedVideoId, hasUnsavedVideoChanges, videoVersions, createVideoVersion, gdriveLink]);
   
