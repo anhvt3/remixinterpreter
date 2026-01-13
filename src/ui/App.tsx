@@ -260,7 +260,7 @@ export const App: React.FC = () => {
   }, [getActiveDesc, deleteDesc, activeDescTabIndex, fetchLoDescs, fetchVideoDesc]);
 
   // DSL Script data management
-  const { dslScripts, fetchDslScriptsForDesc, getVersionContent: getDslVersionContent } = useDslScriptData();
+  const { dslScripts, fetchDslScriptsForDesc, getVersionContent: getDslVersionContent, createDslScriptVersion } = useDslScriptData();
   const [selectedDslVersionId, setSelectedDslVersionId] = useState<string | null>(null);
 
   // Get the currently active desc ID based on sourceActiveTab and selected desc
@@ -315,6 +315,30 @@ export const App: React.FC = () => {
       }
     }
   }, [getDslVersionContent]);
+
+  // Save DSL script: create a new version and trigger rebuild
+  const handleSaveDslVersion = useCallback(async (content: string) => {
+    // Get the current script ID
+    const currentScript = dslScripts[0];
+    if (!currentScript) return;
+
+    // Calculate next version number
+    const nextVersion = currentScript.versions.length + 1;
+    const versionName = `v${nextVersion}`;
+
+    // Create new version
+    const newVersion = await createDslScriptVersion(currentScript.id, versionName, content);
+    if (newVersion) {
+      // Update content immediately (triggers rebuild via useEffect)
+      setFullYamlContent(content);
+      // Refresh the versions list
+      if (activeDescId) {
+        await fetchDslScriptsForDesc(activeDescId);
+      }
+      // Select the new version
+      setSelectedDslVersionId(newVersion.id);
+    }
+  }, [dslScripts, createDslScriptVersion, activeDescId, fetchDslScriptsForDesc]);
   
   // LO data management
   const { los, versions, fetchVersionsForLo, getVersionContent, createLo, deleteLo, createVersion, fetchLos } = useLoData();
@@ -1041,6 +1065,7 @@ export const App: React.FC = () => {
     dslScripts,
     selectedVersionId: selectedDslVersionId,
     onSelectVersion: handleSelectDslVersion,
+    onSaveVersion: handleSaveDslVersion,
   };
 
   // Common Anim panel props

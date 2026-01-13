@@ -62,6 +62,8 @@ interface YAMLScriptPanelProps {
   dslScripts?: DslScriptWithVersions[];
   selectedVersionId?: string | null;
   onSelectVersion?: (versionId: string | null) => void;
+  // Save callback - creates a new version and triggers rebuild
+  onSaveVersion?: (content: string) => Promise<void>;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -84,6 +86,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   dslScripts = [],
   selectedVersionId,
   onSelectVersion,
+  onSaveVersion,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   
@@ -166,7 +169,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     setCodeError(err);
   }, [setUndoValue, validateParamsYaml]);
 
-  const handleSave = useCallback((draft?: string): boolean => {
+  const handleSave = useCallback(async (draft?: string): Promise<boolean> => {
     const text = draft ?? codeDraftRef.current;
 
     const err = validateParamsYaml(text);
@@ -182,7 +185,14 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     // Ensure state reflects exactly what we saved
     codeDraftRef.current = text;
     setCodeDraft(text);
-    onChange(text);
+    
+    // Call parent save handler to create new version and rebuild
+    if (onSaveVersion) {
+      await onSaveVersion(text);
+    } else {
+      // Fallback to just updating content
+      onChange(text);
+    }
 
     dirtyRef.current = false;
     setIsDirty(false);
@@ -191,7 +201,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     setPendingViewMode(null);
 
     return true;
-  }, [content, onChange, validateParamsYaml]);
+  }, [content, onChange, onSaveVersion, validateParamsYaml]);
 
   const handleDiscard = useCallback(() => {
     codeDraftRef.current = content;
@@ -209,8 +219,8 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     setPendingViewMode(null);
   }, []);
 
-  const handleDialogSave = useCallback(() => {
-    const ok = handleSave();
+  const handleDialogSave = useCallback(async () => {
+    const ok = await handleSave();
     if (!ok) return;
 
     if (pendingViewMode) {

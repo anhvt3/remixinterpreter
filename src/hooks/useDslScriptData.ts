@@ -108,10 +108,35 @@ export function useDslScriptData() {
     return data?.content || null;
   }, []);
 
+  // Create a new version for a DSL script
+  const createDslScriptVersion = useCallback(async (
+    dslScriptId: string, 
+    versionName: string, 
+    content: string
+  ): Promise<DslScriptVersion | null> => {
+    const { data, error } = await supabase
+      .from('dsl_script_version')
+      .insert({
+        dsl_script_id: dslScriptId,
+        version_name: versionName,
+        content,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating dsl_script_version:', error);
+      return null;
+    }
+
+    return data;
+  }, []);
+
   return {
     dslScripts,
     loading,
     fetchDslScriptsForDesc,
     getVersionContent,
+    createDslScriptVersion,
   };
 }
