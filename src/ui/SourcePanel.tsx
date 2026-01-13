@@ -97,26 +97,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         </TabsList>
         
         <TabsContent value="lo" className="flex-1 flex flex-col min-h-0 m-0 p-2 gap-2">
-          {/* Version and LO Dropdowns (swapped) + Action buttons */}
+          {/* Row 1: LO selector and LO Code input */}
           <div className="shrink-0 flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">Version:</Label>
-            <Select
-              value={selectedVersionId || ''}
-              onValueChange={(value) => onSelectVersion(value || null)}
-              disabled={!selectedLoId || versions.length === 0}
-            >
-              <SelectTrigger className="h-7 text-xs flex-1">
-                <SelectValue placeholder="Select version..." />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                {versions.map((version) => (
-                  <SelectItem key={version.id} value={version.id} className="text-xs">
-                    {version.version_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Label className="text-xs text-muted-foreground whitespace-nowrap">LO:</Label>
             <Select
               value={selectedLoId || ''}
@@ -141,6 +123,38 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 {los.map((lo) => (
                   <SelectItem key={lo.id} value={lo.id} className="text-xs">
                     {lo.code} - {lo.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Label htmlFor="lo-code" className="text-xs text-muted-foreground whitespace-nowrap">
+              LO Code:
+            </Label>
+            <Input
+              id="lo-code"
+              value={loCode}
+              onChange={(e) => onLoCodeChange(e.target.value)}
+              placeholder="Enter LO code..."
+              className="h-7 text-xs flex-1"
+            />
+          </div>
+
+          {/* Row 2: Version selector + Action buttons */}
+          <div className="shrink-0 flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Version:</Label>
+            <Select
+              value={selectedVersionId || ''}
+              onValueChange={(value) => onSelectVersion(value || null)}
+              disabled={!selectedLoId || versions.length === 0}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1">
+                <SelectValue placeholder="Select version..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {versions.map((version) => (
+                  <SelectItem key={version.id} value={version.id} className="text-xs">
+                    {version.version_name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -179,20 +193,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 <Save className="h-3.5 w-3.5" />
               </Button>
             </div>
-          </div>
-
-          {/* LO Code - 1 line input */}
-          <div className="shrink-0 flex items-center gap-2">
-            <Label htmlFor="lo-code" className="text-xs text-muted-foreground whitespace-nowrap">
-              LO Code:
-            </Label>
-            <Input
-              id="lo-code"
-              value={loCode}
-              onChange={(e) => onLoCodeChange(e.target.value)}
-              placeholder="Enter LO code..."
-              className="h-7 text-xs"
-            />
           </div>
           
           {/* LO Content - rest of the panel */}
