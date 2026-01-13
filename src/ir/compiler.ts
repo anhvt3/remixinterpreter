@@ -188,26 +188,26 @@ function processTextCreate(state: CompilerState, args: Record<string, unknown>):
     style.text.fontStyle = 'italic';
   }
   
-  // Create text node
+  // Create text node - visible from start, opacity controlled by animation
   const node: NodeProps = {
     id,
     type: 'text',
     zIndex: state.nodeOrder.length,
     visible: true,
-    visibilitySpan: { t0, t1: Infinity },
+    // Don't use visibilitySpan - let opacity animation control visibility
     transform: {
       ...createDefaultTransform(),
       x: px,
       y: py,
     },
     style,
-    content: mode === 'math' ? `\\\\\\\\(${content}\\\\\\\\)` : content,
+    content: mode === 'math' ? `\\(${content}\\)` : content,
   } as NodeProps;
   
   state.nodes.set(id, node);
   state.nodeOrder.push(id);
   
-  // Add fade-in animation
+  // Add fade-in animation (opacity starts at 0, fades to target)
   state.animations.push({
     id: generateId('anim'),
     nodeId: id,
@@ -336,7 +336,6 @@ function processShapeCreate(state: CompilerState, args: Record<string, unknown>)
         type: 'circle',
         zIndex: state.nodeOrder.length,
         visible: true,
-        visibilitySpan: { t0, t1: Infinity },
         transform: { ...createDefaultTransform(), x: px, y: py },
         style,
         radius,
@@ -352,7 +351,6 @@ function processShapeCreate(state: CompilerState, args: Record<string, unknown>)
         type: 'rect',
         zIndex: state.nodeOrder.length,
         visible: true,
-        visibilitySpan: { t0, t1: Infinity },
         transform: { ...createDefaultTransform(), x: px - width/2, y: py - height/2 },
         style,
         width,
@@ -372,7 +370,6 @@ function processShapeCreate(state: CompilerState, args: Record<string, unknown>)
           type: 'line',
           zIndex: state.nodeOrder.length,
           visible: true,
-          visibilitySpan: { t0, t1: Infinity },
           transform: createDefaultTransform(),
           style,
           x1, y1, x2, y2,
@@ -395,7 +392,6 @@ function processShapeCreate(state: CompilerState, args: Record<string, unknown>)
           type: 'polygon',
           zIndex: state.nodeOrder.length,
           visible: true,
-          visibilitySpan: { t0, t1: Infinity },
           transform: createDefaultTransform(),
           style,
           points: pixelPoints,
