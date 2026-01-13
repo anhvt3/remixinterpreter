@@ -96,3 +96,61 @@ export function extractSquares(n: number, powers: Power[]): string {
 export function finalRootSimplified(n: number, powers: Power[]): string {
   return extractSquares(n, powers);
 }
+
+/**
+ * Format a string with template substitutions
+ * e.g., format("Hello {0}!", ["World"]) -> "Hello World!"
+ */
+export function format(template: string, ...values: unknown[]): string {
+  let result = template;
+  for (let i = 0; i < values.length; i++) {
+    result = result.replace(new RegExp(`\\{${i}\\}`, 'g'), String(values[i]));
+  }
+  return result;
+}
+
+/**
+ * Create a LaTeX fraction
+ */
+export function frac(numerator: string | number, denominator: string | number): string {
+  return `\\frac{${numerator}}{${denominator}}`;
+}
+
+/**
+ * Create a LaTeX superscript
+ */
+export function sup(base: string | number, exponent: string | number): string {
+  return `${base}^{${exponent}}`;
+}
+
+/**
+ * Create a LaTeX subscript
+ */
+export function sub(base: string | number, subscript: string | number): string {
+  return `${base}_{${subscript}}`;
+}
+
+/**
+ * Create a LaTeX square root
+ */
+export function sqrt(content: string | number, index?: number): string {
+  if (index !== undefined && index !== 2) {
+    return `\\sqrt[${index}]{${content}}`;
+  }
+  return `\\sqrt{${content}}`;
+}
+
+/**
+ * Wrap content in LaTeX parentheses
+ */
+export function paren(content: string): string {
+  return `\\left(${content}\\right)`;
+}
+
+/**
+ * Create a LaTeX matrix
+ */
+export function matrix(rows: (string | number)[][]): string {
+  const rowStrings = rows.map(row => row.join(' & ')).join(' \\\\ ');
+  return `\\begin{pmatrix} ${rowStrings} \\end{pmatrix}`;
+}

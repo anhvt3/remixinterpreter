@@ -1,6 +1,7 @@
 import type { Environment, Power } from './types';
 import * as mathStdlib from '../stdlib/math';
 import * as texStdlib from '../stdlib/tex';
+import * as geomStdlib from '../stdlib/geom';
 
 /**
  * Evaluate an expression with its arguments
@@ -286,6 +287,214 @@ function evaluateParsed(
       return texStdlib.finalRootSimplified(
         resolvedExprArgs[0] as number,
         resolvedExprArgs[1] as Power[]
+      );
+    case 'tex.format':
+      return texStdlib.format(
+        resolvedExprArgs[0] as string,
+        ...(resolvedExprArgs.slice(1) as unknown[])
+      );
+    case 'tex.frac':
+      return texStdlib.frac(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | number
+      );
+    case 'tex.sup':
+      return texStdlib.sup(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | number
+      );
+    case 'tex.sub':
+      return texStdlib.sub(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as string | number
+      );
+    case 'tex.sqrt':
+      return texStdlib.sqrt(
+        resolvedExprArgs[0] as string | number,
+        resolvedExprArgs[1] as number | undefined
+      );
+    case 'tex.paren':
+      return texStdlib.paren(resolvedExprArgs[0] as string);
+    case 'tex.matrix':
+      return texStdlib.matrix(resolvedExprArgs[0] as (string | number)[][]);
+    // Geometry functions
+    case 'geom.square_corners':
+      return geomStdlib.squareCorners(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number
+      );
+    case 'geom.rect_corners':
+      return geomStdlib.rectCorners(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number
+      );
+    case 'geom.circle_points':
+      return geomStdlib.circlePoints(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number | undefined
+      );
+    case 'geom.line_points':
+      return geomStdlib.linePoints(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number
+      );
+    case 'geom.lerp':
+      return geomStdlib.lerp(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number
+      );
+    case 'geom.distance':
+      return geomStdlib.distance(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number
+      );
+    case 'geom.midpoint':
+      return geomStdlib.midpoint(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number
+      );
+    case 'geom.rotate_point':
+      return geomStdlib.rotatePoint(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number
+      );
+    case 'geom.grid_points':
+      return geomStdlib.gridPoints(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number
+      );
+    case 'geom.triangles_rearrangement_left':
+      return geomStdlib.trianglesRearrangementLeft(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number
+      );
+    case 'geom.triangles_rearrangement_right':
+      return geomStdlib.trianglesRearrangementRight(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number
+      );
+    case 'geom.triangle_vertices':
+      return geomStdlib.triangleVertices(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number | undefined
+      );
+    case 'geom.polygon_vertices':
+      return geomStdlib.polygonVertices(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number | undefined
+      );
+    case 'geom.arc_points':
+      return geomStdlib.arcPoints(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number
+      );
+    case 'geom.bezier_points':
+      return geomStdlib.bezierPoints(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number,
+        resolvedExprArgs[6] as number,
+        resolvedExprArgs[7] as number,
+        resolvedExprArgs[8] as number
+      );
+    case 'geom.blocks_right':
+      return geomStdlib.blocksRight(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number | undefined
+      );
+    case 'geom.blocks_left':
+      return geomStdlib.blocksLeft(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number | undefined
+      );
+    case 'geom.blocks_up':
+      return geomStdlib.blocksUp(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number | undefined
+      );
+    case 'geom.blocks_down':
+      return geomStdlib.blocksDown(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number,
+        resolvedExprArgs[5] as number | undefined
+      );
+    case 'geom.blocks_stack':
+      return geomStdlib.blocksStack(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number
+      );
+    case 'geom.blocks_row':
+      return geomStdlib.blocksRow(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number | undefined
+      );
+    case 'geom.blocks_column':
+      return geomStdlib.blocksColumn(
+        resolvedExprArgs[0] as number,
+        resolvedExprArgs[1] as number,
+        resolvedExprArgs[2] as number,
+        resolvedExprArgs[3] as number,
+        resolvedExprArgs[4] as number | undefined
       );
     default:
       throw new Error(`Unknown function: ${fn}`);
