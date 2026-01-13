@@ -73,6 +73,71 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
+// Recursive component for rendering array items with nested array support
+const ArrayItemRow: React.FC<{
+  index: number;
+  value: unknown;
+  indent: number;
+}> = ({ index, value, indent }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isArray = Array.isArray(value);
+  const hasItems = isArray && value.length > 0;
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  return (
+    <>
+      <div 
+        className="flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30"
+        style={{ paddingLeft: `${indent}px` }}
+      >
+        {hasItems ? (
+          <button
+            onClick={handleExpandClick}
+            className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
+          </button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <span className="text-muted-foreground/60">[{index}]</span>
+        {hasItems && !isExpanded ? (
+          <span>[...{value.length} items]</span>
+        ) : hasItems && isExpanded ? (
+          <span>[</span>
+        ) : (
+          <span>{formatValue(value)}</span>
+        )}
+      </div>
+      
+      {/* Nested array items */}
+      {hasItems && isExpanded && (
+        <>
+          {value.map((item, idx) => (
+            <ArrayItemRow
+              key={idx}
+              index={idx}
+              value={item}
+              indent={indent + 16}
+            />
+          ))}
+          <div 
+            className="flex gap-1 py-0.5 px-2 text-muted-foreground"
+            style={{ paddingLeft: `${indent}px` }}
+          >
+            <span className="w-3 shrink-0" />
+            <span>]</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
 // Component for rendering a single param row with collapsible array support
 const ParamRow: React.FC<{
   paramName: string;
@@ -86,7 +151,7 @@ const ParamRow: React.FC<{
 }> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(paramValue);
-  const hasMultipleItems = isArray && paramValue.length > 1;
+  const hasItems = isArray && paramValue.length > 0;
   
   const paramHighlight = isSelected 
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
@@ -108,7 +173,7 @@ const ParamRow: React.FC<{
           onParamClick();
         }}
       >
-        {hasMultipleItems ? (
+        {hasItems ? (
           <button
             onClick={handleExpandClick}
             className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
@@ -120,27 +185,25 @@ const ParamRow: React.FC<{
         )}
         <span className="text-orange-400">{paramName}</span>
         <span className="text-muted-foreground">{separator}</span>
-        {hasMultipleItems && !isExpanded ? (
+        {hasItems && !isExpanded ? (
           <span className="text-muted-foreground">[...{paramValue.length} items]</span>
-        ) : !hasMultipleItems ? (
+        ) : !hasItems ? (
           <span className="text-muted-foreground">{formatValue(paramValue)}</span>
         ) : (
           <span className="text-muted-foreground">[</span>
         )}
       </div>
       
-      {/* Expanded array items */}
-      {hasMultipleItems && isExpanded && (
+      {/* Expanded array items - using recursive ArrayItemRow */}
+      {hasItems && isExpanded && (
         <>
           {(paramValue as unknown[]).map((item, idx) => (
-            <div 
+            <ArrayItemRow
               key={idx}
-              className="flex gap-1 py-0.5 px-2 text-muted-foreground"
-              style={{ paddingLeft: `${indent + 16}px` }}
-            >
-              <span className="text-muted-foreground/60">[{idx}]</span>
-              <span>{formatValue(item)}</span>
-            </div>
+              index={idx}
+              value={item}
+              indent={indent + 16}
+            />
           ))}
           <div 
             className="flex gap-1 py-0.5 px-2 text-muted-foreground"
