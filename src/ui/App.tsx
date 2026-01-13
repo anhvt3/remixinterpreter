@@ -23,7 +23,7 @@ import { useDescData } from '@/hooks/useDescData';
 import { useDslScriptData } from '@/hooks/useDslScriptData';
 import { useVideoData } from '@/hooks/useVideoData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-
+import { useActivityLog } from '@/contexts/ActivityLogContext';
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
   try {
@@ -54,6 +54,9 @@ function mergeParams(fullYaml: string, paramsYaml: string): string {
 // ============================================================
 
 export const App: React.FC = () => {
+  // Activity log - must be near top for use in all handlers
+  const { addLog } = useActivityLog();
+
   const [fullYamlContent, setFullYamlContent] = useState(exampleYaml);
   // Keep a last-known-good full YAML to recover if a bad version is selected/saved
   const lastValidFullYamlRef = useRef<string>(exampleYaml);
@@ -192,6 +195,8 @@ export const App: React.FC = () => {
     const nextVersion = (activeDesc.versions?.length || 0) + 1;
     const versionName = `v${nextVersion}`;
     
+    addLog('info', 'Desc', `Saving ${activeDesc.name}...`);
+    
     const newVersion = await createDescVersion(activeDesc.id, versionName, descContents[activeDescTabIndex]);
     if (newVersion) {
       // Update selected version and original content
@@ -208,8 +213,11 @@ export const App: React.FC = () => {
       } else {
         fetchLoDescs();
       }
+      addLog('success', 'Desc', `Saved ${activeDesc.name} as ${versionName}`);
+    } else {
+      addLog('error', 'Desc', `Failed to save ${activeDesc.name}`);
     }
-  }, [getActiveDesc, hasUnsavedDescChanges, createDescVersion, descContents, activeDescTabIndex, fetchLoDescs, fetchVideoDesc]);
+  }, [getActiveDesc, hasUnsavedDescChanges, createDescVersion, descContents, activeDescTabIndex, fetchLoDescs, fetchVideoDesc, addLog]);
   
   // Create new desc
   const handleCreateDesc = useCallback(async () => {
@@ -350,7 +358,12 @@ export const App: React.FC = () => {
   const handleSaveDslVersion = useCallback(async (paramsContent: string) => {
     // Get the current script ID
     const currentScript = dslScripts[0];
-    if (!currentScript) return;
+    if (!currentScript) {
+      addLog('error', 'DSLScript', 'No script found to save');
+      return;
+    }
+
+    addLog('info', 'DSLScript', 'Saving new version...');
 
     // Merge the edited params back into a valid full YAML base
     const baseYaml = lastValidFullYamlRef.current || fullYamlContent;
@@ -360,19 +373,27 @@ export const App: React.FC = () => {
     const nextVersion = currentScript.versions.length + 1;
     const versionName = `v${nextVersion}`;
 
-    // Create new version with the FULL merged content
-    const newVersion = await createDslScriptVersion(currentScript.id, versionName, fullContent);
-    if (newVersion) {
-      // Update content immediately (triggers rebuild via useEffect)
-      setFullYamlContent(fullContent);
-      // Refresh the versions list
-      if (activeDescId) {
-        await fetchDslScriptsForDesc(activeDescId);
+    try {
+      // Create new version with the FULL merged content
+      const newVersion = await createDslScriptVersion(currentScript.id, versionName, fullContent);
+      if (newVersion) {
+        // Update content immediately (triggers rebuild via useEffect)
+        setFullYamlContent(fullContent);
+        // Refresh the versions list
+        if (activeDescId) {
+          await fetchDslScriptsForDesc(activeDescId);
+        }
+        // Select the new version
+        setSelectedDslVersionId(newVersion.id);
+        addLog('success', 'DSLScript', `Saved as ${versionName}`);
+      } else {
+        addLog('error', 'DSLScript', 'Failed to create version');
       }
-      // Select the new version
-      setSelectedDslVersionId(newVersion.id);
+    } catch (err) {
+      addLog('error', 'DSLScript', `Save failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw err;
     }
-  }, [dslScripts, createDslScriptVersion, activeDescId, fetchDslScriptsForDesc, fullYamlContent]);
+  }, [dslScripts, createDslScriptVersion, activeDescId, fetchDslScriptsForDesc, fullYamlContent, addLog]);
   
   // LO data management
   const { los, versions, fetchVersionsForLo, getVersionContent, createLo, deleteLo, createVersion, fetchLos } = useLoData();
@@ -512,12 +533,17 @@ export const App: React.FC = () => {
     const nextVersion = versions.length + 1;
     const versionName = `v${nextVersion}`;
     
+    addLog('info', 'Source', `Saving LO ${loCode}...`);
+    
     const newVersion = await createVersion(selectedLoId, versionName, loContent);
     if (newVersion) {
       setSelectedVersionId(newVersion.id);
       originalLoContentRef.current = loContent;
+      addLog('success', 'Source', `Saved LO ${loCode} as ${versionName}`);
+    } else {
+      addLog('error', 'Source', `Failed to save LO ${loCode}`);
     }
-  }, [selectedLoId, hasUnsavedChanges, versions, createVersion, loContent]);
+  }, [selectedLoId, hasUnsavedChanges, versions, createVersion, loContent, loCode, addLog]);
   
   // ============================================================
   // VIDEO DATA MANAGEMENT
@@ -777,7 +803,9 @@ export const App: React.FC = () => {
       const validation = validateSchema(spec);
       
       if (!validation.valid) {
-        setError(validation.errors.join('\n'));
+        const errorMsg = validation.errors.join('\n');
+        setError(errorMsg);
+        addLog('error', 'Runtime', `Schema validation failed: ${validation.errors[0]}`);
         return;
       }
       
@@ -788,15 +816,18 @@ export const App: React.FC = () => {
       setStepCallChains(result.stepCallChains);
       setStepCreatedElements(result.stepCreatedElements);
       setError(null);
+      addLog('success', 'Runtime', `Built ${result.timeline.length} events, ${result.steps.length} steps`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+      setError(errorMsg);
       setParsedSpec(null);
       setRuntimeSteps([]);
       setElementCallChains(new Map());
       setStepCallChains(new Map());
       setStepCreatedElements(new Map());
+      addLog('error', 'Runtime', `Build failed: ${errorMsg}`);
     }
-  }, [fullYamlContent]);
+  }, [fullYamlContent, addLog]);
 
   // Get call chain for the selected element (when clicking Anim panel)
   const selectedElementCallChain = useMemo(() => {
@@ -1223,9 +1254,9 @@ export const App: React.FC = () => {
     },
     {
       id: 'chat' as PanelId,
-      label: '6. Chat',
+      label: '6. Log',
       render: () => (
-        <ChatPanel title="6. Chat" zoomLevel={zoomLevel} />
+        <ChatPanel title="6. Activity Log" zoomLevel={zoomLevel} />
       ),
     },
   ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion, videos, videoVersions, selectedVideoId, handleSelectVideo, selectedVideoVersionId, handleSelectVideoVersion, handleVideoUndo, handleVideoRedo, handleVideoSave, canVideoUndo, canVideoRedo, hasUnsavedVideoChanges, handleCreateNewVideo, handleDeleteVideo, setGdriveLinkUndoable]);
