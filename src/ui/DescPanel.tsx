@@ -148,7 +148,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
               disabled={!hasUnsavedDescChanges}
               title="Save"
             >
-              <Save className={`h-3.5 w-3.5 ${hasUnsavedDescChanges ? 'text-orange-500' : ''}`} />
+              <Save className={`h-3.5 w-3.5 ${hasUnsavedDescChanges ? 'text-orange-500' : 'text-muted-foreground/50'}`} />
             </Button>
             <Button
               variant="ghost"

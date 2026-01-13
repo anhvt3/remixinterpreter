@@ -144,6 +144,63 @@ export function useDescData() {
     return data?.content || null;
   }, []);
 
+  // Create a new desc version (save)
+  const createDescVersion = useCallback(async (descId: string, versionName: string, content: string): Promise<DescVersion | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('desc_version')
+        .insert({
+          desc_id: descId,
+          version_name: versionName,
+          content,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating desc version:', error);
+      return null;
+    }
+  }, []);
+
+  // Create a new desc
+  const createDesc = useCallback(async (type: 'LODesc' | 'VideoDesc', name: string): Promise<Desc | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('desc')
+        .insert({
+          type,
+          name,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Desc;
+    } catch (error) {
+      console.error('Error creating desc:', error);
+      return null;
+    }
+  }, []);
+
+  // Delete a desc (soft delete)
+  const deleteDesc = useCallback(async (descId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('desc')
+        .update({ is_deleted: true })
+        .eq('id', descId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting desc:', error);
+      return false;
+    }
+  }, []);
+
   return {
     loDescs,
     videoDesc,
@@ -151,5 +208,8 @@ export function useDescData() {
     fetchLoDescs,
     fetchVideoDesc,
     getVersionContent,
+    createDescVersion,
+    createDesc,
+    deleteDesc,
   };
 }

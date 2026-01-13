@@ -125,7 +125,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
               disabled={!hasUnsavedChanges}
               title="Save"
             >
-              <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
+              <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : 'text-muted-foreground/50'}`} />
             </Button>
             <Button
               variant="ghost"

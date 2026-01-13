@@ -62,8 +62,34 @@ export const App: React.FC = () => {
   const [descVideoLink, setDescVideoLink] = useState('');
   
   // Desc data management
-  const { loDescs, videoDesc, fetchLoDescs, fetchVideoDesc, getVersionContent: getDescVersionContent } = useDescData();
+  const { loDescs, videoDesc, fetchLoDescs, fetchVideoDesc, getVersionContent: getDescVersionContent, createDescVersion, createDesc, deleteDesc } = useDescData();
   const [selectedDescVersionIds, setSelectedDescVersionIds] = useState<(string | null)[]>([null, null, null, null, null, null]);
+  
+  // Track original desc contents for unsaved changes detection
+  const originalDescContentsRef = useRef<string[]>(['', '', '', '', '', '']);
+  
+  // Currently active desc tab index (0-4 for LODesc, 5 for VideoDesc)
+  const [activeDescTabIndex, setActiveDescTabIndex] = useState(0);
+  
+  // Undo/Redo for Desc content (for active tab)
+  const {
+    undo: handleDescUndo,
+    redo: handleDescRedo,
+    canUndo: canUndoDesc,
+    canRedo: canRedoDesc,
+    reset: resetDescUndoRedo,
+  } = useUndoRedo(descContents[activeDescTabIndex] || '', (value) => {
+    setDescContents(prev => {
+      const newContents = [...prev];
+      newContents[activeDescTabIndex] = value;
+      return newContents;
+    });
+  });
+  
+  // Detect unsaved desc changes
+  const hasUnsavedDescChanges = useMemo(() => {
+    return descContents.some((content, index) => content !== originalDescContentsRef.current[index]);
+  }, [descContents]);
   
   // Fetch desc data on mount
   useEffect(() => {
@@ -99,6 +125,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const loadContents = async () => {
       const newContents = [...descContents];
+      const newOriginals = [...originalDescContentsRef.current];
       let hasChanges = false;
       
       for (let i = 0; i < 6; i++) {
@@ -107,6 +134,7 @@ export const App: React.FC = () => {
           const content = await getDescVersionContent(versionId);
           if (content !== null && content !== descContents[i]) {
             newContents[i] = content;
+            newOriginals[i] = content;
             hasChanges = true;
           }
         }
@@ -114,6 +142,7 @@ export const App: React.FC = () => {
       
       if (hasChanges) {
         setDescContents(newContents);
+        originalDescContentsRef.current = newOriginals;
       }
     };
     
@@ -127,16 +156,107 @@ export const App: React.FC = () => {
       newIds[tabIndex] = versionId;
       return newIds;
     });
+    setActiveDescTabIndex(tabIndex);
     
     if (versionId) {
       const content = await getDescVersionContent(versionId);
+      const contentValue = content || '';
       setDescContents(prev => {
         const newContents = [...prev];
-        newContents[tabIndex] = content || '';
+        newContents[tabIndex] = contentValue;
         return newContents;
       });
+      originalDescContentsRef.current[tabIndex] = contentValue;
+      resetDescUndoRedo(contentValue);
     }
-  }, [getDescVersionContent]);
+  }, [getDescVersionContent, resetDescUndoRedo]);
+  
+  // Get currently active desc based on tab
+  const getActiveDesc = useCallback(() => {
+    if (activeDescTabIndex === 5) {
+      return videoDesc;
+    }
+    return loDescs[activeDescTabIndex] || null;
+  }, [activeDescTabIndex, loDescs, videoDesc]);
+  
+  // Save desc: create a new version
+  const handleSaveDesc = useCallback(async () => {
+    const activeDesc = getActiveDesc();
+    if (!activeDesc || !hasUnsavedDescChanges) return;
+    
+    // Calculate next version number
+    const nextVersion = (activeDesc.versions?.length || 0) + 1;
+    const versionName = `v${nextVersion}`;
+    
+    const newVersion = await createDescVersion(activeDesc.id, versionName, descContents[activeDescTabIndex]);
+    if (newVersion) {
+      // Update selected version and original content
+      setSelectedDescVersionIds(prev => {
+        const newIds = [...prev];
+        newIds[activeDescTabIndex] = newVersion.id;
+        return newIds;
+      });
+      originalDescContentsRef.current[activeDescTabIndex] = descContents[activeDescTabIndex];
+      
+      // Refresh desc data to get updated versions
+      if (activeDescTabIndex === 5) {
+        fetchVideoDesc();
+      } else {
+        fetchLoDescs();
+      }
+    }
+  }, [getActiveDesc, hasUnsavedDescChanges, createDescVersion, descContents, activeDescTabIndex, fetchLoDescs, fetchVideoDesc]);
+  
+  // Create new desc
+  const handleCreateDesc = useCallback(async () => {
+    const type = sourceActiveTab === 'video' ? 'VideoDesc' : 'LODesc';
+    const name = type === 'VideoDesc' ? `Video Desc ${Date.now()}` : `LO Desc ${loDescs.length + 1}`;
+    
+    const newDesc = await createDesc(type, name);
+    if (newDesc) {
+      // Create initial version
+      await createDescVersion(newDesc.id, 'v1', '');
+      
+      // Refresh data
+      if (type === 'VideoDesc') {
+        fetchVideoDesc();
+      } else {
+        fetchLoDescs();
+      }
+    }
+  }, [sourceActiveTab, loDescs.length, createDesc, createDescVersion, fetchLoDescs, fetchVideoDesc]);
+  
+  // Delete current desc
+  const handleDeleteDesc = useCallback(async () => {
+    const activeDesc = getActiveDesc();
+    if (!activeDesc) return;
+    
+    const confirmed = window.confirm(`Are you sure you want to delete "${activeDesc.name}"?`);
+    if (!confirmed) return;
+    
+    const success = await deleteDesc(activeDesc.id);
+    if (success) {
+      // Clear content and reset
+      setDescContents(prev => {
+        const newContents = [...prev];
+        newContents[activeDescTabIndex] = '';
+        return newContents;
+      });
+      originalDescContentsRef.current[activeDescTabIndex] = '';
+      setSelectedDescVersionIds(prev => {
+        const newIds = [...prev];
+        newIds[activeDescTabIndex] = null;
+        return newIds;
+      });
+      
+      // Refresh data
+      if (activeDescTabIndex === 5) {
+        fetchVideoDesc();
+      } else {
+        fetchLoDescs();
+      }
+    }
+  }, [getActiveDesc, deleteDesc, activeDescTabIndex, fetchLoDescs, fetchVideoDesc]);
 
   // DSL Script data management
   const { dslScripts, fetchDslScriptsForDesc, getVersionContent: getDslVersionContent } = useDslScriptData();
@@ -820,6 +940,14 @@ export const App: React.FC = () => {
           setDescContents={setDescContents}
           descVideoLink={descVideoLink}
           setDescVideoLink={setDescVideoLink}
+          onCreateDesc={handleCreateDesc}
+          onDeleteDesc={handleDeleteDesc}
+          onSaveDesc={handleSaveDesc}
+          onUndoDesc={handleDescUndo}
+          onRedoDesc={handleDescRedo}
+          canUndoDesc={canUndoDesc}
+          canRedoDesc={canRedoDesc}
+          hasUnsavedDescChanges={hasUnsavedDescChanges}
         />
       ),
     },
@@ -859,7 +987,7 @@ export const App: React.FC = () => {
         <ChatPanel title="6. Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, dslScripts, selectedDslVersionId, handleSelectDslVersion]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
