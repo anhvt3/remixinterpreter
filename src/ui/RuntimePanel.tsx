@@ -435,7 +435,7 @@ const RuntimeStepRow: React.FC<{
           {step.type === 'call' && (
             <div>
               <span className="text-purple-400">call </span>
-              <span className="text-blue-400 font-medium">{step.functionName}</span>
+              <span className="text-primary">{step.functionName}</span>
             </div>
           )}
           
@@ -468,7 +468,7 @@ const RuntimeStepRow: React.FC<{
           {step.type === 'ir' && (
             <div>
               <span className="text-cyan-400">→ </span>
-              <span className="text-blue-400">{step.functionName}</span>
+              <span className="text-primary">{step.functionName}</span>
             </div>
           )}
         </div>
