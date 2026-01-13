@@ -17,7 +17,9 @@ import type {
   NodeStyle,
   Color,
   GroupProps,
+  TextProps,
 } from './types';
+import katex from 'katex';
 import {
   colorToRGBA,
   lerpColor,
@@ -548,8 +550,140 @@ function renderGlow(
   ctx.restore();
 }
 
+// LaTeX rendering cache
+const latexCache = new Map<string, { img: HTMLImageElement; width: number; height: number }>();
+
 /**
- * Render text node
+ * Check if text contains LaTeX delimiters
+ */
+function isLatexContent(content: string): boolean {
+  return content.includes('\\(') || content.includes('\\[') || 
+         content.includes('$') || content.includes('\\frac') ||
+         content.includes('\\sqrt') || content.includes('^{');
+}
+
+/**
+ * Extract LaTeX from delimiters
+ */
+function extractLatex(content: string): string {
+  // Handle \(...\) inline math
+  const inlineMatch = content.match(/\\\((.*?)\\\)/s);
+  if (inlineMatch) return inlineMatch[1];
+  
+  // Handle \[...\] display math
+  const displayMatch = content.match(/\\\[(.*?)\\\]/s);
+  if (displayMatch) return displayMatch[1];
+  
+  // Handle $...$ inline math
+  const dollarMatch = content.match(/\$(.*?)\$/s);
+  if (dollarMatch) return dollarMatch[1];
+  
+  // Return as-is if no delimiters found
+  return content;
+}
+
+/**
+ * Render LaTeX to an image via hidden DOM element
+ */
+function renderLatexToImage(
+  latex: string,
+  fontSize: number,
+  color: string
+): Promise<{ img: HTMLImageElement; width: number; height: number }> {
+  const cacheKey = `${latex}|${fontSize}|${color}`;
+  
+  const cached = latexCache.get(cacheKey);
+  if (cached) return Promise.resolve(cached);
+  
+  return new Promise((resolve) => {
+    // Create temporary container
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '-9999px';
+    container.style.fontSize = `${fontSize}px`;
+    container.style.color = color;
+    container.style.fontFamily = '"Times New Roman", Times, serif';
+    document.body.appendChild(container);
+    
+    try {
+      // Render LaTeX using KaTeX
+      katex.render(latex, container, {
+        throwOnError: false,
+        displayMode: false,
+        output: 'html',
+      });
+      
+      // Get dimensions
+      const rect = container.getBoundingClientRect();
+      const width = Math.ceil(rect.width) + 4;
+      const height = Math.ceil(rect.height) + 4;
+      
+      // Create canvas to capture as image
+      const offscreen = document.createElement('canvas');
+      offscreen.width = width * 2; // 2x for retina
+      offscreen.height = height * 2;
+      const offCtx = offscreen.getContext('2d');
+      
+      if (!offCtx) {
+        document.body.removeChild(container);
+        resolve({ img: new Image(), width: 0, height: 0 });
+        return;
+      }
+      
+      // Use html2canvas-like approach: render to SVG foreignObject
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', String(width * 2));
+      svg.setAttribute('height', String(height * 2));
+      
+      const foreignObject = document.createElementNS(svgNS, 'foreignObject');
+      foreignObject.setAttribute('width', '100%');
+      foreignObject.setAttribute('height', '100%');
+      
+      // Clone container content into foreignObject
+      const clonedDiv = document.createElement('div');
+      clonedDiv.style.fontSize = `${fontSize * 2}px`;
+      clonedDiv.style.color = color;
+      clonedDiv.style.fontFamily = '"Times New Roman", Times, serif';
+      clonedDiv.innerHTML = container.innerHTML;
+      
+      foreignObject.appendChild(clonedDiv);
+      svg.appendChild(foreignObject);
+      
+      // Convert SVG to data URL
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(container);
+        
+        const result = { img, width, height };
+        latexCache.set(cacheKey, result);
+        resolve(result);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(container);
+        resolve({ img: new Image(), width: 0, height: 0 });
+      };
+      img.src = url;
+      
+    } catch (e) {
+      document.body.removeChild(container);
+      resolve({ img: new Image(), width: 0, height: 0 });
+    }
+  });
+}
+
+// Store pending LaTeX renders to avoid flicker
+const pendingLatexRenders = new Map<string, boolean>();
+
+/**
+ * Render text node - handles both plain text and LaTeX
  */
 function renderText(
   ctx: CanvasRenderingContext2D,
@@ -558,9 +692,53 @@ function renderText(
 ): void {
   if (node.type !== 'text') return;
   
+  const textNode = node as TextProps;
+  const content = textNode.content;
   const textStyle = style.text || theme.defaultText;
   
-  // Build font string
+  // Check if this is LaTeX content
+  if (isLatexContent(content)) {
+    const latex = extractLatex(content);
+    const cacheKey = `${latex}|${textStyle.fontSize}|${colorToRGBA(style.fill.color)}`;
+    
+    const cached = latexCache.get(cacheKey);
+    if (cached && cached.img.complete && cached.width > 0) {
+      // Draw cached LaTeX image
+      ctx.save();
+      
+      // Apply glow if enabled
+      if (style.glow.enabled) {
+        ctx.shadowColor = colorToRGBA(style.glow.color, style.glow.color.a * style.glow.intensity);
+        ctx.shadowBlur = style.glow.blurPx;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+      
+      // Draw centered on the position
+      ctx.drawImage(
+        cached.img, 
+        -cached.width / 2, 
+        -cached.height / 2, 
+        cached.width, 
+        cached.height
+      );
+      ctx.restore();
+      return;
+    }
+    
+    // Start async render if not already pending
+    if (!pendingLatexRenders.has(cacheKey)) {
+      pendingLatexRenders.set(cacheKey, true);
+      renderLatexToImage(latex, textStyle.fontSize, colorToRGBA(style.fill.color))
+        .then(() => {
+          pendingLatexRenders.delete(cacheKey);
+        });
+    }
+    
+    // Fall back to plain text while loading
+  }
+  
+  // Plain text rendering (or fallback)
   ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
   ctx.textAlign = textStyle.textAlign;
   ctx.textBaseline = textStyle.textBaseline;
@@ -573,10 +751,9 @@ function renderText(
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
     
-    // Draw text multiple times for glow intensity
     if (style.fill.enabled) {
       ctx.fillStyle = colorToRGBA(style.fill.color);
-      ctx.fillText(node.content, 0, 0);
+      ctx.fillText(content, 0, 0);
     }
     ctx.restore();
   }
@@ -584,13 +761,13 @@ function renderText(
   // Draw actual text
   if (style.fill.enabled) {
     ctx.fillStyle = colorToRGBA(style.fill.color);
-    ctx.fillText(node.content, 0, 0);
+    ctx.fillText(content, 0, 0);
   }
   
   if (style.stroke.enabled) {
     ctx.strokeStyle = colorToRGBA(style.stroke.color);
     ctx.lineWidth = style.stroke.width;
-    ctx.strokeText(node.content, 0, 0);
+    ctx.strokeText(content, 0, 0);
   }
 }
 
