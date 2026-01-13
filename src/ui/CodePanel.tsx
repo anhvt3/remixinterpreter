@@ -391,11 +391,12 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   onKeyDown={handleKeyDown}
                   readOnly={readOnly}
                   wrap="off"
-                  className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10 overflow-hidden"
+                  className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10"
                   style={{
                     lineHeight: '1.6',
                     tabSize: 2,
-                    minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                    height: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                    minHeight: '100%',
                     caretColor: 'hsl(var(--foreground))',
                   }}
                   spellCheck={false}
