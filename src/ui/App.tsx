@@ -26,6 +26,7 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useActivityLog } from '@/contexts/ActivityLogContext';
 import { useMissingFunctions } from '@/contexts/MissingFunctionsContext';
 import { setMissingFunctionCallback, setActivityLogCallback, clearReportedFunctions } from '@/core/missingFunctionRegistry';
+import { IRDemoPlayer } from '@/ir/IRDemoPlayer';
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
   try {
@@ -1360,6 +1361,7 @@ export const App: React.FC = () => {
             <TabsList className="bg-muted">
               <TabsTrigger value="editing" className="text-xs">Editing</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
+              <TabsTrigger value="ir-demo" className="text-xs">IR Demo</TabsTrigger>
             </TabsList>
             
             {/* Panel selector for Editing tab - shown inline only when Editing is active */}
@@ -1444,6 +1446,11 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               )}
+            </TabsContent>
+            
+            {/* IR Demo Tab */}
+            <TabsContent value="ir-demo" className="flex-1 min-h-0 m-0 overflow-auto p-4">
+              <IRDemoPlayer />
             </TabsContent>
           </div>
         </Tabs>
