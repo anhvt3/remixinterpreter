@@ -14,7 +14,7 @@ interface ChatPanelProps {
   zoomLevel?: number;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ title = 'Chat', zoomLevel = 100 }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ title = '6.Chat', zoomLevel = 100 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',

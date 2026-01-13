@@ -249,7 +249,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
     >
       {/* Header row with title, tabs and controls */}
       <div className="panel-header shrink-0 flex items-center justify-between">
-        <span className="panel-title">DSLScript</span>
+        <span className="panel-title">3.DSLScript</span>
         {/* View mode tabs - styled like Source panel LO/Video */}
         <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
           <button
