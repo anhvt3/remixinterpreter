@@ -179,19 +179,53 @@ function evaluateParsed(
       return doLen(resolvedExprArgs);
     case 'add':
     case 'core.add':
+    case 'math.add':
       return doAdd(resolvedExprArgs);
     case 'mul':
     case 'core.mul':
     case 'math.mul':
       return doMul(resolvedExprArgs);
+    case 'div':
     case 'core.div':
+    case 'math.div':
       return doDiv(resolvedExprArgs);
+    case 'min':
     case 'core.min':
+    case 'math.min':
       return doMin(resolvedExprArgs);
+    case 'max':
     case 'core.max':
+    case 'math.max':
       return doMax(resolvedExprArgs);
+    case 'clamp':
     case 'core.clamp':
+    case 'math.clamp':
       return doClamp(resolvedExprArgs);
+    // Math functions
+    case 'sqrt':
+    case 'math.sqrt':
+      return Math.sqrt(resolvedExprArgs[0] as number);
+    case 'pow':
+    case 'math.pow':
+      return Math.pow(resolvedExprArgs[0] as number, resolvedExprArgs[1] as number);
+    case 'abs':
+    case 'math.abs':
+      return Math.abs(resolvedExprArgs[0] as number);
+    case 'floor':
+    case 'math.floor':
+      return Math.floor(resolvedExprArgs[0] as number);
+    case 'ceil':
+    case 'math.ceil':
+      return Math.ceil(resolvedExprArgs[0] as number);
+    case 'round':
+    case 'math.round':
+      return Math.round(resolvedExprArgs[0] as number);
+    case 'mod':
+    case 'math.mod':
+      return (resolvedExprArgs[0] as number) % (resolvedExprArgs[1] as number);
+    case 'sub':
+    case 'math.sub':
+      return (resolvedExprArgs[0] as number) - (resolvedExprArgs[1] as number);
     case 'format':
     case 'core.format':
       return doFormat(resolvedExprArgs);
