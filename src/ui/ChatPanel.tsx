@@ -1,98 +1,84 @@
-import React, { useState } from 'react';
-import { Send } from 'lucide-react';
+import React from 'react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
+import { useActivityLog, type ActivityLogEntry, type ActivityLogLevel } from '@/contexts/ActivityLogContext';
 
 interface ChatPanelProps {
   title?: string;
   zoomLevel?: number;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ title = '6. Chat', zoomLevel = 100 }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Welcome! This is the AnimYAML-DSL interpreter. Edit the YAML to modify the animation, or ask questions about the DSL syntax.',
-    },
-  ]);
-  const [input, setInput] = useState('');
-  
-  const handleSend = () => {
-    if (!input.trim()) return;
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-    };
-    
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    
-    // Simulated response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'This is a placeholder response. In a full implementation, this would provide guidance on the AnimYAML-DSL syntax and help with animation creation.',
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    }, 500);
-  };
-  
+const levelColors: Record<ActivityLogLevel, string> = {
+  info: 'text-muted-foreground',
+  success: 'text-green-500',
+  warning: 'text-yellow-500',
+  error: 'text-destructive',
+};
+
+const levelBgColors: Record<ActivityLogLevel, string> = {
+  info: 'bg-muted/50',
+  success: 'bg-green-500/10',
+  warning: 'bg-yellow-500/10',
+  error: 'bg-destructive/10',
+};
+
+const formatTime = (date: Date): string => {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+};
+
+export const ChatPanel: React.FC<ChatPanelProps> = ({ title = '6. Activity Log', zoomLevel = 100 }) => {
+  const { logs, clearLogs } = useActivityLog();
+
   return (
     <div className="flex flex-col h-full min-h-0 panel">
-      <div className="panel-header shrink-0">{title}</div>
-      
-      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4 scrollbar-thin" style={{ zoom: zoomLevel / 100 }}>
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+      <div className="panel-header shrink-0 flex items-center justify-between">
+        <span>{title}</span>
+        {logs.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={clearLogs}
+            title="Clear logs"
           >
-            <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                message.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {message.content}
-            </div>
-          </div>
-        ))}
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
       
-      <div className="p-3 border-t border-panel-border">
-        <div className="flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about the DSL..."
-            className="min-h-[40px] max-h-[120px] resize-none bg-muted border-0 text-sm"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="shrink-0"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
+      <div
+        className="flex-1 min-h-0 overflow-auto p-2 space-y-1 scrollbar-thin font-mono text-xs"
+        style={{ zoom: zoomLevel / 100 }}
+      >
+        {logs.length === 0 ? (
+          <div className="text-muted-foreground text-center py-4">
+            No activity yet. Actions will be logged here.
+          </div>
+        ) : (
+          logs.map((log) => (
+            <div
+              key={log.id}
+              className={`rounded px-2 py-1.5 ${levelBgColors[log.level]}`}
+            >
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground shrink-0">
+                  [{formatTime(log.timestamp)}]
+                </span>
+                <span className="text-primary shrink-0 font-medium">
+                  [{log.source}]
+                </span>
+                <span className={levelColors[log.level]}>
+                  {log.message}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
