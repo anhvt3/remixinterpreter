@@ -117,30 +117,62 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
     
-    // Simple hit testing - check text nodes first (they're usually on top)
+    // Hit testing for all node types - check in reverse order (top elements first)
     const runtime = runtimeRef.current;
     const nodes = Array.from(runtime.nodes.values()).reverse();
     
     for (const node of nodes) {
+      // Skip invisible nodes
+      if (!node.visible) continue;
+      
+      const tx = node.transform.x;
+      const ty = node.transform.y;
+      let hitWidth = 0;
+      let hitHeight = 0;
+      
       if (node.type === 'text') {
         // Approximate text hit box
-        const tx = node.transform.x;
-        const ty = node.transform.y;
         const fontSize = node.style.text?.fontSize || 24;
         const content = (node as { content: string }).content || '';
-        const approxWidth = Math.max(content.length * fontSize * 0.6, 100);
-        const approxHeight = fontSize * 1.5;
-        
-        if (
-          x >= tx - approxWidth / 2 &&
-          x <= tx + approxWidth / 2 &&
-          y >= ty - approxHeight / 2 &&
-          y <= ty + approxHeight / 2
-        ) {
-          console.log('[IRAnimRenderer] Clicked node:', node.id);
-          onElementClick(node.id);
-          return;
-        }
+        hitWidth = Math.max(content.length * fontSize * 0.6, 50);
+        hitHeight = fontSize * 1.5;
+      } else if (node.type === 'rect' || node.type === 'roundedRect') {
+        // Rectangle hit box
+        const rectNode = node as { width: number; height: number };
+        hitWidth = rectNode.width || 50;
+        hitHeight = rectNode.height || 50;
+      } else if (node.type === 'circle') {
+        // Circle hit box (use diameter)
+        const circleNode = node as { radius: number };
+        const diameter = (circleNode.radius || 25) * 2;
+        hitWidth = diameter;
+        hitHeight = diameter;
+      } else if (node.type === 'ellipse') {
+        // Ellipse hit box
+        const ellipseNode = node as { radiusX: number; radiusY: number };
+        hitWidth = (ellipseNode.radiusX || 25) * 2;
+        hitHeight = (ellipseNode.radiusY || 25) * 2;
+      } else if (node.type === 'line') {
+        // Line hit box - use a generous area around the line
+        const lineNode = node as { x1: number; y1: number; x2: number; y2: number };
+        hitWidth = Math.abs((lineNode.x2 || 0) - (lineNode.x1 || 0)) + 20;
+        hitHeight = Math.abs((lineNode.y2 || 0) - (lineNode.y1 || 0)) + 20;
+      } else {
+        // Default hit box for other shapes
+        hitWidth = 50;
+        hitHeight = 50;
+      }
+      
+      // Check if click is within the node's bounding box
+      if (
+        x >= tx - hitWidth / 2 &&
+        x <= tx + hitWidth / 2 &&
+        y >= ty - hitHeight / 2 &&
+        y <= ty + hitHeight / 2
+      ) {
+        console.log('[IRAnimRenderer] Clicked node:', node.id, 'type:', node.type);
+        onElementClick(node.id);
+        return;
       }
     }
     console.log('[IRAnimRenderer] No node hit at', x, y);
