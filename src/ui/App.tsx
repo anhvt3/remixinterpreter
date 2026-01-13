@@ -214,6 +214,32 @@ export const App: React.FC = () => {
     reset: resetUndoRedo,
   } = useUndoRedo(loContent, setLoContent);
   
+  // Auto-select latest LO and version when LOs are loaded
+  useEffect(() => {
+    if (los.length > 0 && !selectedLoId) {
+      // Select the last LO (most recently created based on code order)
+      const latestLo = los[los.length - 1];
+      setSelectedLoId(latestLo.id);
+      setLoCode(latestLo.code);
+      fetchVersionsForLo(latestLo.id);
+    }
+  }, [los, selectedLoId, fetchVersionsForLo]);
+  
+  // Auto-select latest version when versions are loaded for a new LO selection
+  useEffect(() => {
+    if (versions.length > 0 && selectedLoId && !selectedVersionId) {
+      // versions are already ordered by created_at desc, so first is latest
+      const latestVersion = versions[0];
+      setSelectedVersionId(latestVersion.id);
+      getVersionContent(latestVersion.id).then(content => {
+        const contentValue = content || '';
+        setLoContent(contentValue);
+        originalLoContentRef.current = contentValue;
+        resetUndoRedo(contentValue);
+      });
+    }
+  }, [versions, selectedLoId, selectedVersionId, getVersionContent, resetUndoRedo]);
+  
   // Detect unsaved changes
   const hasUnsavedChanges = useMemo(() => {
     return loContent !== originalLoContentRef.current && selectedLoId !== null;
