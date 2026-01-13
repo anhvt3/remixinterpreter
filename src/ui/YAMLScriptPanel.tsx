@@ -274,27 +274,27 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           </Select>
         )}
 
-        {/* View mode tabs */}
-        <div className="flex items-center gap-1">
+        {/* View mode tabs - styled like Source panel LO/Video */}
+        <div className="flex items-center bg-muted rounded-md p-0.5 h-6">
           <button
             onClick={() => setViewMode('tree')}
-            className={`text-xs py-1.5 px-3 rounded transition-colors ${
+            className={`text-xs h-5 px-2 rounded transition-colors ${
               panelState.viewMode === 'tree' 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Tree View
+            TreeView
           </button>
           <button
             onClick={() => setViewMode('code')}
-            className={`text-xs py-1.5 px-3 rounded transition-colors ${
+            className={`text-xs h-5 px-2 rounded transition-colors ${
               panelState.viewMode === 'code' 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Code View
+            CodeView
           </button>
         </div>
 
