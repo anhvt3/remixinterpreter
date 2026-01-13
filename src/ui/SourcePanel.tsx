@@ -346,6 +346,14 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  size="sm"
+                  className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
+                  disabled={!selectedVideoVersionId}
+                  title="Extract Description"
+                >
+                  VA-1120-EXTRACT-DESC
+                </Button>
               </div>
               
               {/* Row 3: GDrive Link input */}
