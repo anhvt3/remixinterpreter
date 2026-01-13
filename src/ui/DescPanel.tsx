@@ -3,15 +3,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SourceActiveTab } from './SourcePanel';
+
+interface DescVersion {
+  id: string;
+  version_name: string;
+  content: string | null;
+}
+
+interface DescWithVersions {
+  id: string;
+  name: string;
+  latestVersionId: string | null;
+  content: string | null;
+  versions: DescVersion[];
+}
 
 interface DescPanelProps {
   zoomLevel: number;
+  sourceActiveTab: SourceActiveTab;
+  // LODesc data (5 newest)
+  loDescs: DescWithVersions[];
+  videoDesc: DescWithVersions | null;
+  // Selected version IDs for each tab (0-4 for LODesc, 5 for VideoDesc)
+  selectedVersionIds: (string | null)[];
+  onSelectVersion: (tabIndex: number, versionId: string | null) => void;
+  // Content for each tab
   descContents: string[];
   setDescContents: React.Dispatch<React.SetStateAction<string[]>>;
+  // Video link for VideoDesc tab
   descVideoLink: string;
   setDescVideoLink: React.Dispatch<React.SetStateAction<string>>;
-  sourceActiveTab: SourceActiveTab;
 }
 
 // Convert Google Drive share link to embeddable preview URL
@@ -32,11 +55,15 @@ function getGdriveEmbedUrl(link: string): string | null {
 
 export const DescPanel: React.FC<DescPanelProps> = ({
   zoomLevel,
+  sourceActiveTab,
+  loDescs,
+  videoDesc,
+  selectedVersionIds,
+  onSelectVersion,
   descContents,
   setDescContents,
   descVideoLink,
   setDescVideoLink,
-  sourceActiveTab,
 }) => {
   const fontSize = Math.round(12 * (zoomLevel / 100));
   const embedUrl = getGdriveEmbedUrl(descVideoLink);
@@ -74,21 +101,71 @@ export const DescPanel: React.FC<DescPanelProps> = ({
           </TabsList>
         </div>
 
-        {/* Tabs 1-5: Text areas */}
-        {[0, 1, 2, 3, 4].map((index) => (
-          <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 overflow-hidden">
-            <Textarea
-              value={descContents[index] || ''}
-              onChange={(e) => handleContentChange(index, e.target.value)}
-              placeholder={`Description ${index + 1}...`}
-              className="h-full w-full resize-none bg-background border-border font-mono"
-              style={{ fontSize: `${fontSize}px` }}
-            />
-          </TabsContent>
-        ))}
+        {/* Tabs 1-5: LODesc with version dropdown */}
+        {[0, 1, 2, 3, 4].map((index) => {
+          const desc = loDescs[index];
+          const versions = desc?.versions || [];
+          const selectedVersionId = selectedVersionIds[index];
+          
+          return (
+            <TabsContent key={index} value={String(index + 1)} className="flex-1 m-0 p-2 flex flex-col gap-2 overflow-hidden">
+              {/* Version dropdown */}
+              <div className="shrink-0 flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                  {desc?.name || `Desc ${index + 1}`}
+                </Label>
+                <Select
+                  value={selectedVersionId || ''}
+                  onValueChange={(value) => onSelectVersion(index, value || null)}
+                >
+                  <SelectTrigger className="h-7 text-xs flex-1 bg-background border-border">
+                    <SelectValue placeholder={versions.length > 0 ? "Select version" : "No versions"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {versions.map((version) => (
+                      <SelectItem key={version.id} value={version.id} className="text-xs">
+                        {version.version_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Textarea
+                value={descContents[index] || ''}
+                onChange={(e) => handleContentChange(index, e.target.value)}
+                placeholder={`Description ${index + 1}...`}
+                className="flex-1 min-h-0 w-full resize-none bg-background border-border font-mono"
+                style={{ fontSize: `${fontSize}px` }}
+              />
+            </TabsContent>
+          );
+        })}
 
         {/* Video Tab */}
         <TabsContent value="video" className="flex-1 m-0 p-2 flex flex-col gap-2 overflow-hidden">
+          {/* Version dropdown for VideoDesc */}
+          <div className="shrink-0 flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">
+              {videoDesc?.name || 'Video Desc'}
+            </Label>
+            <Select
+              value={selectedVersionIds[5] || ''}
+              onValueChange={(value) => onSelectVersion(5, value || null)}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1 bg-background border-border">
+                <SelectValue placeholder={videoDesc?.versions?.length ? "Select version" : "No versions"} />
+              </SelectTrigger>
+              <SelectContent>
+                {videoDesc?.versions?.map((version) => (
+                  <SelectItem key={version.id} value={version.id} className="text-xs">
+                    {version.version_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           <div className="shrink-0">
             <Label htmlFor="desc-video-link" className="text-xs text-muted-foreground mb-1 block">
               Google Drive Video Link
