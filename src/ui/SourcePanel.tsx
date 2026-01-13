@@ -275,6 +275,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">LO Workflow:</span>
                 <Button
                   size="sm"
                   className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
@@ -346,6 +347,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Video Workflow:</span>
                 <Button
                   size="sm"
                   className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
