@@ -599,6 +599,7 @@ export const App: React.FC = () => {
           <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-4">
             <TabsList className="bg-muted">
               <TabsTrigger value="editing" className="text-xs">LO WF</TabsTrigger>
+              <TabsTrigger value="engwf" className="text-xs">EngWF</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
             
@@ -638,6 +639,16 @@ export const App: React.FC = () => {
             {/* Editing Tab: 6 collapsible panels */}
             <TabsContent value="editing" className="flex-1 min-h-0 m-0 relative overflow-hidden">
               <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} />
+            </TabsContent>
+
+            {/* EngWF Tab */}
+            <TabsContent value="engwf" className="flex-1 min-h-0 m-0 relative overflow-hidden">
+              <div className="h-full flex items-center justify-center bg-background">
+                <div className="text-center text-muted-foreground">
+                  <h2 className="text-lg font-semibold mb-2">Engineering Workflow</h2>
+                  <p className="text-sm">Content coming soon...</p>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Config Tab */}
