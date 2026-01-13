@@ -650,6 +650,196 @@ function formatValue(v: unknown): string {
   return String(v);
 }
 
+// Helper to check if value is expandable (array or object with keys)
+const isExpandableValue = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object' && !('expr' in value)) return Object.keys(value).length > 0;
+  return false;
+};
+
+// Recursive component for rendering values (arrays and objects) in TreeView
+const TreeValueRow: React.FC<{
+  label: string;
+  value: unknown;
+  indent: number;
+  labelColor?: string;
+}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60' }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isArray = Array.isArray(value);
+  const isObject = value && typeof value === 'object' && !isArray && !('expr' in value);
+  const expandable = isExpandableValue(value);
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  const getCollapsedPreview = () => {
+    if (isArray) return `[...${(value as unknown[]).length} items]`;
+    if (isObject) return `{...${Object.keys(value as object).length} keys}`;
+    return formatValue(value);
+  };
+
+  return (
+    <>
+      <div 
+        className="flex items-center gap-1 py-0.5 text-muted-foreground hover:bg-muted/30 rounded px-1 -mx-1"
+        style={{ marginLeft: `${indent}px` }}
+      >
+        {expandable ? (
+          <button
+            onClick={handleExpandClick}
+            className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
+          </button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <span className={labelColor}>{label}</span>
+        {expandable && !isExpanded ? (
+          <span className="text-xs">{getCollapsedPreview()}</span>
+        ) : expandable && isExpanded ? (
+          <span className="text-xs">{isArray ? '[' : '{'}</span>
+        ) : (
+          <span className="text-xs">{formatValue(value)}</span>
+        )}
+      </div>
+      
+      {/* Expanded children */}
+      {expandable && isExpanded && (
+        <>
+          {isArray && (value as unknown[]).map((item, idx) => (
+            <TreeValueRow
+              key={idx}
+              label={`[${idx}]`}
+              value={item}
+              indent={indent + 12}
+            />
+          ))}
+          {isObject && Object.entries(value as object).map(([k, v]) => (
+            <TreeValueRow
+              key={k}
+              label={`${k}:`}
+              value={v}
+              indent={indent + 12}
+              labelColor="text-cyan-400/70"
+            />
+          ))}
+          <div 
+            className="flex gap-1 py-0.5 text-muted-foreground"
+            style={{ marginLeft: `${indent}px` }}
+          >
+            <span className="w-3 shrink-0" />
+            <span className="text-xs">{isArray ? ']' : '}'}</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
+// Component for rendering a param with collapsible array/object support
+const TreeParamRow: React.FC<{
+  paramName: string;
+  paramValue: unknown;
+  paramHighlightType: 'primary' | 'secondary' | null;
+  canEdit: boolean;
+  editable: boolean;
+  onEdit?: (value: string) => void;
+  onClick?: () => void;
+}> = ({ paramName, paramValue, paramHighlightType, canEdit, editable, onEdit, onClick }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isArray = Array.isArray(paramValue);
+  const isObject = paramValue && typeof paramValue === 'object' && !isArray && !('expr' in (paramValue as object));
+  const expandable = isExpandableValue(paramValue);
+  
+  const paramHighlightClass = paramHighlightType === 'primary'
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
+    : paramHighlightType === 'secondary'
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
+    : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  const getCollapsedPreview = () => {
+    if (isArray) return `[...${(paramValue as unknown[]).length} items]`;
+    if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
+    return formatValue(paramValue);
+  };
+
+  return (
+    <>
+      <div 
+        className={`flex items-center gap-2 ${paramHighlightClass}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.();
+        }}
+      >
+        {expandable ? (
+          <button
+            onClick={handleExpandClick}
+            className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+          >
+            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
+          </button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <span className="text-orange-400 min-w-[60px]">{paramName}:</span>
+        {canEdit ? (
+          <Input
+            type={typeof paramValue === 'number' ? 'number' : 'text'}
+            value={String(paramValue)}
+            onChange={(e) => onEdit?.(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
+          />
+        ) : expandable && !isExpanded ? (
+          <span className="break-all text-xs text-muted-foreground">{getCollapsedPreview()}</span>
+        ) : expandable && isExpanded ? (
+          <span className="break-all text-xs text-muted-foreground">{isArray ? '[' : '{'}</span>
+        ) : (
+          <span className={`break-all text-xs ${getValueStyle(paramValue, editable)}`}>
+            {formatValue(paramValue)}
+          </span>
+        )}
+      </div>
+      
+      {/* Expanded children */}
+      {expandable && isExpanded && (
+        <>
+          {isArray && (paramValue as unknown[]).map((item, idx) => (
+            <TreeValueRow
+              key={idx}
+              label={`[${idx}]`}
+              value={item}
+              indent={12}
+            />
+          ))}
+          {isObject && Object.entries(paramValue as object).map(([k, v]) => (
+            <TreeValueRow
+              key={k}
+              label={`${k}:`}
+              value={v}
+              indent={12}
+              labelColor="text-cyan-400/70"
+            />
+          ))}
+          <div className="flex gap-1 py-0.5 text-muted-foreground">
+            <span className="w-3 shrink-0" />
+            <span className="text-xs">{isArray ? ']' : '}'}</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
 // Determine if a value is safely editable (won't break DSL execution)
 function isSafelyEditable(value: unknown): boolean {
   // Numbers are always safe to edit
@@ -881,36 +1071,18 @@ const StatementRow: React.FC<StatementRowProps> = ({
               const canEdit = editable && isSafelyEditable(v);
               const paramPath = `args.${k}`;
               const paramHighlightType = getParamHighlightType(paramPath);
-              const paramHighlightClass = paramHighlightType === 'primary'
-                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
-                : paramHighlightType === 'secondary'
-                ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
-                : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
               
               return (
-                <div 
-                  key={k} 
-                  className={`flex items-center gap-2 ${paramHighlightClass}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onParamClick?.(fnName, stmtIndex, paramPath);
-                  }}
-                >
-                  <span className="text-orange-400 min-w-[60px]">{k}:</span>
-                  {canEdit ? (
-                    <Input
-                      type={typeof v === 'number' ? 'number' : 'text'}
-                      value={String(v)}
-                      onChange={(e) => handleArgChange(k, e.target.value, v)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
-                    />
-                  ) : (
-                    <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>
-                      {formatValue(v)}
-                    </span>
-                  )}
-                </div>
+                <TreeParamRow
+                  key={k}
+                  paramName={k}
+                  paramValue={v}
+                  paramHighlightType={paramHighlightType}
+                  canEdit={canEdit}
+                  editable={editable}
+                  onEdit={(value) => handleArgChange(k, value, v)}
+                  onClick={() => onParamClick?.(fnName, stmtIndex, paramPath)}
+                />
               );
             })}
           </div>
@@ -1164,34 +1336,18 @@ const StatementRow: React.FC<StatementRowProps> = ({
               const canEdit = editable && isSafelyEditable(v);
               const paramPath = `args.${k}`;
               const paramHighlightType = getParamHighlightType(paramPath);
-              const paramHighlightClass = paramHighlightType === 'primary'
-                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
-                : paramHighlightType === 'secondary'
-                ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
-                : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
               
               return (
-                <div 
-                  key={k} 
-                  className={`flex items-center gap-2 ${paramHighlightClass}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onParamClick?.(fnName, stmtIndex, paramPath);
-                  }}
-                >
-                  <span className="text-orange-400 min-w-[50px]">{k}:</span>
-                  {canEdit ? (
-                    <Input
-                      type={typeof v === 'number' ? 'number' : 'text'}
-                      value={String(v)}
-                      onChange={(e) => handleIrArgChange(k, e.target.value, v)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
-                    />
-                  ) : (
-                    <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>{formatValue(v)}</span>
-                  )}
-                </div>
+                <TreeParamRow
+                  key={k}
+                  paramName={k}
+                  paramValue={v}
+                  paramHighlightType={paramHighlightType}
+                  canEdit={canEdit}
+                  editable={editable}
+                  onEdit={(value) => handleIrArgChange(k, value, v)}
+                  onClick={() => onParamClick?.(fnName, stmtIndex, paramPath)}
+                />
               );
             })}
           </div>
