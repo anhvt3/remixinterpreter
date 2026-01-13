@@ -28,11 +28,17 @@ import { generateId } from './commands';
 // COMPILER STATE
 // ============================================================================
 
+interface NodeCurrentState {
+  content: string;
+  opacity: number;
+}
+
 interface CompilerState {
   scene: SceneConfig;
   nodes: Map<string, NodeProps>;
   animations: AnimationKeyframe[];
   nodeOrder: string[]; // Track creation order for z-index
+  nodeCurrentState: Map<string, NodeCurrentState>; // Track animated state for chaining
 }
 
 function createCompilerState(): CompilerState {
@@ -47,6 +53,7 @@ function createCompilerState(): CompilerState {
     nodes: new Map(),
     animations: [],
     nodeOrder: [],
+    nodeCurrentState: new Map(),
   };
 }
 
@@ -207,6 +214,12 @@ function processTextCreate(state: CompilerState, args: Record<string, unknown>):
   state.nodes.set(id, node);
   state.nodeOrder.push(id);
   
+  // Track current state for chaining animations
+  state.nodeCurrentState.set(id, {
+    content: mode === 'math' ? `\\(${content}\\)` : content,
+    opacity: opacity,
+  });
+  
   // Add fade-in animation (opacity starts at 0, fades to target)
   state.animations.push({
     id: generateId('anim'),
@@ -232,10 +245,16 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
   const existingNode = state.nodes.get(id);
   if (!existingNode) return;
   
+  // Get current tracked state (or fallback to node values)
+  const currentState = state.nodeCurrentState.get(id) || {
+    content: (existingNode as { content: string }).content,
+    opacity: existingNode.style.opacity || 1,
+  };
+  
   // For text updates, we create a cross-fade by animating to 0, updating content, then back to 1
   const midTime = (t0 + t1) / 2;
   
-  // Fade out old content
+  // Fade out old content (from current opacity, not node's initial opacity)
   state.animations.push({
     id: generateId('anim'),
     nodeId: id,
@@ -243,11 +262,12 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
     t0,
     t1: midTime,
     easing: convertEasing(ease),
-    fromValue: existingNode.style.opacity,
+    fromValue: currentState.opacity,
     toValue: 0,
   });
   
   // Update content at midpoint (instantaneous)
+  const newContent = mode === 'math' ? `\\(${toText}\\)` : toText;
   state.animations.push({
     id: generateId('anim'),
     nodeId: id,
@@ -255,12 +275,12 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
     t0: midTime,
     t1: midTime + 0.001,
     easing: 'linear',
-    fromValue: (existingNode as { content: string }).content,
-    toValue: mode === 'math' ? `\\(${toText}\\)` : toText,
+    fromValue: currentState.content,
+    toValue: newContent,
   });
   
   // Fade in new content
-  const targetOpacity = dslStyle ? (convertStyle(dslStyle).opacity || 1) : existingNode.style.opacity;
+  const targetOpacity = dslStyle ? (convertStyle(dslStyle).opacity || 1) : currentState.opacity;
   state.animations.push({
     id: generateId('anim'),
     nodeId: id,
@@ -272,6 +292,12 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
     toValue: targetOpacity,
   });
   
+  // Update tracked state for future chained updates
+  state.nodeCurrentState.set(id, {
+    content: newContent,
+    opacity: targetOpacity,
+  });
+  
   // Update style if provided
   if (dslStyle) {
     const newStyle = convertStyle(dslStyle, targetOpacity);
@@ -279,12 +305,12 @@ function processTextUpdate(state: CompilerState, args: Record<string, unknown>):
       state.animations.push({
         id: generateId('anim'),
         nodeId: id,
-        propertyPath: 'style.stroke.color',
+        propertyPath: 'style.fill.color',
         t0: midTime,
         t1,
         easing: convertEasing(ease),
-        fromValue: existingNode.style.stroke.color,
-        toValue: newStyle.stroke.color,
+        fromValue: existingNode.style.fill.color,
+        toValue: newStyle.fill.color,
       });
     }
   }
