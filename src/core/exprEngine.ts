@@ -31,17 +31,23 @@ interface ParsedExpr {
 
 function parseExpression(expr: string): ParsedExpr | null {
   // Match function call: fnName(arg1, arg2, ...)
-  const match = expr.match(/^([a-zA-Z_.]+)\((.+)\)$/);
+  // Allow empty arg list: fnName()
+  // Allow digits in fn names for future-proofing.
+  const match = expr.match(/^([a-zA-Z0-9_.]+)\((.*)\)$/);
   if (!match) {
     return null;
   }
-  
+
   const fn = match[1];
-  const argsStr = match[2];
-  
+  const argsStr = match[2].trim();
+
+  if (argsStr.length === 0) {
+    return { fn, args: [] };
+  }
+
   // Parse arguments (handling nested parentheses)
   const args = parseArgs(argsStr);
-  
+
   return { fn, args };
 }
 
