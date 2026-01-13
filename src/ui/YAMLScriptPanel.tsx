@@ -275,32 +275,6 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             CodeView
           </button>
         </div>
-
-        {/* Version dropdown */}
-        {dslScripts.length > 0 && (
-          <Select
-            value={selectedVersionId || ''}
-            onValueChange={(value) => onSelectVersion?.(value || null)}
-          >
-            <SelectTrigger className="h-6 w-32 text-xs bg-muted border-border">
-              <SelectValue placeholder="Select version" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border z-50">
-              {dslScripts.flatMap(script => 
-                script.versions.map(version => (
-                  <SelectItem 
-                    key={version.id} 
-                    value={version.id}
-                    className="text-xs"
-                  >
-                    {script.name} - {version.version_name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        )}
-
         {/* Action buttons - aligned right */}
         <div className="flex items-center gap-1 ml-auto">
           <Button
@@ -376,6 +350,36 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
           )}
         </div>
       </div>
+
+      {/* Version dropdown bar - below title bar */}
+      {dslScripts.length > 0 && (
+        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {dslScripts[0]?.name || 'DSLScript'}
+          </span>
+          <Select
+            value={selectedVersionId || ''}
+            onValueChange={(value) => onSelectVersion?.(value || null)}
+          >
+            <SelectTrigger className="h-7 text-xs flex-1 bg-background border-border">
+              <SelectValue placeholder="Select version" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border z-50">
+              {dslScripts.flatMap(script => 
+                script.versions.map(version => (
+                  <SelectItem 
+                    key={version.id} 
+                    value={version.id}
+                    className="text-xs"
+                  >
+                    {script.name} - {version.version_name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Content area */}
       <div className="flex-1 min-h-0">
