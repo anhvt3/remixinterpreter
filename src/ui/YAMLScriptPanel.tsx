@@ -14,8 +14,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { YAMLSpec, Params } from '../core/types';
 import type { CallChainEntry } from '../core/runtimeTracer';
+import type { DslScriptWithVersions, DslScriptVersion } from '@/hooks/useDslScriptData';
 
 export interface DSLPanelState {
   viewMode: 'code' | 'tree';
@@ -49,6 +57,10 @@ interface YAMLScriptPanelProps {
   onFunctionDefinitionClick?: (fnName: string) => void;
   selectedFunctionDefinition?: string | null;
   allFunctionNames?: string[];
+  // DSL Script version selection
+  dslScripts?: DslScriptWithVersions[];
+  selectedVersionId?: string | null;
+  onSelectVersion?: (versionId: string | null) => void;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -68,6 +80,9 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   selectedStatement,
   onFunctionDefinitionClick,
   selectedFunctionDefinition,
+  dslScripts = [],
+  selectedVersionId,
+  onSelectVersion,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   
@@ -232,8 +247,33 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
       className="flex flex-col h-full min-h-0"
       onBlur={handlePanelBlur}
     >
-      {/* Header row with tabs and controls */}
+      {/* Header row with version dropdown, tabs and controls */}
       <div className="flex items-center gap-2 mb-2 shrink-0">
+        {/* Version dropdown */}
+        {dslScripts.length > 0 && (
+          <Select
+            value={selectedVersionId || ''}
+            onValueChange={(value) => onSelectVersion?.(value || null)}
+          >
+            <SelectTrigger className="h-7 w-40 text-xs bg-muted border-border">
+              <SelectValue placeholder="Select version" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border z-50">
+              {dslScripts.flatMap(script => 
+                script.versions.map(version => (
+                  <SelectItem 
+                    key={version.id} 
+                    value={version.id}
+                    className="text-xs"
+                  >
+                    {script.name} - {version.version_name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* View mode tabs */}
         <div className="flex items-center gap-1">
           <button
