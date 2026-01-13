@@ -1191,7 +1191,7 @@ export const App: React.FC = () => {
   };
 
   // Panel expansion state
-  const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible } = usePanelExpansion(['dsl', 'runtime', 'anim']);
+  const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible, panelCount } = usePanelExpansion(['dsl', 'runtime', 'anim']);
 
   // Panel configurations
   const panelConfigs = useMemo(() => [
@@ -1402,7 +1402,7 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Editing Tab: 6 collapsible panels */}
             <TabsContent value="editing" className="flex-1 min-h-0 m-0 relative overflow-hidden">
-              <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} />
+              <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} panelCount={panelCount} />
             </TabsContent>
 
             {/* Config Tab */}
