@@ -702,8 +702,9 @@ interface StatementRowProps {
   onNavigateDown?: () => void;
   navIndex?: number;
   chainLength?: number;
-  // Param highlighting props
+  // Param highlighting props - first element is primary (anchor), rest are secondary
   highlightedParams?: ParamHighlightKey[];
+  anchorParam?: ParamHighlightKey | null;
   onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
   // Force expand when params are highlighted
   forceExpanded?: boolean;
@@ -728,6 +729,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
   navIndex = 0,
   chainLength = 0,
   highlightedParams = [],
+  anchorParam = null,
   onParamClick,
   forceExpanded = false,
 }) => {
@@ -744,23 +746,38 @@ const StatementRow: React.FC<StatementRowProps> = ({
   // Use forceExpanded OR manual expanded state
   const isExpanded = forceExpanded || expanded;
   
+  // Helper to check if a param path is the anchor (primary) or upstream (secondary)
+  const getParamHighlightType = (paramPath: string): 'primary' | 'secondary' | null => {
+    const isAnchor = anchorParam?.fnName === fnName && 
+                     anchorParam?.stmtIndex === stmtIndex && 
+                     anchorParam?.paramPath === paramPath;
+    if (isAnchor) return 'primary';
+    
+    const isUpstream = highlightedParams.some(
+      p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
+    );
+    if (isUpstream) return 'secondary';
+    
+    return null;
+  };
+  
   // Debug: check if onClick is passed
   const handleRowClick = () => {
     console.log('StatementRow clicked, onClick defined:', !!onClick);
     onClick?.();
   };
   
-  // Highlight styles: current nav is bright green, chain items are dim yellow, selected is yellow
+  // Unified highlight styles: primary for clicked item, secondary for upstream chain
   const highlightClass = isCurrentNav
-    ? 'bg-green-500/40 ring-2 ring-green-400/70 rounded cursor-pointer shadow-lg shadow-green-500/20'
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded cursor-pointer'
     : isInChain
-    ? 'bg-yellow-500/10 ring-1 ring-yellow-400/40 rounded cursor-pointer'
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded cursor-pointer'
     : isSelected
-    ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70 rounded cursor-pointer'
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded cursor-pointer'
     : highlightLevel === 'primary' 
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded cursor-pointer' 
     : highlightLevel === 'secondary' 
-    ? 'bg-primary/10 ring-1 ring-primary/20 rounded cursor-pointer' 
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded cursor-pointer' 
     : 'cursor-pointer hover:bg-muted/20';
   
   // Show nav buttons only on current navigation position
@@ -869,17 +886,17 @@ const StatementRow: React.FC<StatementRowProps> = ({
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
               const paramPath = `args.${k}`;
-              const isParamHighlighted = highlightedParams.some(
-                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
-              );
-              const highlightClass = isParamHighlighted 
-                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+              const paramHighlightType = getParamHighlightType(paramPath);
+              const paramHighlightClass = paramHighlightType === 'primary'
+                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
+                : paramHighlightType === 'secondary'
+                ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
                 : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
               
               return (
                 <div 
                   key={k} 
-                  className={`flex items-center gap-2 ${highlightClass}`}
+                  className={`flex items-center gap-2 ${paramHighlightClass}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onParamClick?.(fnName, stmtIndex, paramPath);
@@ -969,11 +986,11 @@ const StatementRow: React.FC<StatementRowProps> = ({
               
               // Check if this let variable is highlighted
               const paramPath = `let.${k}`;
-              const isParamHighlighted = highlightedParams.some(
-                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
-              );
-              const paramHighlightClass = isParamHighlighted 
-                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+              const paramHighlightType = getParamHighlightType(paramPath);
+              const paramHighlightClass = paramHighlightType === 'primary'
+                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
+                : paramHighlightType === 'secondary'
+                ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
                 : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
               
               return (
@@ -1013,11 +1030,11 @@ const StatementRow: React.FC<StatementRowProps> = ({
                       {Object.entries(exprObj.args).map(([argK, argV]) => {
                         const canEditArg = editable && isSafelyEditable(argV);
                         const exprArgPath = `let.${k}.args.${argK}`;
-                        const isExprArgHighlighted = highlightedParams.some(
-                          p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === exprArgPath
-                        );
-                        const exprArgClass = isExprArgHighlighted 
-                          ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+                        const exprArgHighlightType = getParamHighlightType(exprArgPath);
+                        const exprArgClass = exprArgHighlightType === 'primary'
+                          ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
+                          : exprArgHighlightType === 'secondary'
+                          ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
                           : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
                         
                         return (
@@ -1140,11 +1157,11 @@ const StatementRow: React.FC<StatementRowProps> = ({
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
               const paramPath = `args.${k}`;
-              const isParamHighlighted = highlightedParams.some(
-                p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
-              );
-              const paramHighlightClass = isParamHighlighted 
-                ? 'bg-cyan-500/30 ring-1 ring-cyan-400/60 rounded px-1 -mx-1' 
+              const paramHighlightType = getParamHighlightType(paramPath);
+              const paramHighlightClass = paramHighlightType === 'primary'
+                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
+                : paramHighlightType === 'secondary'
+                ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
                 : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
               
               return (
@@ -1262,6 +1279,7 @@ interface TreeNodeProps {
   fnChainLength?: number;
   // Param highlighting props
   highlightedParams?: ParamHighlightKey[];
+  anchorParam?: ParamHighlightKey | null;
   onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
 }
 
@@ -1300,6 +1318,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   fnChainLength = 0,
   // Param highlighting props
   highlightedParams = [],
+  anchorParam = null,
   onParamClick,
 }) => {
   const isExpanded = expanded.has(node.name);
@@ -1396,14 +1415,13 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 // Check if this function definition is selected for highlighting
   const isFnDefSelected = selectedFunctionDefinition === node.name;
   
-  // Determine function header highlight class
-  // Only highlight function header for navigation purposes, not for general selection
+  // Unified highlight: primary for clicked, secondary for upstream chain
   const fnHeaderHighlightClass = isFnCurrentNav
-    ? 'bg-green-500/40 ring-2 ring-green-400/70 shadow-lg shadow-green-500/20'
+    ? 'bg-primary/30 ring-2 ring-primary/60'
     : isFnInChain
-    ? 'bg-yellow-500/10 ring-1 ring-yellow-400/40'
+    ? 'bg-primary/10 ring-1 ring-primary/30'
     : isFnDefSelected 
-    ? 'bg-yellow-500/30 ring-2 ring-yellow-400/70' 
+    ? 'bg-primary/30 ring-2 ring-primary/60' 
     : 'hover:bg-muted/50';
   
   // Render function navigation buttons
@@ -1570,6 +1588,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   navIndex={usesFnNav ? fnNavIndex : navIndex}
                   chainLength={usesFnNav ? fnChainLength : chainLength}
                   highlightedParams={highlightedParams}
+                  anchorParam={anchorParam}
                   onParamClick={onParamClick}
                   forceExpanded={hasHighlightedParams}
                 />
@@ -2341,6 +2360,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               fnChainLength={fnChainLength}
               // Param highlighting props
               highlightedParams={highlightedParams}
+              anchorParam={anchorParam}
               onParamClick={handleParamClick}
             />
           ))}
