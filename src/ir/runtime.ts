@@ -556,7 +556,8 @@ const latexCache = new Map<string, { img: HTMLImageElement; width: number; heigh
 /**
  * Check if text contains LaTeX delimiters
  */
-function isLatexContent(content: string): boolean {
+function isLatexContent(content: unknown): boolean {
+  if (typeof content !== 'string') return false;
   return content.includes('\\(') || content.includes('\\[') || 
          content.includes('$') || content.includes('\\frac') ||
          content.includes('\\sqrt') || content.includes('^{');
