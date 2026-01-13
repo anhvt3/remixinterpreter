@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { LoRecord, LoVersionRecord } from '@/hooks/useLoData';
-import { Undo2, Redo2, Save, Plus } from 'lucide-react';
+import { Undo2, Redo2, Save, Plus, Trash2 } from 'lucide-react';
 
 export type SourceActiveTab = 'lo' | 'video';
 
@@ -33,8 +33,9 @@ interface SourcePanelProps {
   canUndo?: boolean;
   canRedo?: boolean;
   hasUnsavedChanges?: boolean;
-  // Create new LO
+  // Create/Delete LO
   onCreateNewLo?: () => void;
+  onDeleteLo?: () => void;
 }
 
 // Convert Google Drive share link to embeddable video URL
@@ -81,6 +82,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   canRedo = false,
   hasUnsavedChanges = false,
   onCreateNewLo,
+  onDeleteLo,
 }) => {
   const embedUrl = getGdriveEmbedUrl(gdriveLink);
 
@@ -166,6 +168,35 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
+                onClick={onCreateNewLo}
+                title="Create New LO"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={onDeleteLo}
+                disabled={!selectedLoId}
+                title="Delete LO"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onSave}
+                disabled={!hasUnsavedChanges}
+                title="Save"
+              >
+                <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges ? 'text-orange-500' : ''}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
                 onClick={onUndo}
                 disabled={!canUndo}
                 title="Undo"
@@ -181,16 +212,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 title="Redo"
               >
                 <Redo2 className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${hasUnsavedChanges ? 'text-orange-500' : ''}`}
-                onClick={onSave}
-                disabled={!hasUnsavedChanges}
-                title="Save"
-              >
-                <Save className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
