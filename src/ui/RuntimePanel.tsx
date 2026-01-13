@@ -87,14 +87,28 @@ const ValueRow: React.FC<{
   indent: number;
   labelColor?: string;
   valueKey: string;
-  isSelected?: boolean;
-  isInChain?: boolean;
+  selectedValueKey?: string | null;
   onValueClick?: (valueKey: string) => void;
-}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, isSelected = false, isInChain = false, onValueClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, selectedValueKey, onValueClick }) => {
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
   const expandable = isExpandable(value);
+
+  // Check if this value is directly selected
+  const isSelected = selectedValueKey === valueKey;
+  
+  // Check if this value is in the upstream chain (a parent of the selected value)
+  const isInChain = selectedValueKey ? 
+    (selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey) : false;
+
+  // Auto-expand if this value is in the upstream chain (so child can be seen)
+  const [isExpanded, setIsExpanded] = useState(isInChain);
+  
+  useEffect(() => {
+    if (isInChain && expandable && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [isInChain, expandable]);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -112,13 +126,6 @@ const ValueRow: React.FC<{
     : isInChain 
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
-
-  // Check if a child valueKey is in the upstream chain based on current selected value
-  const isChildInChain = (childKey: string): boolean => {
-    // Parent passes isSelected/isInChain context, but we need the actual selectedValueKey
-    // For now, we use the pattern: if this value is selected, all children are in chain
-    return isSelected || isInChain;
-  };
 
   return (
     <>
@@ -150,7 +157,7 @@ const ValueRow: React.FC<{
         )}
       </div>
       
-      {/* Expanded children - pass highlight state for upstream chain */}
+      {/* Expanded children - pass selectedValueKey for proper chain highlighting */}
       {expandable && isExpanded && (
         <>
           {isArray && (value as unknown[]).map((item, idx) => {
@@ -162,7 +169,7 @@ const ValueRow: React.FC<{
                 value={item}
                 indent={indent + 16}
                 valueKey={childKey}
-                isInChain={isChildInChain(childKey)}
+                selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
               />
             );
@@ -177,7 +184,7 @@ const ValueRow: React.FC<{
                 indent={indent + 16}
                 labelColor="text-cyan-400/70"
                 valueKey={childKey}
-                isInChain={isChildInChain(childKey)}
+                selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
               />
             );
@@ -208,20 +215,30 @@ const ParamRow: React.FC<{
   selectedValueKey?: string | null;
   onValueClick?: (valueKey: string) => void;
 }> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray;
   const expandable = isExpandable(paramValue);
   
-  // Check if this param or any of its children are selected
-  const isValueSelected = selectedValueKey?.startsWith(paramKey);
+  // Check if a child value is selected (not the param itself)
+  const hasChildSelected = selectedValueKey ? 
+    (selectedValueKey.startsWith(paramKey) && selectedValueKey !== paramKey) : false;
   
-  // Param itself is highlighted if selected directly (not a child value)
+  // Auto-expand if a child value is selected so it can be seen
+  const [isExpanded, setIsExpanded] = useState(hasChildSelected);
+  
+  useEffect(() => {
+    if (hasChildSelected && expandable && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [hasChildSelected, expandable]);
+  
+  // Param itself is highlighted only if selected directly (not a child value)
   const isParamDirectlySelected = isSelected || (selectedValueKey === paramKey);
   
+  // Don't highlight param when only a child is selected - only highlight the value chain
   const paramHighlight = isParamDirectlySelected
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
-    : isInChain || isValueSelected
+    : isInChain
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
 
@@ -234,13 +251,6 @@ const ParamRow: React.FC<{
     if (isArray) return `[...${(paramValue as unknown[]).length} items]`;
     if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
     return formatValue(paramValue);
-  };
-
-  // Check if a valueKey is in the upstream chain of selectedValueKey
-  const isValueInChain = (valueKey: string): boolean => {
-    if (!selectedValueKey) return false;
-    // If selectedValueKey starts with this valueKey, it's a parent (upstream)
-    return selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey;
   };
 
   return (
@@ -285,8 +295,7 @@ const ParamRow: React.FC<{
                 value={item}
                 indent={indent + 16}
                 valueKey={childKey}
-                isSelected={selectedValueKey === childKey}
-                isInChain={isValueInChain(childKey)}
+                selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
               />
             );
@@ -301,8 +310,7 @@ const ParamRow: React.FC<{
                 indent={indent + 16}
                 labelColor="text-cyan-400/70"
                 valueKey={childKey}
-                isSelected={selectedValueKey === childKey}
-                isInChain={isValueInChain(childKey)}
+                selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
               />
             );
