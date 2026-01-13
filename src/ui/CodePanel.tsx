@@ -275,6 +275,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   onChange={(e) => setValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   readOnly={readOnly}
+                  wrap="off"
                   className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10 overflow-hidden"
                   style={{
                     lineHeight: '1.6',
