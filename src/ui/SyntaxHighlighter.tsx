@@ -360,9 +360,9 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
   });
 
   return (
-    <pre className="font-mono whitespace-pre">
+    <pre className="font-mono whitespace-pre m-0 p-0" style={{ lineHeight: '1.6' }}>
       {processedLines.map((lineTokens, lineIdx) => (
-        <div key={lineIdx} style={{ lineHeight: '1.6' }}>
+        <div key={lineIdx}>
           {lineTokens.map((token, tokenIdx) => (
             <span key={tokenIdx} className={tokenStyles[token.type]}>
               {token.value}
