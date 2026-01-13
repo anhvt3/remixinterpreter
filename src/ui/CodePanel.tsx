@@ -202,7 +202,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       {hasLineInteraction ? (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0">
           {/* Render as clickable lines with syntax highlighting */}
-          <div className="p-4 pr-10 text-sm font-mono" style={{ zoom: zoomLevel / 100 }}>
+          {/* Using fontSize scaling instead of zoom to avoid browser rendering limits */}
+          <div className="p-4 pr-10 font-mono" style={{ fontSize: `${14 * zoomLevel / 100}px` }}>
             {lines.map((line, idx) => {
               const isHighlighted = highlightedLines.includes(idx);
               return (
@@ -218,7 +219,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   `}
                   style={{ lineHeight: '1.6' }}
                 >
-                  <span className="text-muted-foreground/50 select-none w-8 inline-block text-right mr-3 text-xs shrink-0">
+                  <span className="text-muted-foreground/50 select-none w-10 inline-block text-right mr-3 shrink-0" style={{ fontSize: '0.75em' }}>
                     {idx + 1}
                   </span>
                   <span className="flex-1">
@@ -232,20 +233,21 @@ export const CodePanel: React.FC<CodePanelProps> = ({
       ) : (
         <ScrollArea ref={containerRef} type="always" className="flex-1 min-h-0 overflow-hidden">
           {/* Render as editable textarea with syntax highlighting overlay and line numbers */}
+          {/* Using fontSize scaling instead of zoom to avoid browser rendering limits */}
           <div 
-            className="relative text-sm font-mono cursor-text" 
-            style={{ zoom: zoomLevel / 100 }}
+            className="relative font-mono cursor-text" 
+            style={{ fontSize: `${14 * zoomLevel / 100}px` }}
             onClick={() => textareaRef.current?.focus()}
           >
             {/* Line numbers column - rendered inline with content to ensure all numbers show */}
             <div className="flex">
-              <div className="w-10 bg-muted/20 border-r border-border/30 select-none shrink-0">
+              <div className="w-12 bg-muted/20 border-r border-border/30 select-none shrink-0">
                 <div className="py-4 pr-2">
                   {localContent.split('\n').map((_, idx) => (
                     <div 
                       key={idx} 
-                      className="text-right text-muted-foreground/50 text-xs px-1"
-                      style={{ lineHeight: '1.6' }}
+                      className="text-right text-muted-foreground/50 px-1"
+                      style={{ lineHeight: '1.6', fontSize: '0.75em' }}
                     >
                       {idx + 1}
                     </div>
