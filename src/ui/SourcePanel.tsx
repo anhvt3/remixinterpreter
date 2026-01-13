@@ -164,7 +164,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive"
+                className="h-7 w-7"
                 onClick={onDeleteLo}
                 disabled={!selectedLoId}
                 title="Delete LO"
