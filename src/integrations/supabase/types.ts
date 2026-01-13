@@ -55,27 +55,48 @@ export type Database = {
           created_at: string
           id: string
           is_deleted: boolean | null
+          lo_id: string | null
           name: string
           type: string
           updated_at: string
+          video_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_deleted?: boolean | null
+          lo_id?: string | null
           name: string
           type: string
           updated_at?: string
+          video_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           is_deleted?: boolean | null
+          lo_id?: string | null
           name?: string
           type?: string
           updated_at?: string
+          video_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "desc_lo_id_fkey"
+            columns: ["lo_id"]
+            isOneToOne: false
+            referencedRelation: "lo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desc_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       desc_version: {
         Row: {
@@ -176,6 +197,71 @@ export type Database = {
             columns: ["lo_id"]
             isOneToOne: false
             referencedRelation: "lo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_deleted: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      video_version: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_deleted: boolean | null
+          updated_at: string
+          version_name: string
+          video_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name: string
+          video_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean | null
+          updated_at?: string
+          version_name?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_version_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video"
             referencedColumns: ["id"]
           },
         ]
