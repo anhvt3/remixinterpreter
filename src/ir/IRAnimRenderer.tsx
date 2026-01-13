@@ -19,10 +19,22 @@ import {
   getWorldTransform,
   type RuntimeState,
 } from './runtime';
-import type { IRProgram, TextProps } from './types';
+import type { IRProgram, TextProps, NodeProps } from './types';
 import { colorToRGBA } from './types';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+
+const isLatexContent = (content: unknown): boolean => {
+  if (typeof content !== 'string') return false;
+  return (
+    content.includes('\\(') ||
+    content.includes('\\[') ||
+    content.includes('$') ||
+    content.includes('\\frac') ||
+    content.includes('\\sqrt') ||
+    content.includes('^{')
+  );
+};
 
 interface IRAnimRendererProps {
   events: TimelineEvent[];
@@ -34,6 +46,7 @@ interface IRAnimRendererProps {
   staticElementIds?: string[];
   onElementClick?: (elementId: string) => void;
 }
+
 
 export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
   events,
@@ -123,7 +136,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     const ctx = runtime.ctx;
     if (!ctx) return;
 
-    const isVisibleAtTime = (node: RuntimeState['nodes'] extends Map<string, infer N> ? N : never) => {
+    const isVisibleAtTime = (node: NodeProps) => {
       if (!node.visible) return false;
       if (node.style.opacity <= 0) return false;
       if (node.visibilitySpan) {
@@ -320,19 +333,23 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     displayHeight = width / aspectRatio;
   }
   
-  // Get LaTeX text nodes from runtime for DOM overlay
-  // This needs to run after animations are applied to get current content/opacity
-  const latexOverlays = useMemo(() => {
-    if (!runtimeRef.current || !program) return [];
-    
+  // Text overlays:
+  // - LaTeX is rendered visibly via DOM (canvas skips it)
+  // - Plain text keeps rendering on canvas, but we add invisible DOM hit-targets so
+  //   tiny items like "2"/"3" are always clickable even when overlapping shapes.
+  const { latexOverlays, plainTextHitTargets } = useMemo(() => {
+    if (!runtimeRef.current || !program) return { latexOverlays: [], plainTextHitTargets: [] };
+
     const runtime = runtimeRef.current;
-    
+
     // Ensure current time is set and animations applied
     setTime(runtime, currentTime);
     applyAnimations(runtime);
-    
+
     const scale = displayWidth / (program.scene.width || 800);
-    const overlays: Array<{
+    const ctx = runtime.ctx;
+
+    const latexOverlays: Array<{
       id: string;
       x: number;
       y: number;
@@ -340,53 +357,100 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       fontSize: number;
       color: string;
       opacity: number;
+      zIndex: number;
     }> = [];
-    
+
+    const plainTextHitTargets: Array<{
+      id: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      opacity: number;
+      zIndex: number;
+      content: string;
+    }> = [];
+
     for (const node of runtime.nodes.values()) {
       if (node.type !== 'text') continue;
-      
-      const textNode = node as TextProps;
-      const content = textNode.content;
-      
-      // Check if it contains LaTeX
+      const content = (node as TextProps).content;
       if (typeof content !== 'string') continue;
-      if (!content.includes('\\(') && !content.includes('\\[') && 
-          !content.includes('$') && !content.includes('\\frac') &&
-          !content.includes('\\sqrt') && !content.includes('^{')) continue;
-      
-      // Extract LaTeX from delimiters
-      let latex = content;
-      const inlineMatch = content.match(/\\\(([\s\S]*?)\\\)/);
-      if (inlineMatch) {
-        latex = inlineMatch[1];
-      } else {
-        const displayMatch = content.match(/\\\[([\s\S]*?)\\\]/);
-        if (displayMatch) {
-          latex = displayMatch[1];
+
+      const wt = getWorldTransform(runtime, node.id);
+      const style = node.style;
+      const textStyle = style.text;
+
+      const x = wt.x * scale;
+      const y = wt.y * scale;
+      const zIndex = node.zIndex;
+
+      if (isLatexContent(content)) {
+        // Extract LaTeX from delimiters
+        let latex = content;
+        const inlineMatch = content.match(/\\\(([\s\S]*?)\\\)/);
+        if (inlineMatch) {
+          latex = inlineMatch[1];
         } else {
-          const dollarMatch = content.match(/\$([\s\S]*?)\$/);
-          if (dollarMatch) {
-            latex = dollarMatch[1];
+          const displayMatch = content.match(/\\\[([\s\S]*?)\\\]/);
+          if (displayMatch) {
+            latex = displayMatch[1];
+          } else {
+            const dollarMatch = content.match(/\$([\s\S]*?)\$/);
+            if (dollarMatch) {
+              latex = dollarMatch[1];
+            }
           }
         }
+
+        const fontSize = ((textStyle?.fontSize || 24) * scale);
+        const color = colorToRGBA(style.fill.color);
+
+        latexOverlays.push({
+          id: node.id,
+          x,
+          y,
+          latex,
+          fontSize,
+          color,
+          opacity: style.opacity,
+          zIndex,
+        });
+      } else {
+        // Invisible click target for plain text.
+        // We intentionally overshoot a bit so tiny numerals are easy to select.
+        let w = 44;
+        let h = 44;
+
+        if (ctx && textStyle) {
+          ctx.save();
+          ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
+          const widthPx = ctx.measureText(content).width;
+          ctx.restore();
+
+          w = Math.max(44, widthPx * scale + 20);
+          h = Math.max(44, textStyle.fontSize * scale + 20);
+        }
+
+        plainTextHitTargets.push({
+          id: node.id,
+          x,
+          y,
+          w,
+          h,
+          opacity: style.opacity,
+          zIndex,
+          content,
+        });
       }
-      
-      const style = node.style;
-      const fontSize = (style.text?.fontSize || 24) * scale;
-      const color = colorToRGBA(style.fill.color);
-      overlays.push({
-        id: node.id,
-        x: node.transform.x * scale,
-        y: node.transform.y * scale,
-        latex,
-        fontSize,
-        color,
-        opacity: style.opacity,
-      });
     }
-    
-    return overlays;
+
+    // Highest zIndex should be on top in DOM
+    latexOverlays.sort((a, b) => a.zIndex - b.zIndex);
+    plainTextHitTargets.sort((a, b) => a.zIndex - b.zIndex);
+
+    return { latexOverlays, plainTextHitTargets };
   }, [program, displayWidth, renderKey, currentTime]);
+
   
   return (
     <div
