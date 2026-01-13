@@ -4,11 +4,13 @@ export interface LintError {
   line: number; // 0-indexed
   column?: number;
   message: string;
-  severity: 'error' | 'warning';
+  severity: 'error' | 'warning' | 'info';
+  autoFixed?: boolean; // Indicates the parser will auto-fix this
 }
 
 /**
  * Lints YAML content and returns an array of errors with line information.
+ * Issues that can be auto-fixed by the preprocessor are marked as warnings with autoFixed=true.
  */
 export function lintYAML(content: string): LintError[] {
   const errors: LintError[] = [];
@@ -18,24 +20,59 @@ export function lintYAML(content: string): LintError[] {
   lines.forEach((line, idx) => {
     // Check for missing space after colon before opening brace
     // Pattern: key:{ or key:[ without space
-    const missingSpaceMatch = line.match(/([a-zA-Z0-9_-]+):(\{|\[)(?!\s)/);
-    if (missingSpaceMatch) {
-      const colonIndex = line.indexOf(missingSpaceMatch[0]);
+    const missingSpaceBrace = line.match(/([a-zA-Z0-9_-]+):(\{|\[)(?!\s)/);
+    if (missingSpaceBrace) {
+      const colonIndex = line.indexOf(missingSpaceBrace[0]);
       errors.push({
         line: idx,
-        column: colonIndex + missingSpaceMatch[1].length + 1,
-        message: `Missing space after colon before '${missingSpaceMatch[2]}'. Use ': ${missingSpaceMatch[2]}' instead of ':${missingSpaceMatch[2]}'`,
-        severity: 'error',
+        column: colonIndex + missingSpaceBrace[1].length + 1,
+        message: `Missing space after colon (auto-fixed). Use ': ${missingSpaceBrace[2]}' instead of ':${missingSpaceBrace[2]}'`,
+        severity: 'info',
+        autoFixed: true,
       });
     }
 
-    // Check for tabs (YAML uses spaces)
+    // Check for missing space after colon before quoted strings
+    const missingSpaceQuote = line.match(/([a-zA-Z0-9_-]+):(["'])/);
+    if (missingSpaceQuote) {
+      errors.push({
+        line: idx,
+        message: `Missing space after colon before quote (auto-fixed)`,
+        severity: 'info',
+        autoFixed: true,
+      });
+    }
+
+    // Check for missing space after colon before numbers
+    const missingSpaceNumber = line.match(/([a-zA-Z0-9_-]+):(-?\d)/);
+    if (missingSpaceNumber && !line.includes('://')) {
+      errors.push({
+        line: idx,
+        message: `Missing space after colon before number (auto-fixed)`,
+        severity: 'info',
+        autoFixed: true,
+      });
+    }
+
+    // Check for missing space after colon before identifiers
+    const missingSpaceIdent = line.match(/([a-zA-Z0-9_-]+):([a-zA-Z])/);
+    if (missingSpaceIdent && !line.includes('://')) {
+      errors.push({
+        line: idx,
+        message: `Missing space after colon before identifier (auto-fixed)`,
+        severity: 'info',
+        autoFixed: true,
+      });
+    }
+
+    // Check for tabs (YAML uses spaces) - auto-fixed
     if (line.includes('\t')) {
       errors.push({
         line: idx,
         column: line.indexOf('\t'),
-        message: 'Tab character found. YAML requires spaces for indentation.',
-        severity: 'error',
+        message: 'Tab character found (auto-fixed to spaces)',
+        severity: 'info',
+        autoFixed: true,
       });
     }
 
@@ -92,50 +129,60 @@ export function lintYAML(content: string): LintError[] {
   });
 
   // Then try to parse with js-yaml to catch structural errors
+  // First try without preprocessing to see if there are real errors
   try {
     yaml.load(content);
   } catch (e) {
     if (e instanceof yaml.YAMLException) {
-      // Extract line info from the yaml exception
-      const mark = e.mark;
-      if (mark) {
-        // Check if we already have an error for this line
-        const existingError = errors.find(err => err.line === mark.line);
-        if (!existingError) {
-          errors.push({
-            line: mark.line,
-            column: mark.column,
-            message: e.reason || e.message,
-            severity: 'error',
-          });
-        }
-      } else {
-        // Try to extract line number from message
-        const lineMatch = e.message.match(/at line (\d+)/i);
-        if (lineMatch) {
-          const lineNum = parseInt(lineMatch[1], 10) - 1;
-          const existingError = errors.find(err => err.line === lineNum);
+      // Check if the preprocessor would fix this
+      try {
+        const { preprocessYAML } = require('./yamlLoader');
+        const preprocessed = preprocessYAML(content);
+        yaml.load(preprocessed);
+        // If we get here, the preprocessor fixed it - no need to add error
+      } catch {
+        // Still fails after preprocessing - this is a real error
+        const mark = e.mark;
+        if (mark) {
+          const existingError = errors.find(err => err.line === mark.line && err.severity === 'error');
           if (!existingError) {
             errors.push({
-              line: lineNum,
-              message: e.message,
+              line: mark.line,
+              column: mark.column,
+              message: e.reason || e.message,
               severity: 'error',
             });
           }
         } else {
-          // Generic error without line info
-          errors.push({
-            line: 0,
-            message: e.message,
-            severity: 'error',
-          });
+          const lineMatch = e.message.match(/at line (\d+)/i);
+          if (lineMatch) {
+            const lineNum = parseInt(lineMatch[1], 10) - 1;
+            const existingError = errors.find(err => err.line === lineNum && err.severity === 'error');
+            if (!existingError) {
+              errors.push({
+                line: lineNum,
+                message: e.message,
+                severity: 'error',
+              });
+            }
+          } else {
+            errors.push({
+              line: 0,
+              message: e.message,
+              severity: 'error',
+            });
+          }
         }
       }
     }
   }
 
-  // Sort errors by line number
-  errors.sort((a, b) => a.line - b.line);
+  // Sort errors by line number, then by severity (errors first)
+  errors.sort((a, b) => {
+    if (a.line !== b.line) return a.line - b.line;
+    const severityOrder = { error: 0, warning: 1, info: 2 };
+    return severityOrder[a.severity] - severityOrder[b.severity];
+  });
 
   return errors;
 }
@@ -147,5 +194,6 @@ export function formatLintError(error: LintError): string {
   const location = error.column !== undefined 
     ? `Line ${error.line + 1}, Col ${error.column + 1}` 
     : `Line ${error.line + 1}`;
-  return `${location}: ${error.message}`;
+  const prefix = error.autoFixed ? '✓ ' : '';
+  return `${prefix}${location}: ${error.message}`;
 }

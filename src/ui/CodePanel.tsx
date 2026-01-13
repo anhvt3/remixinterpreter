@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-import { Undo2, Redo2, Save, AlertCircle } from 'lucide-react';
+import { Undo2, Redo2, Save, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { SyntaxHighlighter, SyntaxHighlightedLine } from './SyntaxHighlighter';
 import { lintYAML, LintError } from '@/core/yamlLinter';
 import {
@@ -199,12 +199,19 @@ export const CodePanel: React.FC<CodePanelProps> = ({
         <Save className="w-3.5 h-3.5" />
       </button>
       <span className="text-xs text-syntax-comment ml-1">{language.toUpperCase()}</span>
-      {lintErrors.length > 0 && (
-        <span className={`text-xs ml-1 flex items-center gap-0.5 ${lintErrors.some(e => e.severity === 'error') ? 'text-destructive' : 'text-yellow-500'}`}>
-          <AlertCircle className="w-3 h-3" />
-          {lintErrors.length}
-        </span>
-      )}
+      {lintErrors.length > 0 && (() => {
+        const hasRealError = lintErrors.some(e => e.severity === 'error');
+        const hasWarning = lintErrors.some(e => e.severity === 'warning');
+        const onlyInfo = !hasRealError && !hasWarning;
+        return (
+          <span className={`text-xs ml-1 flex items-center gap-0.5 ${
+            hasRealError ? 'text-destructive' : hasWarning ? 'text-yellow-500' : 'text-cyan-500'
+          }`}>
+            {onlyInfo ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+            {lintErrors.filter(e => e.severity !== 'info').length || (onlyInfo ? '✓' : lintErrors.length)}
+          </span>
+        );
+      })()}
       {hasUnsavedChanges && (
         <span className="text-xs text-primary ml-1">•</span>
       )}
@@ -240,6 +247,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                 const lineErrors = errorsByLine.get(idx);
                 const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
                 const hasWarning = lineErrors && lineErrors.some(e => e.severity === 'warning');
+                const hasInfo = lineErrors && lineErrors.some(e => e.severity === 'info');
+                const onlyInfo = hasInfo && !hasError && !hasWarning;
                 
                 return (
                   <div
@@ -259,11 +268,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                     style={{ lineHeight: '1.6' }}
                   >
                     <span className="flex items-center gap-1 select-none w-12 justify-end mr-3 shrink-0" style={{ fontSize: '0.75em' }}>
-                      {lineErrors && lineErrors.length > 0 ? (
+                      {lineErrors && lineErrors.length > 0 && !onlyInfo ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className={`flex items-center ${hasError ? 'text-destructive' : 'text-yellow-500'}`}>
-                              <AlertCircle className="w-3 h-3" />
+                            <span className={`flex items-center ${hasError ? 'text-destructive' : hasWarning ? 'text-yellow-500' : 'text-cyan-500'}`}>
+                              {onlyInfo ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent 
@@ -272,7 +281,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                           >
                             <div className="space-y-1">
                               {lineErrors.map((err, errIdx) => (
-                                <div key={errIdx} className={`text-xs ${err.severity === 'error' ? 'text-destructive' : 'text-yellow-500'}`}>
+                                <div key={errIdx} className={`text-xs ${
+                                  err.severity === 'error' ? 'text-destructive' 
+                                    : err.severity === 'warning' ? 'text-yellow-500' 
+                                    : 'text-cyan-500'
+                                }`}>
                                   {err.message}
                                 </div>
                               ))}
@@ -311,6 +324,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                       const lineErrors = errorsByLine.get(idx);
                       const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
                       const hasWarning = lineErrors && lineErrors.some(e => e.severity === 'warning');
+                      const hasInfo = lineErrors && lineErrors.some(e => e.severity === 'info');
+                      const onlyInfo = hasInfo && !hasError && !hasWarning;
                       
                       return (
                         <div 
@@ -318,11 +333,13 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                           className="flex items-center justify-end gap-0.5 px-1"
                           style={{ lineHeight: '1.6', fontSize: '0.75em' }}
                         >
-                          {lineErrors && lineErrors.length > 0 ? (
+                          {lineErrors && lineErrors.length > 0 && !onlyInfo ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className={`flex items-center ${hasError ? 'text-destructive' : 'text-yellow-500'}`}>
-                                  <AlertCircle className="w-3 h-3" />
+                                <span className={`flex items-center ${
+                                  hasError ? 'text-destructive' : hasWarning ? 'text-yellow-500' : 'text-cyan-500'
+                                }`}>
+                                  {onlyInfo ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent 
@@ -331,7 +348,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                               >
                                 <div className="space-y-1">
                                   {lineErrors.map((err, errIdx) => (
-                                    <div key={errIdx} className={`text-xs ${err.severity === 'error' ? 'text-destructive' : 'text-yellow-500'}`}>
+                                    <div key={errIdx} className={`text-xs ${
+                                      err.severity === 'error' ? 'text-destructive' 
+                                        : err.severity === 'warning' ? 'text-yellow-500' 
+                                        : 'text-cyan-500'
+                                    }`}>
                                       {err.message}
                                     </div>
                                   ))}
