@@ -136,7 +136,7 @@ export const AnimPanelWithControls: React.FC<AnimPanelWithControlsProps> = ({
     <div className="panel flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header with controls */}
       <div className="panel-header flex items-center gap-2 shrink-0">
-        <span className="font-medium">5. Anim</span>
+        <span className="panel-title">5. Anim</span>
         {loopRange && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary flex items-center gap-1">
             <Repeat className="h-2.5 w-2.5" />
