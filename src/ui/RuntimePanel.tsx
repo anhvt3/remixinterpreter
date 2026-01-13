@@ -518,7 +518,8 @@ const RuntimeStepRow: React.FC<{
         <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
           {Object.entries(step.resolvedArgs).map(([k, v]) => {
             const paramKey = `${step.id}:${k}`;
-            const isParamSelected = selectedParamKey === paramKey || selectedValueKey?.startsWith(paramKey);
+            // Only mark param selected if the param itself is selected, NOT when a child value is selected
+            const isParamSelected = selectedParamKey === paramKey;
             const isParamInChain = chainStepIds.includes(paramKey);
             return (
               <ParamRow

@@ -121,9 +121,11 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     const runtime = runtimeRef.current;
     const nodes = Array.from(runtime.nodes.values()).reverse();
     
+    console.log('[IRAnimRenderer] Click at scene coords:', x.toFixed(1), y.toFixed(1));
+    
     for (const node of nodes) {
-      // Skip invisible nodes
-      if (!node.visible) continue;
+      // Skip invisible nodes (opacity 0 is effectively invisible)
+      if (!node.visible || node.style.opacity <= 0) continue;
       
       const tx = node.transform.x;
       const ty = node.transform.y;
@@ -131,11 +133,12 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       let hitHeight = 0;
       
       if (node.type === 'text') {
-        // Approximate text hit box
+        // Approximate text hit box - more generous for small text
         const fontSize = node.style.text?.fontSize || 24;
         const content = (node as { content: string }).content || '';
-        hitWidth = Math.max(content.length * fontSize * 0.6, 50);
-        hitHeight = fontSize * 1.5;
+        // Minimum 40px hit area for small text, otherwise use content size
+        hitWidth = Math.max(content.length * fontSize * 0.6, 40);
+        hitHeight = Math.max(fontSize * 1.5, 40);
       } else if (node.type === 'rect' || node.type === 'roundedRect') {
         // Rectangle hit box
         const rectNode = node as { width: number; height: number };
@@ -170,12 +173,12 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         y >= ty - hitHeight / 2 &&
         y <= ty + hitHeight / 2
       ) {
-        console.log('[IRAnimRenderer] Clicked node:', node.id, 'type:', node.type);
+        console.log('[IRAnimRenderer] Clicked node:', node.id, 'type:', node.type, 'at:', tx.toFixed(1), ty.toFixed(1));
         onElementClick(node.id);
         return;
       }
     }
-    console.log('[IRAnimRenderer] No node hit at', x, y);
+    console.log('[IRAnimRenderer] No node hit at', x.toFixed(1), y.toFixed(1), '- checked', nodes.length, 'nodes');
   }, [onElementClick, program]);
   
   // Calculate display dimensions maintaining aspect ratio
