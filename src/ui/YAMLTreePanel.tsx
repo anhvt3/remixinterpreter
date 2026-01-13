@@ -736,15 +736,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
-  // Auto-expand when forceExpanded changes to true
-  useEffect(() => {
-    if (forceExpanded && !expanded) {
-      setExpanded(true);
-    }
-  }, [forceExpanded]);
-  
-  // Use forceExpanded OR manual expanded state
-  const isExpanded = forceExpanded || expanded;
+  // No auto-expand - user controls expansion manually
+  // forceExpanded only affects highlighting, not expansion state
+  const isExpanded = expanded;
   
   // Helper to check if a param path is the anchor (primary) or upstream (secondary)
   const getParamHighlightType = (paramPath: string): 'primary' | 'secondary' | null => {
@@ -2124,83 +2118,8 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const fnCanGoDown = !!anchorFunction && fnNavIndex > 0;
   const fnChainLength = fnUpstreamChain.length + 1; // +1 for anchor
   
-  // Auto-expand functions in the navigation chain (only upstream, NOT the anchor itself)
-  useEffect(() => {
-    if (!anchorStatement || upstreamChain.length === 0) return;
-    
-    console.log('YAMLTreePanel: Auto-expand effect', { 
-      anchorStatement, 
-      upstreamChain,
-      chainLength: upstreamChain.length 
-    });
-    
-    // Only expand upstream chain functions, NOT the clicked anchor function
-    const functionsToExpand = upstreamChain.map(s => s.fnName);
-    const next = new Set(expandedFunctions);
-    let changed = false;
-    
-    for (const fnName of functionsToExpand) {
-      if (!next.has(fnName)) {
-        next.add(fnName);
-        changed = true;
-      }
-    }
-    
-    if (changed) {
-      console.log('YAMLTreePanel: Expanding functions', functionsToExpand);
-      onExpandedFunctionsChange?.(next);
-    }
-  }, [anchorStatement, upstreamChain, expandedFunctions, onExpandedFunctionsChange]);
-  
-  // Auto-expand functions in the function navigation chain (only upstream, NOT the anchor itself)
-  useEffect(() => {
-    if (!anchorFunction || fnUpstreamChain.length === 0) return;
-    
-    // Only expand upstream chain functions, NOT the clicked anchor function
-    const functionsToExpand = fnUpstreamChain.map(s => s.fnName);
-    const next = new Set(expandedFunctions);
-    let changed = false;
-    
-    for (const fnName of functionsToExpand) {
-      if (!next.has(fnName)) {
-        next.add(fnName);
-        changed = true;
-      }
-    }
-    
-    if (changed) {
-      onExpandedFunctionsChange?.(next);
-    }
-  }, [anchorFunction, fnUpstreamChain, expandedFunctions, onExpandedFunctionsChange]);
-
-  // Auto-expand functions containing highlighted params (only upstream, NOT the anchor's function)
-  useEffect(() => {
-    if (highlightedParams.length === 0 || !anchorParam) return;
-    
-    // Expand all functions that contain highlighted params EXCEPT the anchor's function
-    const functionsToExpand = [...new Set(
-      highlightedParams
-        .filter(p => p.fnName !== anchorParam.fnName) // Exclude anchor's function
-        .map(p => p.fnName)
-    )];
-    
-    if (functionsToExpand.length === 0) return;
-    
-    const nextFunctions = new Set(expandedFunctions);
-    let functionsChanged = false;
-    
-    for (const fnName of functionsToExpand) {
-      if (!nextFunctions.has(fnName)) {
-        nextFunctions.add(fnName);
-        functionsChanged = true;
-      }
-    }
-    
-    if (functionsChanged) {
-      console.log('YAMLTreePanel: Auto-expanding functions for param tracing', functionsToExpand);
-      onExpandedFunctionsChange?.(nextFunctions);
-    }
-  }, [highlightedParams, anchorParam, expandedFunctions, onExpandedFunctionsChange]);
+  // No auto-expand - user controls expansion manually
+  // Highlighting still works for upstream chains, but expansion is manual
 
   const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
     // Check direct literal IDs
@@ -2251,23 +2170,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return null;
   }, [highlightedElementId, spec]);
   
-  // Auto-expand all functions in the call chain
-  useEffect(() => {
-    if (elementCallChain && elementCallChain.length > 0) {
-      const functionsToExpand = elementCallChain.map(entry => entry.fnName);
-      const next = new Set(expandedFunctions);
-      let changed = false;
-      for (const fnName of functionsToExpand) {
-        if (!next.has(fnName)) {
-          next.add(fnName);
-          changed = true;
-        }
-      }
-      if (changed) {
-        onExpandedFunctionsChange?.(next);
-      }
-    }
-  }, [elementCallChain, expandedFunctions, onExpandedFunctionsChange]);
+  // No auto-expand for elementCallChain - user controls expansion manually
   
   // Show all functions as flat list
   const allFunctions = useMemo(() => {
