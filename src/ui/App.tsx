@@ -18,6 +18,7 @@ import { executeWithTrace, type CallChainEntry } from '../core/runtimeTracer';
 import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
+import { useLoData } from '@/hooks/useLoData';
 
 // Extract only the params section from the full YAML
 function extractParams(fullYaml: string): string {
@@ -56,6 +57,40 @@ export const App: React.FC = () => {
   const [sourceActiveTab, setSourceActiveTab] = useState<'lo' | 'video'>('lo');
   const [descContents, setDescContents] = useState<string[]>(['', '', '', '', '']);
   const [descVideoLink, setDescVideoLink] = useState('');
+  
+  // LO data management
+  const { los, versions, fetchVersionsForLo, getVersionContent } = useLoData();
+  const [selectedLoId, setSelectedLoId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  
+  // When LO selection changes, fetch versions and update loCode
+  const handleSelectLo = useCallback(async (loId: string | null) => {
+    setSelectedLoId(loId);
+    setSelectedVersionId(null);
+    
+    if (loId) {
+      const selectedLo = los.find(lo => lo.id === loId);
+      if (selectedLo) {
+        setLoCode(selectedLo.code);
+      }
+      await fetchVersionsForLo(loId);
+    } else {
+      setLoCode('');
+      setLoContent('');
+    }
+  }, [los, fetchVersionsForLo]);
+  
+  // When version selection changes, load content
+  const handleSelectVersion = useCallback(async (versionId: string | null) => {
+    setSelectedVersionId(versionId);
+    
+    if (versionId) {
+      const content = await getVersionContent(versionId);
+      setLoContent(content || '');
+    } else {
+      setLoContent('');
+    }
+  }, [getVersionContent]);
   
   // Config tab password protection
   const [configAuthenticated, setConfigAuthenticated] = useState(false);
@@ -502,6 +537,12 @@ export const App: React.FC = () => {
           zoomLevel={zoomLevel}
           activeTab={sourceActiveTab}
           onActiveTabChange={setSourceActiveTab}
+          los={los}
+          versions={versions}
+          selectedLoId={selectedLoId}
+          onSelectLo={handleSelectLo}
+          selectedVersionId={selectedVersionId}
+          onSelectVersion={handleSelectVersion}
         />
       ),
     },
@@ -555,7 +596,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
