@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ReactNode } from 'react';
+import React, { useState, useCallback, ReactNode, useEffect } from 'react';
 
 export type PanelId = 'source' | 'desc' | 'dsl' | 'runtime' | 'anim' | 'chat';
 
@@ -11,18 +11,51 @@ interface PanelConfig {
   render: () => ReactNode;
 }
 
+// Breakpoints for responsive panel count
+const TABLET_BREAKPOINT = 1024;
+const MOBILE_BREAKPOINT = 768;
+
+// Hook to get responsive panel count
+export function useResponsivePanelCount() {
+  const [panelCount, setPanelCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 3;
+    if (window.innerWidth < MOBILE_BREAKPOINT) return 1;
+    if (window.innerWidth < TABLET_BREAKPOINT) return 2;
+    return 3;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < MOBILE_BREAKPOINT) {
+        setPanelCount(1);
+      } else if (window.innerWidth < TABLET_BREAKPOINT) {
+        setPanelCount(2);
+      } else {
+        setPanelCount(3);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return panelCount;
+}
+
 // Hook to manage panel expansion state
 export function usePanelExpansion(initialExpanded: PanelId[] = ['dsl', 'runtime', 'anim']) {
   const [expandedOrder, setExpandedOrder] = useState<PanelId[]>(initialExpanded);
+  const panelCount = useResponsivePanelCount();
 
-  const visiblePanelIds = expandedOrder.slice(0, 3);
+  const visiblePanelIds = expandedOrder.slice(0, panelCount);
   const sortedVisiblePanelIds = [...visiblePanelIds].sort(
     (a, b) => PANEL_ORDER.indexOf(a) - PANEL_ORDER.indexOf(b)
   );
 
   const handlePanelClick = useCallback((panelId: PanelId) => {
     setExpandedOrder(prev => {
-      const isCurrentlyVisible = prev.slice(0, 3).includes(panelId);
+      const isCurrentlyVisible = prev.slice(0, panelCount).includes(panelId);
       
       if (isCurrentlyVisible) {
         const filtered = prev.filter(id => id !== panelId);
@@ -32,7 +65,7 @@ export function usePanelExpansion(initialExpanded: PanelId[] = ['dsl', 'runtime'
         return [panelId, ...filtered];
       }
     });
-  }, []);
+  }, [panelCount]);
 
   const isPanelVisible = (panelId: PanelId) => visiblePanelIds.includes(panelId);
 
@@ -41,6 +74,7 @@ export function usePanelExpansion(initialExpanded: PanelId[] = ['dsl', 'runtime'
     sortedVisiblePanelIds,
     handlePanelClick,
     isPanelVisible,
+    panelCount,
   };
 }
 
@@ -86,14 +120,23 @@ export const PanelSelector: React.FC<PanelSelectorProps> = ({
 interface PanelContentAreaProps {
   panels: PanelConfig[];
   sortedVisiblePanelIds: PanelId[];
+  panelCount?: number;
 }
 
 export const PanelContentArea: React.FC<PanelContentAreaProps> = ({
   panels,
   sortedVisiblePanelIds,
+  panelCount = 3,
 }) => {
+  // Dynamic grid columns based on panel count
+  const gridColsClass = panelCount === 1 
+    ? 'grid-cols-1' 
+    : panelCount === 2 
+      ? 'grid-cols-2' 
+      : 'grid-cols-3';
+
   return (
-    <div className="absolute inset-0 grid grid-cols-3 gap-2 p-2">
+    <div className={`absolute inset-0 grid ${gridColsClass} gap-2 p-2`}>
       {sortedVisiblePanelIds.map((panelId) => {
         const panel = panels.find(p => p.id === panelId);
         if (!panel) return null;
@@ -120,7 +163,7 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
   panels,
   initialExpanded = ['dsl', 'runtime', 'anim'],
 }) => {
-  const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible } = usePanelExpansion(initialExpanded);
+  const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible, panelCount } = usePanelExpansion(initialExpanded);
 
   return (
     <div className="h-full flex flex-col">
@@ -134,7 +177,7 @@ export const CollapsiblePanelLayout: React.FC<CollapsiblePanelLayoutProps> = ({
       </div>
 
       {/* Panel content area */}
-      <PanelContentArea panels={panels} sortedVisiblePanelIds={sortedVisiblePanelIds} />
+      <PanelContentArea panels={panels} sortedVisiblePanelIds={sortedVisiblePanelIds} panelCount={panelCount} />
     </div>
   );
 };
