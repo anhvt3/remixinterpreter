@@ -79,7 +79,9 @@ const RuntimeStepRow: React.FC<{
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
+  onParamClick?: (step: RuntimeStep, paramName: string) => void;
   selectedStepId?: string | null;
+  selectedParamKey?: string | null; // format: "stepId:paramName"
   highlightedStepIds?: string[];
   currentNavigationStepId?: string | null;
   chainStepIds?: string[];
@@ -95,7 +97,8 @@ const RuntimeStepRow: React.FC<{
   // Trigger for scroll when anim-element selection changes
   elementHighlightedStepId?: string | null;
 }> = ({ 
-  step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
+  step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, selectedStepId, selectedParamKey,
+  highlightedStepIds = [], 
   currentNavigationStepId, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
   deepestHighlightedStepId, elementHighlightedStepId
@@ -251,16 +254,33 @@ const RuntimeStepRow: React.FC<{
         )}
       </div>
       
-      {/* Params rows for call/ir - rendered separately without highlight */}
+      {/* Params rows for call/ir - rendered separately with own highlighting */}
       {(step.type === 'call' || step.type === 'ir') && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
         <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
-          {Object.entries(step.resolvedArgs).map(([k, v]) => (
-            <div key={k} className="flex gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer" onClick={handleRowClick}>
-              <span className="text-orange-400">{k}</span>
-              <span className="text-muted-foreground">{step.type === 'call' ? '=' : ':'}</span>
-              <span className="text-muted-foreground">{formatValue(v)}</span>
-            </div>
-          ))}
+          {Object.entries(step.resolvedArgs).map(([k, v]) => {
+            const paramKey = `${step.id}:${k}`;
+            const isParamSelected = selectedParamKey === paramKey;
+            const isParamInChain = chainStepIds.includes(paramKey);
+            const paramHighlight = isParamSelected 
+              ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+              : isParamInChain 
+              ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
+              : '';
+            return (
+              <div 
+                key={k} 
+                className={`flex gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onParamClick?.(step, k);
+                }}
+              >
+                <span className="text-orange-400">{k}</span>
+                <span className="text-muted-foreground">{step.type === 'call' ? '=' : ':'}</span>
+                <span className="text-muted-foreground">{formatValue(v)}</span>
+              </div>
+            );
+          })}
         </div>
       )}
       
@@ -273,7 +293,9 @@ const RuntimeStepRow: React.FC<{
           onToggle={onToggle} 
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
+          onParamClick={onParamClick}
           selectedStepId={selectedStepId}
+          selectedParamKey={selectedParamKey}
           highlightedStepIds={highlightedStepIds}
           currentNavigationStepId={currentNavigationStepId}
           chainStepIds={chainStepIds}
@@ -306,8 +328,9 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return new Set(steps.filter(s => s.depth === 0).map(s => s.id));
   });
   
-  // Navigation state: anchor is the clicked step, navIndex is current position in chain
+  // Navigation state: anchor is the clicked step or param, navIndex is current position in chain
   const [anchorStepId, setAnchorStepId] = useState<string | null>(null);
+  const [anchorParamKey, setAnchorParamKey] = useState<string | null>(null); // format: "stepId:paramName"
   const [navIndex, setNavIndex] = useState<number>(0);
   
   // Reinitialize expanded when steps change
@@ -376,27 +399,50 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [anchorStepId, navIndex, ancestorChain]);
   
-  // Chain step IDs: all steps that should be dimly highlighted
+  // Chain step IDs: all steps and params that should be dimly highlighted
   // This includes anchor (when not current) and all ancestors (except current)
+  // Also includes param key if a param is selected
   const chainStepIds = useMemo(() => {
     if (!anchorStepId) return [];
-    const allInChain = [anchorStepId, ...ancestorChain];
-    // Exclude the current navigation position
-    return allInChain.filter(id => id !== currentNavStepId);
-  }, [anchorStepId, ancestorChain, currentNavStepId]);
+    const allInChain: string[] = [anchorStepId, ...ancestorChain];
+    // Add param key if selected
+    if (anchorParamKey) {
+      allInChain.push(anchorParamKey);
+    }
+    // Exclude the current navigation position (step) and selected param (it gets primary highlight)
+    return allInChain.filter(id => id !== currentNavStepId && id !== anchorParamKey);
+  }, [anchorStepId, anchorParamKey, ancestorChain, currentNavStepId]);
   
-  // Handle step click - set as anchor
+  // Handle step click - set as anchor, clear param selection
   const handleStepClick = useCallback((step: RuntimeStep) => {
-    if (anchorStepId === step.id) {
-      // Click same step - clear navigation
+    if (anchorStepId === step.id && !anchorParamKey) {
+      // Click same step when no param selected - clear navigation
       setAnchorStepId(null);
+      setAnchorParamKey(null);
       setNavIndex(0);
     } else {
       setAnchorStepId(step.id);
+      setAnchorParamKey(null);
       setNavIndex(0);
     }
     onStepClick?.(step);
-  }, [anchorStepId, onStepClick]);
+  }, [anchorStepId, anchorParamKey, onStepClick]);
+  
+  // Handle param click - set param as primary anchor, step + upstream as secondary
+  const handleParamClick = useCallback((step: RuntimeStep, paramName: string) => {
+    const paramKey = `${step.id}:${paramName}`;
+    if (anchorParamKey === paramKey) {
+      // Click same param - clear
+      setAnchorStepId(null);
+      setAnchorParamKey(null);
+      setNavIndex(0);
+    } else {
+      // Set step as anchor (for upstream chain), param as selected
+      setAnchorStepId(step.id);
+      setAnchorParamKey(paramKey);
+      setNavIndex(0);
+    }
+  }, [anchorParamKey]);
   
   // Navigate up (to higher level / parent)
   const navigateUp = useCallback(() => {
@@ -602,9 +648,11 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 onToggle={toggleExpand}
                 getHighlightLevel={getHighlightLevel}
                 onStepClick={handleStepClick}
+                onParamClick={handleParamClick}
                 selectedStepId={selectedStepId}
+                selectedParamKey={anchorParamKey}
                 highlightedStepIds={highlightedStepIds}
-                currentNavigationStepId={currentNavStepId}
+                currentNavigationStepId={anchorParamKey ? null : currentNavStepId}
                 chainStepIds={chainStepIds}
                 canGoUp={!!canGoUp}
                 canGoDown={!!canGoDown}
