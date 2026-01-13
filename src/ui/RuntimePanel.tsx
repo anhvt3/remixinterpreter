@@ -89,11 +89,13 @@ const RuntimeStepRow: React.FC<{
   chainLength?: number;
   // ID of the deepest highlighted step (for auto-scroll)
   deepestHighlightedStepId?: string | null;
+  // Key to trigger scroll when element selection changes
+  highlightedIRKey?: string | null;
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, selectedStepId, highlightedStepIds = [], 
   currentNavigationStepId, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
-  deepestHighlightedStepId
+  deepestHighlightedStepId, highlightedIRKey
 }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
@@ -109,12 +111,12 @@ const RuntimeStepRow: React.FC<{
   // Show nav buttons only on the current navigation position
   const showNavButtons = isCurrentNav;
 
-  // Auto-scroll to the deepest highlighted step, or current nav position
+  // Auto-scroll to the highlighted IR step when element selection changes
   useEffect(() => {
     if ((isDeepestHighlighted || highlightLevel === 'primary' || isCurrentNav) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isDeepestHighlighted, highlightLevel, isCurrentNav]);
+  }, [isDeepestHighlighted, highlightLevel, isCurrentNav, highlightedIRKey]);
 
   // Match TreeView color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -283,6 +285,7 @@ const RuntimeStepRow: React.FC<{
           navIndex={navIndex}
           chainLength={chainLength}
           deepestHighlightedStepId={deepestHighlightedStepId}
+          highlightedIRKey={highlightedIRKey}
         />
       ))}
     </>
@@ -598,6 +601,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 navIndex={navIndex}
                 chainLength={ancestorChain.length}
                 deepestHighlightedStepId={deepestHighlightedStepRef.current}
+                highlightedIRKey={highlightedIRKey}
               />
             ))
           )}
