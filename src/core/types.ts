@@ -122,7 +122,7 @@ export interface IRStatement {
 // Timeline events emitted by the interpreter
 export interface TimelineEvent {
   id: string;
-  type: 'board.init' | 'text.create' | 'text.update';
+  type: 'board.init' | 'text.create' | 'text.update' | 'shape.create' | 'shape.update';
   args: Record<string, unknown>;
   timestamp: number; // Order in which event was emitted
 }

@@ -192,7 +192,7 @@ function executeCallTraced(
   const fnDef = spec.defs[call.fn];
   
   if (!fnDef) {
-    if (call.fn.startsWith('board.') || call.fn.startsWith('text.')) {
+    if (call.fn.startsWith('board.') || call.fn.startsWith('text.') || call.fn.startsWith('shape.')) {
       return executeIRTraced({ fn: call.fn, args: call.args }, spec, timeline, steps, env, depth, callStack, elementCallChains, stepCallChains, stepCreatedElements, parentStep);
     }
     

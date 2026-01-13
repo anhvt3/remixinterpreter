@@ -4,7 +4,7 @@ import katex from 'katex';
 
 export interface SceneElement {
   id: string;
-  type: 'text';
+  type: 'text' | 'shape';
   mode: 'text' | 'math';
   content: string;
   at: LayoutPosition;
@@ -15,6 +15,18 @@ export interface SceneElement {
   // For transitions
   previousContent?: string;
   transitionProgress?: number;
+  
+  // Shape-specific properties
+  shapeType?: 'rect' | 'circle' | 'line' | 'arrow' | 'polygon';
+  width?: number;
+  height?: number;
+  radius?: number;
+  points?: { x: number; y: number }[];
+  from?: { x: number; y: number };
+  to?: { x: number; y: number };
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
 }
 
 export interface Scene {
@@ -76,6 +88,24 @@ export function computeScene(
         ? (elementT1Map.get(elementId) || t) + 0.1
         : t;
       processTextUpdate(scene, event, effectiveTime);
+    }
+    
+    if (event.type === 'shape.create') {
+      const args = event.args as { id?: string };
+      const elementId = args.id;
+      const effectiveTime = elementId && staticElementIds.includes(elementId)
+        ? (elementT1Map.get(elementId) || t) + 0.1
+        : t;
+      processShapeCreate(scene, event, effectiveTime);
+    }
+    
+    if (event.type === 'shape.update') {
+      const args = event.args as { id?: string };
+      const elementId = args.id;
+      const effectiveTime = elementId && staticElementIds.includes(elementId)
+        ? (elementT1Map.get(elementId) || t) + 0.1
+        : t;
+      processShapeUpdate(scene, event, effectiveTime);
     }
   }
   
@@ -204,9 +234,88 @@ function processTextUpdate(scene: Scene, event: TimelineEvent, t: number): void 
   }
 }
 
-/**
- * Render math content using KaTeX
- */
+function processShapeCreate(scene: Scene, event: TimelineEvent, t: number): void {
+  const args = event.args as Record<string, unknown>;
+  const id = args.id as string;
+  const shapeType = (args.shapeType as SceneElement['shapeType']) || 'rect';
+  const ease = (args.ease as string) || 'easeOutCubic';
+  
+  // Parse time values
+  const t0 = typeof args.t0 === 'number' ? args.t0 : parseFloat(String(args.t0)) || 0;
+  const t1 = typeof args.t1 === 'number' ? args.t1 : parseFloat(String(args.t1)) || 0;
+  
+  // Parse position
+  let at: LayoutPosition;
+  if (args.at && typeof args.at === 'object') {
+    const rawAt = args.at as Record<string, unknown>;
+    at = {
+      anchor: String(rawAt.anchor || 'Center'),
+      x: typeof rawAt.x === 'number' ? rawAt.x : parseFloat(String(rawAt.x)) || 0,
+      y: typeof rawAt.y === 'number' ? rawAt.y : parseFloat(String(rawAt.y)) || 0,
+    };
+  } else {
+    at = { anchor: 'Center', x: 0, y: 0 };
+  }
+  
+  // Element not yet visible
+  if (t < t0) {
+    return;
+  }
+  
+  const progress = calculateProgress(t, t0, t1, ease);
+  const opacity = Math.max(0.01, progress);
+  
+  const element: SceneElement = {
+    id,
+    type: 'shape',
+    mode: 'text',
+    content: '',
+    at,
+    style: args.style as StyleDef || { color: '#ffffff', scale: 1 },
+    opacity,
+    visible: true,
+    shapeType,
+    width: typeof args.width === 'number' ? args.width : parseFloat(String(args.width)) || 1,
+    height: typeof args.height === 'number' ? args.height : parseFloat(String(args.height)) || 1,
+    radius: typeof args.radius === 'number' ? args.radius : parseFloat(String(args.radius)) || 0.5,
+    fill: args.fill as string || 'transparent',
+    stroke: args.stroke as string || '#ffffff',
+    strokeWidth: typeof args.strokeWidth === 'number' ? args.strokeWidth : parseFloat(String(args.strokeWidth)) || 2,
+    points: args.points as { x: number; y: number }[] || [],
+    from: args.from as { x: number; y: number },
+    to: args.to as { x: number; y: number },
+  };
+  
+  scene.elements.set(id, element);
+}
+
+function processShapeUpdate(scene: Scene, event: TimelineEvent, t: number): void {
+  const args = event.args as Record<string, unknown>;
+  const id = args.id as string;
+  const ease = (args.ease as string) || 'easeOutCubic';
+  
+  const t0 = typeof args.t0 === 'number' ? args.t0 : parseFloat(String(args.t0)) || 0;
+  const t1 = typeof args.t1 === 'number' ? args.t1 : parseFloat(String(args.t1)) || 0;
+  
+  if (t < t0) {
+    return;
+  }
+  
+  const existing = scene.elements.get(id);
+  if (!existing) return;
+  
+  const progress = calculateProgress(t, t0, t1, ease);
+  
+  // Update shape properties
+  if (args.fill) existing.fill = args.fill as string;
+  if (args.stroke) existing.stroke = args.stroke as string;
+  if (args.strokeWidth) existing.strokeWidth = args.strokeWidth as number;
+  if (args.opacity !== undefined) existing.opacity = args.opacity as number * progress;
+  if (args.width) existing.width = args.width as number;
+  if (args.height) existing.height = args.height as number;
+}
+
+
 export function renderMath(latex: string): string {
   console.log('renderMath input:', JSON.stringify(latex), 'length:', latex.length);
   try {
