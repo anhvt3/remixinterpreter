@@ -184,17 +184,6 @@ const RuntimeStepRow: React.FC<{
             <div>
               <span className="text-purple-400">call </span>
               <span className="text-blue-400 font-medium">{step.functionName}</span>
-              {step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
-                <div className="ml-4 mt-0.5">
-                  {Object.entries(step.resolvedArgs).map(([k, v]) => (
-                    <div key={k} className="flex gap-1">
-                      <span className="text-orange-400">{k}</span>
-                      <span className="text-muted-foreground">=</span>
-                      <span className="text-muted-foreground">{formatValue(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
           
@@ -228,17 +217,6 @@ const RuntimeStepRow: React.FC<{
             <div>
               <span className="text-cyan-400">→ </span>
               <span className="text-blue-400">{step.functionName}</span>
-              {step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
-                <div className="ml-4 mt-0.5">
-                  {Object.entries(step.resolvedArgs).map(([k, v]) => (
-                    <div key={k} className="flex gap-1">
-                      <span className="text-orange-400">{k}</span>
-                      <span className="text-muted-foreground">:</span>
-                      <span className="text-muted-foreground">{formatValue(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -272,6 +250,19 @@ const RuntimeStepRow: React.FC<{
           </div>
         )}
       </div>
+      
+      {/* Params rows for call/ir - rendered separately without highlight */}
+      {(step.type === 'call' || step.type === 'ir') && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
+        <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
+          {Object.entries(step.resolvedArgs).map(([k, v]) => (
+            <div key={k} className="flex gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer" onClick={handleRowClick}>
+              <span className="text-orange-400">{k}</span>
+              <span className="text-muted-foreground">{step.type === 'call' ? '=' : ':'}</span>
+              <span className="text-muted-foreground">{formatValue(v)}</span>
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Children */}
       {isExpanded && step.children?.map(child => (
