@@ -275,6 +275,15 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs whitespace-nowrap"
+                  disabled={!selectedVersionId}
+                  title="Generate Short Description"
+                >
+                  VA-2210-GENERATE-SHORT-DESC
+                </Button>
               </div>
               
               {/* LO Content - rest of the panel */}
