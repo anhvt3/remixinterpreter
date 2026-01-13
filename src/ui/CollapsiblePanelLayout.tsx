@@ -58,7 +58,7 @@ export const PanelSelector: React.FC<PanelSelectorProps> = ({
   onPanelClick,
 }) => {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 ml-auto">
       {panels.map((panel) => {
         const isVisible = isPanelVisible(panel.id);
         
