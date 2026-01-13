@@ -705,6 +705,8 @@ interface StatementRowProps {
   // Param highlighting props
   highlightedParams?: ParamHighlightKey[];
   onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
+  // Force expand when params are highlighted
+  forceExpanded?: boolean;
 }
 
 const StatementRow: React.FC<StatementRowProps> = ({ 
@@ -727,9 +729,20 @@ const StatementRow: React.FC<StatementRowProps> = ({
   chainLength = 0,
   highlightedParams = [],
   onParamClick,
+  forceExpanded = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-expand when forceExpanded changes to true
+  useEffect(() => {
+    if (forceExpanded && !expanded) {
+      setExpanded(true);
+    }
+  }, [forceExpanded]);
+  
+  // Use forceExpanded OR manual expanded state
+  const isExpanded = forceExpanded || expanded;
   
   // Debug: check if onClick is passed
   const handleRowClick = () => {
@@ -785,12 +798,12 @@ const StatementRow: React.FC<StatementRowProps> = ({
     );
   };
   
-  // Auto-scroll into view when current nav or primary highlight
+  // Auto-scroll into view when current nav, primary highlight, or has highlighted params
   useEffect(() => {
-    if ((isCurrentNav || highlightLevel === 'primary') && rowRef.current) {
+    if ((isCurrentNav || highlightLevel === 'primary' || forceExpanded) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isCurrentNav, highlightLevel]);
+  }, [isCurrentNav, highlightLevel, forceExpanded]);
   
   const handleArgChange = (key: string, value: string, originalValue: unknown) => {
     if (!onArgsChange || !('call' in stmt)) return;
@@ -816,10 +829,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
-            expanded ? (
+            isExpanded ? (
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             ) : (
               <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -845,13 +858,13 @@ const StatementRow: React.FC<StatementRowProps> = ({
               </TooltipContent>
             )}
           </Tooltip>
-          {!expanded && hasArgs && (
+          {!isExpanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
           {out && <span className="text-green-400">{out}</span>}
           {renderNavButtons()}
         </div>
-        {expanded && hasArgs && (
+        {isExpanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
@@ -924,10 +937,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
+          onClick={(e) => { if (hasVars) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasVars ? (
-            expanded ? (
+            isExpanded ? (
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             ) : (
               <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -943,10 +956,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
               <ExplanationContent explanation={statementExplanations.let} />
             </TooltipContent>
           </Tooltip>
-          {!expanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
+          {!isExpanded && <span className="text-muted-foreground/60">({vars.length} vars)</span>}
           {renderNavButtons()}
         </div>
-        {expanded && hasVars && (
+        {isExpanded && hasVars && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-1">
             {vars.map(([k, v]) => {
               // Check if it's an expression with args
@@ -1047,9 +1060,9 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); }}
+          onClick={(e) => { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); }}
         >
-          {expanded ? (
+          {isExpanded ? (
             <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
           ) : (
             <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -1067,7 +1080,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
           <span className="text-foreground/80">{formatValue(stmt.foreach.range)}</span>
           {renderNavButtons()}
         </div>
-        {expanded && (
+        {isExpanded && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1">
             {stmt.foreach.do.map((s, i) => (
               <StatementRow key={i} stmt={s} fnName={fnName} stmtIndex={stmtIndex} />
@@ -1097,10 +1110,10 @@ const StatementRow: React.FC<StatementRowProps> = ({
       <div ref={rowRef} className={`py-1 ${highlightClass}`} onClick={handleRowClick}>
         <div 
           className="flex items-center gap-1 rounded px-1 -mx-1"
-          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!expanded); handleRowClick(); } }}
+          onClick={(e) => { if (hasArgs) { e.stopPropagation(); setExpanded(!isExpanded); handleRowClick(); } }}
         >
           {hasArgs ? (
-            expanded ? (
+            isExpanded ? (
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             ) : (
               <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -1117,12 +1130,12 @@ const StatementRow: React.FC<StatementRowProps> = ({
             </TooltipContent>
           </Tooltip>
           <span className="text-primary">{stmt.ir.fn}</span>
-          {!expanded && hasArgs && (
+          {!isExpanded && hasArgs && (
             <span className="text-muted-foreground/60">({args.length} args)</span>
           )}
           {renderNavButtons()}
         </div>
-        {expanded && hasArgs && (
+        {isExpanded && hasArgs && (
           <div className="ml-6 pl-2 border-l border-border/40 mt-1 space-y-0.5">
             {args.map(([k, v]) => {
               const canEdit = editable && isSafelyEditable(v);
@@ -1533,6 +1546,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               // Use function chain nav controls if function chain is active
               const usesFnNav = isFnChainCurrentNav;
               
+              // Check if this statement has highlighted params that should force expansion
+              const hasHighlightedParams = highlightedParams.some(
+                p => p.fnName === node.name && p.stmtIndex === idx
+              );
+              
               return (
                 <StatementRow 
                   key={idx} 
@@ -1554,6 +1572,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   chainLength={usesFnNav ? fnChainLength : chainLength}
                   highlightedParams={highlightedParams}
                   onParamClick={onParamClick}
+                  forceExpanded={hasHighlightedParams}
                 />
               );
             })}
@@ -2126,7 +2145,28 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorFunction, fnUpstreamChain, expandedFunctions, onExpandedFunctionsChange]);
 
-  // Helper to check if a statement contains the highlighted element ID (including pattern-based)
+  // Auto-expand functions and statements containing highlighted params
+  useEffect(() => {
+    if (highlightedParams.length === 0) return;
+    
+    // Expand all functions that contain highlighted params
+    const functionsToExpand = [...new Set(highlightedParams.map(p => p.fnName))];
+    const nextFunctions = new Set(expandedFunctions);
+    let functionsChanged = false;
+    
+    for (const fnName of functionsToExpand) {
+      if (!nextFunctions.has(fnName)) {
+        nextFunctions.add(fnName);
+        functionsChanged = true;
+      }
+    }
+    
+    if (functionsChanged) {
+      console.log('YAMLTreePanel: Auto-expanding functions for param tracing', functionsToExpand);
+      onExpandedFunctionsChange?.(nextFunctions);
+    }
+  }, [highlightedParams, expandedFunctions, onExpandedFunctionsChange]);
+
   const statementHasElementId = (stmt: Statement, elementId: string): boolean => {
     // Check direct literal IDs
     if ('ir' in stmt && stmt.ir.args.id) {
