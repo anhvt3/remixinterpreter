@@ -477,15 +477,8 @@ export const App: React.FC = () => {
     loopRange,
   };
 
-  // Panel expansion state for LO WF tab
+  // Panel expansion state
   const { sortedVisiblePanelIds, handlePanelClick, isPanelVisible } = usePanelExpansion(['dsl', 'runtime', 'anim']);
-  
-  // Panel expansion state for EngWF tab
-  const { 
-    sortedVisiblePanelIds: engwfSortedVisiblePanelIds, 
-    handlePanelClick: engwfHandlePanelClick, 
-    isPanelVisible: engwfIsPanelVisible 
-  } = usePanelExpansion(['dsl', 'runtime', 'anim']);
 
   // Panel configurations
   const panelConfigs = useMemo(() => [
@@ -605,26 +598,16 @@ export const App: React.FC = () => {
         <Tabs defaultValue="editing" className="h-full flex flex-col" onValueChange={setActiveTab}>
           <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-4">
             <TabsList className="bg-muted">
-              <TabsTrigger value="editing" className="text-xs">LO WF</TabsTrigger>
-              <TabsTrigger value="engwf" className="text-xs">EngWF</TabsTrigger>
+              <TabsTrigger value="editing" className="text-xs">Editing</TabsTrigger>
               <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
             
-            {/* Panel selector for LO WF tab */}
+            {/* Panel selector for Editing tab - shown inline only when Editing is active */}
             {activeTab === 'editing' && (
               <PanelSelector
                 panels={panelConfigs}
                 isPanelVisible={isPanelVisible}
                 onPanelClick={handlePanelClick}
-              />
-            )}
-            
-            {/* Panel selector for EngWF tab */}
-            {activeTab === 'engwf' && (
-              <PanelSelector
-                panels={panelConfigs}
-                isPanelVisible={engwfIsPanelVisible}
-                onPanelClick={engwfHandlePanelClick}
               />
             )}
             
@@ -655,11 +638,6 @@ export const App: React.FC = () => {
             {/* Editing Tab: 6 collapsible panels */}
             <TabsContent value="editing" className="flex-1 min-h-0 m-0 relative overflow-hidden">
               <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={sortedVisiblePanelIds} />
-            </TabsContent>
-
-            {/* EngWF Tab */}
-            <TabsContent value="engwf" className="flex-1 min-h-0 m-0 relative overflow-hidden">
-              <PanelContentArea panels={panelConfigs} sortedVisiblePanelIds={engwfSortedVisiblePanelIds} />
             </TabsContent>
 
             {/* Config Tab */}
