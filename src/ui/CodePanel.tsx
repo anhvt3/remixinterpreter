@@ -97,6 +97,17 @@ export const CodePanel: React.FC<CodePanelProps> = ({
   
   // If we have line click handlers, render as clickable lines overlay
   const hasLineInteraction = !!onLineClick;
+
+  // Keep line heights perfectly aligned between:
+  // - syntax overlay
+  // - textarea
+  // - gutter (line numbers)
+  const editorFontPx = 14 * zoomLevel / 100;
+  const editorLineHeightPx = editorFontPx * 1.6;
+  const gutterFontPx = editorFontPx * 0.75;
+  const editorLineCount = localContent.split('\n').length;
+  const editorDisplayLines = Math.max(editorLineCount + 5, 20);
+  const editorContentHeightPx = editorDisplayLines * editorLineHeightPx;
   
   // Undo/redo for editable mode
   const { setValue, undo, redo, canUndo, canRedo } = useUndoRedo(localContent, (val) => {
@@ -312,14 +323,14 @@ export const CodePanel: React.FC<CodePanelProps> = ({
           {/* Using fontSize scaling instead of zoom to avoid browser rendering limits */}
           <div 
             className="relative font-mono cursor-text" 
-            style={{ fontSize: `${14 * zoomLevel / 100}px` }}
+            style={{ fontSize: `${editorFontPx}px` }}
             onClick={() => textareaRef.current?.focus()}
           >
             {/* Line numbers column with error indicators */}
             <div className="flex">
               <TooltipProvider delayDuration={200}>
                 <div className="w-14 bg-muted/20 border-r border-border/30 select-none shrink-0">
-                  <div className="py-4 pr-1" style={{ minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em` }}>
+                  <div className="py-4 pr-1" style={{ minHeight: `${editorContentHeightPx}px` }}>
                     {localContent.split('\n').map((_, idx) => {
                       const lineErrors = errorsByLine.get(idx);
                       const hasError = lineErrors && lineErrors.some(e => e.severity === 'error');
@@ -331,7 +342,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                         <div 
                           key={idx} 
                           className="flex items-center justify-end gap-0.5 px-1"
-                          style={{ height: '1.6em', lineHeight: '1.6em', fontSize: '0.75em' }}
+                          style={{ height: `${editorLineHeightPx}px`, lineHeight: `${editorLineHeightPx}px`, fontSize: `${gutterFontPx}px` }}
                         >
                           {lineErrors && lineErrors.length > 0 && !onlyInfo ? (
                             <Tooltip>
@@ -377,8 +388,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   className="absolute left-2 right-4 top-0 py-4 pointer-events-none select-none"
                   aria-hidden="true"
                   style={{
-                    lineHeight: '1.6',
-                    minHeight: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                    lineHeight: `${editorLineHeightPx}px`,
+                    minHeight: `${editorContentHeightPx}px`,
                   }}
                 >
                   <SyntaxHighlighter content={localContent} language={language} />
@@ -393,11 +404,13 @@ export const CodePanel: React.FC<CodePanelProps> = ({
                   wrap="off"
                   className="relative w-full py-4 bg-transparent text-transparent caret-foreground resize-none focus:outline-none border-none selection:bg-primary/40 selection:text-foreground z-10"
                   style={{
-                    lineHeight: '1.6',
+                    lineHeight: `${editorLineHeightPx}px`,
                     tabSize: 2,
-                    height: `${Math.max(localContent.split('\n').length + 5, 20) * 1.6}em`,
+                    height: `${editorContentHeightPx}px`,
                     minHeight: '100%',
                     caretColor: 'hsl(var(--foreground))',
+                    overflowY: 'hidden',
+                    overflowX: 'auto',
                   }}
                   spellCheck={false}
                 />
