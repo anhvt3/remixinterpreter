@@ -113,6 +113,13 @@ const ValueRow: React.FC<{
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
 
+  // Check if a child valueKey is in the upstream chain based on current selected value
+  const isChildInChain = (childKey: string): boolean => {
+    // Parent passes isSelected/isInChain context, but we need the actual selectedValueKey
+    // For now, we use the pattern: if this value is selected, all children are in chain
+    return isSelected || isInChain;
+  };
+
   return (
     <>
       <div 
@@ -143,34 +150,38 @@ const ValueRow: React.FC<{
         )}
       </div>
       
-      {/* Expanded children */}
+      {/* Expanded children - pass highlight state for upstream chain */}
       {expandable && isExpanded && (
         <>
-          {isArray && (value as unknown[]).map((item, idx) => (
-            <ValueRow
-              key={idx}
-              label={`[${idx}]`}
-              value={item}
-              indent={indent + 16}
-              valueKey={`${valueKey}[${idx}]`}
-              isSelected={isSelected}
-              isInChain={isInChain}
-              onValueClick={onValueClick}
-            />
-          ))}
-          {isObject && Object.entries(value as object).map(([k, v]) => (
-            <ValueRow
-              key={k}
-              label={`${k}:`}
-              value={v}
-              indent={indent + 16}
-              labelColor="text-cyan-400/70"
-              valueKey={`${valueKey}.${k}`}
-              isSelected={isSelected}
-              isInChain={isInChain}
-              onValueClick={onValueClick}
-            />
-          ))}
+          {isArray && (value as unknown[]).map((item, idx) => {
+            const childKey = `${valueKey}[${idx}]`;
+            return (
+              <ValueRow
+                key={idx}
+                label={`[${idx}]`}
+                value={item}
+                indent={indent + 16}
+                valueKey={childKey}
+                isInChain={isChildInChain(childKey)}
+                onValueClick={onValueClick}
+              />
+            );
+          })}
+          {isObject && Object.entries(value as object).map(([k, v]) => {
+            const childKey = `${valueKey}.${k}`;
+            return (
+              <ValueRow
+                key={k}
+                label={`${k}:`}
+                value={v}
+                indent={indent + 16}
+                labelColor="text-cyan-400/70"
+                valueKey={childKey}
+                isInChain={isChildInChain(childKey)}
+                onValueClick={onValueClick}
+              />
+            );
+          })}
           <div 
             className="flex gap-1 py-0.5 px-2 text-muted-foreground"
             style={{ paddingLeft: `${indent}px` }}
@@ -194,15 +205,23 @@ const ParamRow: React.FC<{
   separator: string;
   indent: number;
   onParamClick: () => void;
-}> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick }) => {
+  selectedValueKey?: string | null;
+  onValueClick?: (valueKey: string) => void;
+}> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray;
   const expandable = isExpandable(paramValue);
   
-  const paramHighlight = isSelected 
+  // Check if this param or any of its children are selected
+  const isValueSelected = selectedValueKey?.startsWith(paramKey);
+  
+  // Param itself is highlighted if selected directly (not a child value)
+  const isParamDirectlySelected = isSelected || (selectedValueKey === paramKey);
+  
+  const paramHighlight = isParamDirectlySelected
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
-    : isInChain 
+    : isInChain || isValueSelected
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
 
@@ -217,13 +236,20 @@ const ParamRow: React.FC<{
     return formatValue(paramValue);
   };
 
+  // Check if a valueKey is in the upstream chain of selectedValueKey
+  const isValueInChain = (valueKey: string): boolean => {
+    if (!selectedValueKey) return false;
+    // If selectedValueKey starts with this valueKey, it's a parent (upstream)
+    return selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey;
+  };
+
   return (
     <>
       <div 
         className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
         onClick={(e) => {
           e.stopPropagation();
-          onParamClick();
+          onValueClick?.(paramKey) ?? onParamClick();
         }}
       >
         {expandable ? (
@@ -247,30 +273,40 @@ const ParamRow: React.FC<{
         )}
       </div>
       
-      {/* Expanded children - using recursive ValueRow (no highlight inheritance) */}
+      {/* Expanded children - using recursive ValueRow with value highlighting */}
       {expandable && isExpanded && (
         <>
-          {isArray && (paramValue as unknown[]).map((item, idx) => (
-            <ValueRow
-              key={idx}
-              label={`[${idx}]`}
-              value={item}
-              indent={indent + 16}
-              valueKey={`${paramKey}[${idx}]`}
-              onValueClick={() => onParamClick()}
-            />
-          ))}
-          {isObject && Object.entries(paramValue as object).map(([k, v]) => (
-            <ValueRow
-              key={k}
-              label={`${k}:`}
-              value={v}
-              indent={indent + 16}
-              labelColor="text-cyan-400/70"
-              valueKey={`${paramKey}.${k}`}
-              onValueClick={() => onParamClick()}
-            />
-          ))}
+          {isArray && (paramValue as unknown[]).map((item, idx) => {
+            const childKey = `${paramKey}[${idx}]`;
+            return (
+              <ValueRow
+                key={idx}
+                label={`[${idx}]`}
+                value={item}
+                indent={indent + 16}
+                valueKey={childKey}
+                isSelected={selectedValueKey === childKey}
+                isInChain={isValueInChain(childKey)}
+                onValueClick={onValueClick}
+              />
+            );
+          })}
+          {isObject && Object.entries(paramValue as object).map(([k, v]) => {
+            const childKey = `${paramKey}.${k}`;
+            return (
+              <ValueRow
+                key={k}
+                label={`${k}:`}
+                value={v}
+                indent={indent + 16}
+                labelColor="text-cyan-400/70"
+                valueKey={childKey}
+                isSelected={selectedValueKey === childKey}
+                isInChain={isValueInChain(childKey)}
+                onValueClick={onValueClick}
+              />
+            );
+          })}
           <div 
             className="flex gap-1 py-0.5 px-2 text-muted-foreground"
             style={{ paddingLeft: `${indent}px` }}
@@ -291,8 +327,10 @@ const RuntimeStepRow: React.FC<{
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
   onParamClick?: (step: RuntimeStep, paramName: string) => void;
+  onValueClick?: (step: RuntimeStep, valueKey: string) => void;
   selectedStepId?: string | null;
   selectedParamKey?: string | null; // format: "stepId:paramName"
+  selectedValueKey?: string | null; // format: "stepId:paramName[0].key..."
   highlightedStepIds?: string[];
   currentNavigationStepId?: string | null;
   chainStepIds?: string[];
@@ -308,7 +346,7 @@ const RuntimeStepRow: React.FC<{
   // Trigger for scroll when anim-element selection changes
   elementHighlightedStepId?: string | null;
 }> = ({ 
-  step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, selectedStepId, selectedParamKey,
+  step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, onValueClick, selectedStepId, selectedParamKey, selectedValueKey,
   highlightedStepIds = [], 
   currentNavigationStepId, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
@@ -470,7 +508,7 @@ const RuntimeStepRow: React.FC<{
         <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
           {Object.entries(step.resolvedArgs).map(([k, v]) => {
             const paramKey = `${step.id}:${k}`;
-            const isParamSelected = selectedParamKey === paramKey;
+            const isParamSelected = selectedParamKey === paramKey || selectedValueKey?.startsWith(paramKey);
             const isParamInChain = chainStepIds.includes(paramKey);
             return (
               <ParamRow
@@ -478,11 +516,13 @@ const RuntimeStepRow: React.FC<{
                 paramName={k}
                 paramValue={v}
                 paramKey={paramKey}
-                isSelected={isParamSelected}
+                isSelected={selectedParamKey === paramKey}
                 isInChain={isParamInChain}
                 separator={step.type === 'call' ? '=' : ':'}
                 indent={8 + indent + 24}
                 onParamClick={() => onParamClick?.(step, k)}
+                selectedValueKey={selectedValueKey}
+                onValueClick={(valueKey) => onValueClick?.(step, valueKey)}
               />
             );
           })}
@@ -499,8 +539,10 @@ const RuntimeStepRow: React.FC<{
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
           onParamClick={onParamClick}
+          onValueClick={onValueClick}
           selectedStepId={selectedStepId}
           selectedParamKey={selectedParamKey}
+          selectedValueKey={selectedValueKey}
           highlightedStepIds={highlightedStepIds}
           currentNavigationStepId={currentNavigationStepId}
           chainStepIds={chainStepIds}
@@ -536,6 +578,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   // Navigation state: anchor is the clicked step or param, navIndex is current position in chain
   const [anchorStepId, setAnchorStepId] = useState<string | null>(null);
   const [anchorParamKey, setAnchorParamKey] = useState<string | null>(null); // format: "stepId:paramName"
+  const [selectedValueKey, setSelectedValueKey] = useState<string | null>(null); // format: "stepId:paramName[0].key..."
   const [navIndex, setNavIndex] = useState<number>(0);
   
   // Reinitialize expanded when steps change
@@ -606,7 +649,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   
   // Chain step IDs: all steps and params that should be dimly highlighted
   // This includes anchor (when not current) and all ancestors (except current)
-  // Also includes param key if a param is selected
+  // Also includes param key if a param is selected, and upstream value keys
   const chainStepIds = useMemo(() => {
     if (!anchorStepId) return [];
     const allInChain: string[] = [anchorStepId, ...ancestorChain];
@@ -614,40 +657,93 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     if (anchorParamKey) {
       allInChain.push(anchorParamKey);
     }
-    // Exclude the current navigation position (step) and selected param (it gets primary highlight)
-    return allInChain.filter(id => id !== currentNavStepId && id !== anchorParamKey);
-  }, [anchorStepId, anchorParamKey, ancestorChain, currentNavStepId]);
+    // Add upstream value keys when a nested value is selected
+    // e.g., if "step:param[0].key" is selected, add "step:param", "step:param[0]" to chain
+    if (selectedValueKey && anchorParamKey) {
+      // Build all parent keys from paramKey to selectedValueKey
+      const parts = selectedValueKey.slice(anchorParamKey.length);
+      let currentKey = anchorParamKey;
+      const regex = /^(\[\d+\]|\.[^.\[]+)/;
+      let remaining = parts;
+      while (remaining.length > 0) {
+        const match = remaining.match(regex);
+        if (match) {
+          currentKey += match[1];
+          if (currentKey !== selectedValueKey) {
+            allInChain.push(currentKey);
+          }
+          remaining = remaining.slice(match[1].length);
+        } else {
+          break;
+        }
+      }
+    }
+    // Exclude the current navigation position (step) and selected value (it gets primary highlight)
+    return allInChain.filter(id => id !== currentNavStepId && id !== selectedValueKey);
+  }, [anchorStepId, anchorParamKey, selectedValueKey, ancestorChain, currentNavStepId]);
   
-  // Handle step click - set as anchor, clear param selection
+  // Handle step click - set as anchor, clear param/value selection
   const handleStepClick = useCallback((step: RuntimeStep) => {
-    if (anchorStepId === step.id && !anchorParamKey) {
-      // Click same step when no param selected - clear navigation
+    if (anchorStepId === step.id && !anchorParamKey && !selectedValueKey) {
+      // Click same step when no param/value selected - clear navigation
       setAnchorStepId(null);
       setAnchorParamKey(null);
+      setSelectedValueKey(null);
       setNavIndex(0);
     } else {
       setAnchorStepId(step.id);
       setAnchorParamKey(null);
+      setSelectedValueKey(null);
       setNavIndex(0);
     }
     onStepClick?.(step);
-  }, [anchorStepId, anchorParamKey, onStepClick]);
+  }, [anchorStepId, anchorParamKey, selectedValueKey, onStepClick]);
   
   // Handle param click - set param as primary anchor, step + upstream as secondary
   const handleParamClick = useCallback((step: RuntimeStep, paramName: string) => {
     const paramKey = `${step.id}:${paramName}`;
-    if (anchorParamKey === paramKey) {
-      // Click same param - clear
+    if (anchorParamKey === paramKey && !selectedValueKey) {
+      // Click same param when no value selected - clear
       setAnchorStepId(null);
       setAnchorParamKey(null);
+      setSelectedValueKey(null);
       setNavIndex(0);
     } else {
       // Set step as anchor (for upstream chain), param as selected
       setAnchorStepId(step.id);
       setAnchorParamKey(paramKey);
+      setSelectedValueKey(null);
       setNavIndex(0);
     }
-  }, [anchorParamKey]);
+  }, [anchorParamKey, selectedValueKey]);
+  
+  // Handle value click - set specific value as selected, with upstream highlighting
+  const handleValueClick = useCallback((step: RuntimeStep, valueKey: string) => {
+    if (selectedValueKey === valueKey) {
+      // Click same value - clear
+      setAnchorStepId(null);
+      setAnchorParamKey(null);
+      setSelectedValueKey(null);
+      setNavIndex(0);
+    } else {
+      // Extract param key from value key (format: stepId:paramName[...])
+      const colonIndex = valueKey.indexOf(':');
+      const bracketIndex = valueKey.indexOf('[');
+      const dotIndex = valueKey.indexOf('.');
+      
+      // Find where the base paramKey ends
+      let paramKeyEnd = valueKey.length;
+      if (bracketIndex > colonIndex) paramKeyEnd = Math.min(paramKeyEnd, bracketIndex);
+      if (dotIndex > colonIndex) paramKeyEnd = Math.min(paramKeyEnd, dotIndex);
+      
+      const paramKey = valueKey.slice(0, paramKeyEnd);
+      
+      setAnchorStepId(step.id);
+      setAnchorParamKey(paramKey);
+      setSelectedValueKey(valueKey);
+      setNavIndex(0);
+    }
+  }, [selectedValueKey]);
   
   // Navigate up (to higher level / parent)
   const navigateUp = useCallback(() => {
@@ -854,8 +950,10 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 getHighlightLevel={getHighlightLevel}
                 onStepClick={handleStepClick}
                 onParamClick={handleParamClick}
+                onValueClick={handleValueClick}
                 selectedStepId={selectedStepId}
                 selectedParamKey={anchorParamKey}
+                selectedValueKey={selectedValueKey}
                 highlightedStepIds={highlightedStepIds}
                 currentNavigationStepId={anchorParamKey ? null : currentNavStepId}
                 chainStepIds={chainStepIds}
