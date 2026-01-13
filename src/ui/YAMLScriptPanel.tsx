@@ -7,7 +7,6 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -350,10 +349,10 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             size="icon"
             className="h-7 w-7"
             onClick={() => handleSave()}
-            disabled={!hasUnsavedChanges || panelState.viewMode !== 'code'}
+            disabled={!hasUnsavedChanges || panelState.viewMode !== 'code' || isSaving}
             title="Save"
           >
-            <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges && panelState.viewMode === 'code' ? 'text-orange-500' : ''}`} />
+            <Save className={`h-3.5 w-3.5 ${hasUnsavedChanges && panelState.viewMode === 'code' ? 'text-primary' : ''}`} />
           </Button>
           <Button
             variant="ghost"
@@ -430,18 +429,29 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             selectedFunctionDefinition={selectedFunctionDefinition}
           />
         ) : (
-          <CodePanel
-            title=""
-            content={codeDraft}
-            onChange={handleCodeDraftChange}
-            onSave={(val) => handleSave(val)}
-            enableSavePromptOnBlur={false}
-            language="yaml"
-            highlightedLines={highlightedLines}
-            zoomLevel={zoomLevel}
-            onLineClick={onLineClick}
-            showHeader={false}
-          />
+          <div className="h-full flex flex-col min-h-0">
+            {codeError && (
+              <div className="mx-2 mt-2 mb-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {codeError}
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <CodePanel
+                title=""
+                content={codeDraft}
+                onChange={handleCodeDraftChange}
+                onSave={(val) => {
+                  void handleSave(val);
+                }}
+                enableSavePromptOnBlur={false}
+                language="yaml"
+                highlightedLines={highlightedLines}
+                zoomLevel={zoomLevel}
+                onLineClick={onLineClick}
+                showHeader={false}
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -454,19 +464,29 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
               You have unsaved changes. Would you like to save or discard them?
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {codeError && (
+            <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {codeError}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleDialogCancel}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" onClick={() => {
-              handleDiscard();
-              if (pendingViewMode) {
-                onPanelStateChange?.({ ...panelState, viewMode: pendingViewMode });
-              }
-            }}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                handleDiscard();
+                if (pendingViewMode) {
+                  onPanelStateChange?.({ ...panelState, viewMode: pendingViewMode });
+                }
+              }}
+            >
               Discard
             </Button>
-            <AlertDialogAction onClick={handleDialogSave}>
-              Save
-            </AlertDialogAction>
+            <Button onClick={() => { void handleDialogSave(); }} disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
