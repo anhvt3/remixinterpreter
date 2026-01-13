@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodePanel } from './CodePanel';
 import { SourcePanel } from './SourcePanel';
+import { DescPanel } from './DescPanel';
 import { ChatPanel } from './ChatPanel';
 import { ConfigPanel, CONFIG_SUBTABS } from './ConfigPanel';
 import { AnimPanelWithControls } from './AnimPanelWithControls';
@@ -52,7 +53,8 @@ export const App: React.FC = () => {
   const [loCode, setLoCode] = useState('');
   const [loContent, setLoContent] = useState('');
   const [gdriveLink, setGdriveLink] = useState('');
-  const [descContent, setDescContent] = useState('# Description\n\nThis panel shows the natural language description that can be converted to DSL.');
+  const [descContents, setDescContents] = useState<string[]>(['', '', '', '', '']);
+  const [descVideoLink, setDescVideoLink] = useState('');
   
   // Config tab password protection
   const [configAuthenticated, setConfigAuthenticated] = useState(false);
@@ -504,12 +506,12 @@ export const App: React.FC = () => {
       id: 'desc' as PanelId,
       label: 'Desc',
       render: () => (
-        <CodePanel
-          title="Desc"
-          content={descContent}
-          onChange={setDescContent}
-          language="text"
+        <DescPanel
           zoomLevel={zoomLevel}
+          descContents={descContents}
+          setDescContents={setDescContents}
+          descVideoLink={descVideoLink}
+          setDescVideoLink={setDescVideoLink}
         />
       ),
     },
@@ -549,7 +551,7 @@ export const App: React.FC = () => {
         <ChatPanel title="Chat" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, descContent, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
+  ], [loCode, loContent, gdriveLink, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
