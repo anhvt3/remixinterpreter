@@ -69,12 +69,98 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         if (anchor === 'Left') transform = 'translate(0, -50%)';
         if (anchor === 'Right') transform = 'translate(-100%, -50%)';
         
+        const isSelected = selectedElementId === element.id;
+        const isHighlighted = highlightedElementIds.includes(element.id);
+        
+        // Render shapes
+        if (element.type === 'shape') {
+          const shapeWidth = (element.width || 1) * (width / (viewbox[2] - viewbox[0]));
+          const shapeHeight = (element.height || 1) * (height / (viewbox[1] - viewbox[3]));
+          const shapeRadius = (element.radius || 0.5) * (width / (viewbox[2] - viewbox[0]));
+          
+          return (
+            <div
+              key={element.id}
+              onClick={() => onElementClick?.(element.id)}
+              className={`absolute ${isSelected ? 'ring-2 ring-primary' : isHighlighted ? 'ring-2 ring-yellow-400' : ''}`}
+              style={{
+                left: px,
+                top: py,
+                transform,
+                opacity: element.opacity,
+              }}
+            >
+              <svg
+                width={element.shapeType === 'circle' ? shapeRadius * 2 : shapeWidth}
+                height={element.shapeType === 'circle' ? shapeRadius * 2 : shapeHeight}
+                style={{ overflow: 'visible' }}
+              >
+                {element.shapeType === 'rect' && (
+                  <rect
+                    x={0}
+                    y={0}
+                    width={shapeWidth}
+                    height={shapeHeight}
+                    fill={element.fill || 'transparent'}
+                    stroke={element.stroke || '#ffffff'}
+                    strokeWidth={element.strokeWidth || 2}
+                  />
+                )}
+                {element.shapeType === 'circle' && (
+                  <circle
+                    cx={shapeRadius}
+                    cy={shapeRadius}
+                    r={shapeRadius}
+                    fill={element.fill || 'transparent'}
+                    stroke={element.stroke || '#ffffff'}
+                    strokeWidth={element.strokeWidth || 2}
+                  />
+                )}
+                {element.shapeType === 'line' && element.from && element.to && (
+                  <line
+                    x1={0}
+                    y1={0}
+                    x2={(element.to.x - element.from.x) * (width / (viewbox[2] - viewbox[0]))}
+                    y2={(element.from.y - element.to.y) * (height / (viewbox[1] - viewbox[3]))}
+                    stroke={element.stroke || '#ffffff'}
+                    strokeWidth={element.strokeWidth || 2}
+                  />
+                )}
+                {element.shapeType === 'arrow' && element.from && element.to && (
+                  <>
+                    <defs>
+                      <marker
+                        id={`arrow-${element.id}`}
+                        markerWidth="10"
+                        markerHeight="10"
+                        refX="9"
+                        refY="3"
+                        orient="auto"
+                        markerUnits="strokeWidth"
+                      >
+                        <path d="M0,0 L0,6 L9,3 z" fill={element.stroke || '#ffffff'} />
+                      </marker>
+                    </defs>
+                    <line
+                      x1={0}
+                      y1={0}
+                      x2={(element.to.x - element.from.x) * (width / (viewbox[2] - viewbox[0]))}
+                      y2={(element.from.y - element.to.y) * (height / (viewbox[1] - viewbox[3]))}
+                      stroke={element.stroke || '#ffffff'}
+                      strokeWidth={element.strokeWidth || 2}
+                      markerEnd={`url(#arrow-${element.id})`}
+                    />
+                  </>
+                )}
+              </svg>
+            </div>
+          );
+        }
+        
+        // Render text elements
         const fontSize = (element.style?.scale || 1) * 24;
         const fontWeight = element.style?.weight || 'normal';
         const color = element.style?.color || '#FFFFFF';
-        
-        const isSelected = selectedElementId === element.id;
-        const isHighlighted = highlightedElementIds.includes(element.id);
         
         return (
           <div
