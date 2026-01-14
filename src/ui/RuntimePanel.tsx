@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight, ChevronUp, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDownRight, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CallChainEntry } from '../core/runtimeTracer';
+import type { DependencyAnalysisResult, ConstantDef } from '../core/dependencyAnalyzer';
 
 export interface RuntimeStep {
   id: string;
@@ -26,19 +27,23 @@ export interface RuntimeStep {
 interface RuntimePanelProps {
   steps: RuntimeStep[];
   currentTime?: number;
-  // Legacy: kept for compatibility, but we now highlight by element ID for single-step accuracy
+  // Legacy: kept for compatibility
   elementCallChain?: CallChainEntry[] | null;
-  // Element selected in the Anim panel (used to highlight exactly one IR step)
+  // Element selected in the Anim panel
   selectedElementId?: string | null;
   zoomLevel?: number;
-  // New: callback when a runtime step is clicked
+  // Callback when a runtime step is clicked
   onStepClick?: (step: RuntimeStep) => void;
-  // New: currently selected step (from runtime click)
+  // Currently selected step (from runtime click)
   selectedStepId?: string | null;
-  // New: step IDs to highlight (from TreeView statement click)
+  // Step IDs to highlight (from TreeView statement click)
   highlightedStepIds?: string[];
-  // New: step call chains for building ancestor list
+  // Step call chains for building ancestor list
   stepCallChains?: Map<string, CallChainEntry[]>;
+  // Dependency analysis result for constant-output matrix
+  dependencyAnalysis?: DependencyAnalysisResult | null;
+  // Callback when an IR output value is clicked (for TreeView navigation)
+  onOutputClick?: (irFn: string, argName: string, argValue: unknown, dependentConstants: ConstantDef[]) => void;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -73,169 +78,33 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
-// Helper to check if value is expandable (array or object with keys)
+// Helper to check if value is expandable
 const isExpandable = (value: unknown): boolean => {
   if (Array.isArray(value)) return value.length > 0;
   if (value && typeof value === 'object') return Object.keys(value).length > 0;
   return false;
 };
 
-// Helper to get value at a dot/bracket path (e.g., "param.x.y" or "param[0].x")
-const getValueAtPath = (obj: Record<string, unknown>, path: string): unknown => {
-  // Parse the path into segments
-  const segments: (string | number)[] = [];
-  let current = '';
-  
-  for (let i = 0; i < path.length; i++) {
-    const char = path[i];
-    if (char === '.') {
-      if (current) segments.push(current);
-      current = '';
-    } else if (char === '[') {
-      if (current) segments.push(current);
-      current = '';
-    } else if (char === ']') {
-      if (current) {
-        const num = parseInt(current, 10);
-        segments.push(isNaN(num) ? current : num);
-      }
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  if (current) segments.push(current);
-  
-  // Navigate through the object
-  let value: unknown = obj;
-  for (const segment of segments) {
-    if (value === null || value === undefined) return undefined;
-    if (typeof segment === 'number' && Array.isArray(value)) {
-      value = value[segment];
-    } else if (typeof value === 'object') {
-      value = (value as Record<string, unknown>)[String(segment)];
-    } else {
-      return undefined;
-    }
-  }
-  return value;
-};
-
-// Helper to check if two values are equal (for value tracing)
-const valuesEqual = (a: unknown, b: unknown): boolean => {
-  if (a === b) return true;
-  if (typeof a === 'number' && typeof b === 'number') {
-    return Math.abs(a - b) < 0.0001;
-  }
-  if (typeof a === 'string' && typeof b === 'string') return a === b;
-  if (typeof a === 'boolean' && typeof b === 'boolean') return a === b;
-  return false;
-};
-
-// Helper to find the path within an object where a specific value exists
-// Returns the full path (e.g., "param.x.y") if found, null otherwise
-const findValuePath = (obj: unknown, targetValue: unknown, basePath: string): string | null => {
-  // Direct match
-  if (valuesEqual(obj, targetValue)) {
-    return basePath;
-  }
-  
-  // Search in arrays
-  if (Array.isArray(obj)) {
-    for (let i = 0; i < obj.length; i++) {
-      const result = findValuePath(obj[i], targetValue, `${basePath}[${i}]`);
-      if (result) return result;
-    }
-  }
-  
-  // Search in objects
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
-      const result = findValuePath(val, targetValue, `${basePath}.${key}`);
-      if (result) return result;
-    }
-  }
-  
-  return null;
-};
-
-// Helper to check if two values are related (for upstream value tracing)
-// Returns true if ancestorValue contributed to or contains selectedValue
-const valuesAreRelated = (ancestorValue: unknown, selectedValue: unknown): boolean => {
-  // Exact equality
-  if (ancestorValue === selectedValue) return true;
-  
-  // Both are numbers and close enough (floating point)
-  if (typeof ancestorValue === 'number' && typeof selectedValue === 'number') {
-    return Math.abs(ancestorValue - selectedValue) < 0.0001;
-  }
-  
-  // Ancestor is an array that contains the selected value
-  if (Array.isArray(ancestorValue)) {
-    for (const item of ancestorValue) {
-      if (valuesAreRelated(item, selectedValue)) return true;
-    }
-  }
-  
-  // Ancestor is an object whose properties contain the selected value
-  if (ancestorValue && typeof ancestorValue === 'object' && !Array.isArray(ancestorValue)) {
-    for (const val of Object.values(ancestorValue as Record<string, unknown>)) {
-      if (valuesAreRelated(val, selectedValue)) return true;
-    }
-  }
-  
-  return false;
-};
-
-// Recursive component for rendering values (arrays and objects) with click support
-const ValueRow: React.FC<{
+// Recursive component for rendering IR arg values with click support
+const IRValueRow: React.FC<{
   label: string;
   value: unknown;
   indent: number;
   labelColor?: string;
   valueKey: string;
   selectedValueKey?: string | null;
-  onValueClick?: (valueKey: string) => void;
-  // Value navigation props
-  isCurrentNav?: boolean;
-  canGoUp?: boolean;
-  canGoDown?: boolean;
-  onNavigateUp?: () => void;
-  onNavigateDown?: () => void;
-  navIndex?: number;
-  chainLength?: number;
-  valueChain?: string[];
+  onValueClick?: (valueKey: string, value: unknown) => void;
+  isClickable?: boolean;
 }> = ({ 
   label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, selectedValueKey, onValueClick,
-  isCurrentNav = false, canGoUp = false, canGoDown = false, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0, valueChain = []
+  isClickable = true
 }) => {
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
   const expandable = isExpandable(value);
   const rowRef = useRef<HTMLDivElement>(null);
-
-  // Check if this value is directly selected
   const isSelected = selectedValueKey === valueKey;
-  
-  // Check if this value is in the upstream chain
-  const isInChain = valueChain.includes(valueKey) && !isCurrentNav && !isSelected;
-
-  // Auto-expand if this value is in the chain or a child is selected
-  const hasChildInChain = valueChain.some(v => v.startsWith(valueKey + '[') || v.startsWith(valueKey + '.'));
-  const [isExpanded, setIsExpanded] = useState(hasChildInChain);
-  
-  useEffect(() => {
-    if ((hasChildInChain || (selectedValueKey && selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey)) && expandable && !isExpanded) {
-      setIsExpanded(true);
-    }
-  }, [hasChildInChain, selectedValueKey, expandable, valueKey]);
-
-  // Auto-scroll when this is the current nav position
-  useEffect(() => {
-    if (isCurrentNav && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isCurrentNav]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -248,55 +117,23 @@ const ValueRow: React.FC<{
     return formatValue(value);
   };
 
-  const highlight = isCurrentNav
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : isSelected 
+  const highlight = isSelected 
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
-    : isInChain 
-    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
 
-  // Render navigation buttons directly on the value row
-  const renderNavButtons = () => {
-    if (!isCurrentNav) return null;
-    return (
-      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 hover:bg-muted"
-          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
-          disabled={!canGoUp}
-          title="Navigate up to source value"
-        >
-          <ChevronUp className="h-3 w-3" />
-        </Button>
-        <span className="text-[10px] text-muted-foreground w-6 text-center">
-          {navIndex}/{chainLength}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 hover:bg-muted -ml-1"
-          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
-          disabled={!canGoDown}
-          title="Navigate down toward anchor"
-        >
-          <ChevronDown className="h-3 w-3" />
-        </Button>
-      </div>
-    );
-  };
+  const clickableClass = isClickable ? 'cursor-pointer hover:bg-muted/50' : '';
 
   return (
     <>
       <div 
         ref={rowRef}
-        className={`flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30 cursor-pointer ${highlight}`}
+        className={`flex items-center gap-1 py-0.5 px-2 text-muted-foreground ${clickableClass} ${highlight}`}
         style={{ paddingLeft: `${indent}px` }}
         onClick={(e) => {
           e.stopPropagation();
-          onValueClick?.(valueKey);
+          if (isClickable) {
+            onValueClick?.(valueKey, value);
+          }
         }}
       >
         {expandable ? (
@@ -315,19 +152,17 @@ const ValueRow: React.FC<{
         ) : expandable && isExpanded ? (
           <span>{isArray ? '[' : '{'}</span>
         ) : (
-          <span>{formatValue(value)}</span>
+          <span className={isClickable ? 'hover:underline' : ''}>{formatValue(value)}</span>
         )}
-        {renderNavButtons()}
       </div>
       
-      {/* Expanded children - pass navigation props */}
+      {/* Expanded children */}
       {expandable && isExpanded && (
         <>
           {isArray && (value as unknown[]).map((item, idx) => {
             const childKey = `${valueKey}[${idx}]`;
-            const isChildCurrentNav = valueChain[navIndex] === childKey;
             return (
-              <ValueRow
+              <IRValueRow
                 key={idx}
                 label={`[${idx}]`}
                 value={item}
@@ -335,22 +170,14 @@ const ValueRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
-                isCurrentNav={isChildCurrentNav}
-                canGoUp={isChildCurrentNav ? canGoUp : false}
-                canGoDown={isChildCurrentNav ? canGoDown : false}
-                onNavigateUp={onNavigateUp}
-                onNavigateDown={onNavigateDown}
-                navIndex={navIndex}
-                chainLength={chainLength}
-                valueChain={valueChain}
+                isClickable={isClickable}
               />
             );
           })}
           {isObject && Object.entries(value as object).map(([k, v]) => {
             const childKey = `${valueKey}.${k}`;
-            const isChildCurrentNav = valueChain[navIndex] === childKey;
             return (
-              <ValueRow
+              <IRValueRow
                 key={k}
                 label={`${k}:`}
                 value={v}
@@ -359,14 +186,7 @@ const ValueRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
-                isCurrentNav={isChildCurrentNav}
-                canGoUp={isChildCurrentNav ? canGoUp : false}
-                canGoDown={isChildCurrentNav ? canGoDown : false}
-                onNavigateUp={onNavigateUp}
-                onNavigateDown={onNavigateDown}
-                navIndex={navIndex}
-                chainLength={chainLength}
-                valueChain={valueChain}
+                isClickable={isClickable}
               />
             );
           })}
@@ -383,86 +203,23 @@ const ValueRow: React.FC<{
   );
 };
 
-// Component for rendering a single param row with collapsible array/object support
-const ParamRow: React.FC<{
+// Component for rendering IR param rows (clickable)
+const IRParamRow: React.FC<{
   paramName: string;
   paramValue: unknown;
   paramKey: string;
   isSelected: boolean;
-  isInChain: boolean;
-  separator: string;
   indent: number;
-  onParamClick: () => void;
+  onValueClick: (valueKey: string, value: unknown) => void;
   selectedValueKey?: string | null;
-  onValueClick?: (valueKey: string) => void;
-  // Value chain for navigation (values only, not params/steps)
-  valueChain?: string[];
-  currentNavValueKey?: string | null;
-  // Navigation props (for param-level, kept for backward compat)
-  isCurrentNav?: boolean;
-  canGoUp?: boolean;
-  canGoDown?: boolean;
-  onNavigateUp?: () => void;
-  onNavigateDown?: () => void;
-  navIndex?: number;
-  chainLength?: number;
 }> = ({ 
-  paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick,
-  valueChain = [], currentNavValueKey,
-  isCurrentNav = false, canGoUp = false, canGoDown = false, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
+  paramName, paramValue, paramKey, isSelected, indent, onValueClick, selectedValueKey
 }) => {
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray;
   const expandable = isExpandable(paramValue);
   const rowRef = useRef<HTMLDivElement>(null);
-  
-  // Check if this param is the current value nav position
-  const isThisCurrentValueNav = currentNavValueKey === paramKey;
-  
-  // Check if this param is in the value chain (but not currently navigated)
-  const isThisInValueChain = valueChain.includes(paramKey) && !isThisCurrentValueNav;
-  
-  // Check if a child value is selected (not the param itself)
-  const hasChildSelected = selectedValueKey ? 
-    (selectedValueKey.startsWith(paramKey + '[') || selectedValueKey.startsWith(paramKey + '.')) : false;
-  
-  // Check if any child is in the value chain
-  const hasChildInChain = valueChain.some(v => v.startsWith(paramKey + '[') || v.startsWith(paramKey + '.'));
-  
-  // Check if any child is the current nav value
-  const hasChildAsCurrentNav = currentNavValueKey ? 
-    (currentNavValueKey.startsWith(paramKey + '[') || currentNavValueKey.startsWith(paramKey + '.')) : false;
-  
-  // Auto-expand if a child value is selected, in chain, or is current nav
-  const [isExpanded, setIsExpanded] = useState(hasChildSelected || hasChildInChain || hasChildAsCurrentNav);
-  
-  useEffect(() => {
-    if ((hasChildSelected || hasChildInChain || hasChildAsCurrentNav) && expandable && !isExpanded) {
-      setIsExpanded(true);
-    }
-  }, [hasChildSelected, hasChildInChain, hasChildAsCurrentNav, expandable]);
-  
-  // Auto-scroll when this param is the current value navigation position
-  useEffect(() => {
-    if (isThisCurrentValueNav && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isThisCurrentValueNav]);
-  
-  // Param highlighting
-  const paramHighlight = isThisCurrentValueNav
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : isThisInValueChain
-    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
-    : (isCurrentNav && valueChain.length === 0) // Old param-level nav (when no value selected)
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : (selectedValueKey === paramKey) // Direct selection
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : hasChildSelected || hasChildInChain || hasChildAsCurrentNav
-    ? '' // No highlight when child is the focus
-    : isInChain
-    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
-    : '';
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -475,37 +232,9 @@ const ParamRow: React.FC<{
     return formatValue(paramValue);
   };
 
-  // Render navigation buttons for value chain navigation
-  const renderValueNavButtons = () => {
-    if (!isThisCurrentValueNav) return null;
-    return (
-      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 hover:bg-muted"
-          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
-          disabled={!canGoUp}
-          title="Navigate up to source value"
-        >
-          <ChevronUp className="h-3 w-3" />
-        </Button>
-        <span className="text-[10px] text-muted-foreground w-6 text-center">
-          {navIndex}/{chainLength}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 hover:bg-muted -ml-1"
-          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
-          disabled={!canGoDown}
-          title="Navigate down toward anchor"
-        >
-          <ChevronDown className="h-3 w-3" />
-        </Button>
-      </div>
-    );
-  };
+  const paramHighlight = isSelected || selectedValueKey === paramKey
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
+    : '';
 
   return (
     <>
@@ -514,7 +243,7 @@ const ParamRow: React.FC<{
         className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
         onClick={(e) => {
           e.stopPropagation();
-          onValueClick?.(paramKey) ?? onParamClick();
+          onValueClick(paramKey, paramValue);
         }}
       >
         {expandable ? (
@@ -528,25 +257,23 @@ const ParamRow: React.FC<{
           <span className="w-3 shrink-0" />
         )}
         <span className="text-orange-400">{paramName}</span>
-        <span className="text-muted-foreground">{separator}</span>
+        <span className="text-muted-foreground">:</span>
         {expandable && !isExpanded ? (
-          <span className="text-muted-foreground">{getCollapsedPreview()}</span>
+          <span className="text-muted-foreground hover:underline">{getCollapsedPreview()}</span>
         ) : !expandable ? (
-          <span className="text-muted-foreground">{formatValue(paramValue)}</span>
+          <span className="text-muted-foreground hover:underline">{formatValue(paramValue)}</span>
         ) : (
           <span className="text-muted-foreground">{isArray ? '[' : '{'}</span>
         )}
-        {renderValueNavButtons()}
       </div>
       
-      {/* Expanded children - using recursive ValueRow with value chain navigation */}
+      {/* Expanded children */}
       {expandable && isExpanded && (
         <>
           {isArray && (paramValue as unknown[]).map((item, idx) => {
             const childKey = `${paramKey}[${idx}]`;
-            const isChildCurrentNav = currentNavValueKey === childKey;
             return (
-              <ValueRow
+              <IRValueRow
                 key={idx}
                 label={`[${idx}]`}
                 value={item}
@@ -554,22 +281,14 @@ const ParamRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
-                isCurrentNav={isChildCurrentNav}
-                canGoUp={isChildCurrentNav ? canGoUp : false}
-                canGoDown={isChildCurrentNav ? canGoDown : false}
-                onNavigateUp={onNavigateUp}
-                onNavigateDown={onNavigateDown}
-                navIndex={navIndex}
-                chainLength={chainLength}
-                valueChain={valueChain}
+                isClickable={true}
               />
             );
           })}
           {isObject && Object.entries(paramValue as object).map(([k, v]) => {
             const childKey = `${paramKey}.${k}`;
-            const isChildCurrentNav = currentNavValueKey === childKey;
             return (
-              <ValueRow
+              <IRValueRow
                 key={k}
                 label={`${k}:`}
                 value={v}
@@ -578,14 +297,7 @@ const ParamRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
-                isCurrentNav={isChildCurrentNav}
-                canGoUp={isChildCurrentNav ? canGoUp : false}
-                canGoDown={isChildCurrentNav ? canGoDown : false}
-                onNavigateUp={onNavigateUp}
-                onNavigateDown={onNavigateDown}
-                navIndex={navIndex}
-                chainLength={chainLength}
-                valueChain={valueChain}
+                isClickable={true}
               />
             );
           })}
@@ -608,58 +320,30 @@ const RuntimeStepRow: React.FC<{
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
-  onParamClick?: (step: RuntimeStep, paramName: string) => void;
-  onValueClick?: (step: RuntimeStep, valueKey: string) => void;
+  onIRValueClick?: (step: RuntimeStep, paramName: string, value: unknown) => void;
   selectedStepId?: string | null;
-  selectedParamKey?: string | null; // format: "stepId:paramName"
-  selectedValueKey?: string | null; // format: "stepId:paramName[0].key..."
+  selectedValueKey?: string | null;
   highlightedStepIds?: string[];
-  currentNavigationStepId?: string | null;
-  currentNavigationParamKey?: string | null; // for param-level navigation
-  currentNavValueKey?: string | null; // for value-level navigation
-  valueChain?: string[]; // chain of value keys only
-  chainStepIds?: string[];
-  // Navigation controls
-  canGoUp?: boolean;
-  canGoDown?: boolean;
-  onNavigateUp?: () => void;
-  onNavigateDown?: () => void;
-  navIndex?: number;
-  chainLength?: number;
-  // ID of the deepest highlighted step (for auto-scroll)
-  deepestHighlightedStepId?: string | null;
-  // Trigger for scroll when anim-element selection changes
   elementHighlightedStepId?: string | null;
 }> = ({ 
-  step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, onValueClick, selectedStepId, selectedParamKey, selectedValueKey,
-  highlightedStepIds = [], 
-  currentNavigationStepId, currentNavigationParamKey, currentNavValueKey, valueChain = [], chainStepIds = [],
-  canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
-  deepestHighlightedStepId, elementHighlightedStepId
+  step, expanded, onToggle, getHighlightLevel, onStepClick, onIRValueClick, selectedStepId, selectedValueKey,
+  highlightedStepIds = [], elementHighlightedStepId
 }) => {
   const isSelected = step.id === selectedStepId;
   const isHighlightedFromTreeView = highlightedStepIds.includes(step.id);
-  const isCurrentNav = step.id === currentNavigationStepId;
-  const isInChain = chainStepIds.includes(step.id);
-  const isDeepestHighlighted = step.id === deepestHighlightedStepId;
   const rowRef = useRef<HTMLDivElement>(null);
   const isExpanded = expanded.has(step.id);
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
   
-  // Show nav buttons only on the current navigation position
-  const showNavButtons = isCurrentNav;
-
-  // Auto-scroll when this step is the current navigation position or element-highlighted
   const isElementHighlighted = step.id === elementHighlightedStepId;
   useEffect(() => {
-    if ((isCurrentNav || isElementHighlighted) && rowRef.current) {
+    if (isElementHighlighted && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isCurrentNav, isElementHighlighted]);
+  }, [isElementHighlighted]);
 
-  // Match TreeView primary/secondary color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
     call: 'text-purple-400',
     let: 'text-yellow-400',
@@ -668,12 +352,7 @@ const RuntimeStepRow: React.FC<{
     ir: 'text-orange-400',
   };
 
-  // Unified highlight styles: primary for current position, secondary for chain
-  const highlightStyles = isCurrentNav
-    ? 'bg-primary/30 ring-2 ring-primary/60'
-    : isInChain
-    ? 'bg-primary/10 ring-1 ring-primary/30'
-    : isSelected
+  const highlightStyles = isSelected
     ? 'bg-primary/30 ring-2 ring-primary/60'
     : isHighlightedFromTreeView
     ? 'bg-primary/10 ring-1 ring-primary/30'
@@ -683,7 +362,6 @@ const RuntimeStepRow: React.FC<{
     ? 'bg-primary/10 ring-1 ring-primary/30'
     : '';
 
-  // Separate expand/collapse from highlighting - clicking toggles highlight, chevron toggles expand
   const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onStepClick?.(step);
@@ -696,6 +374,25 @@ const RuntimeStepRow: React.FC<{
     }
   };
 
+  const handleIRValueClick = (valueKey: string, value: unknown) => {
+    // Extract param name from valueKey (format: stepId:paramName or stepId:paramName.path)
+    const colonIdx = valueKey.indexOf(':');
+    if (colonIdx === -1) return;
+    
+    const afterColon = valueKey.slice(colonIdx + 1);
+    const dotIdx = afterColon.indexOf('.');
+    const bracketIdx = afterColon.indexOf('[');
+    
+    let paramName = afterColon;
+    if (dotIdx > 0 && (bracketIdx === -1 || dotIdx < bracketIdx)) {
+      paramName = afterColon.slice(0, dotIdx);
+    } else if (bracketIdx > 0) {
+      paramName = afterColon.slice(0, bracketIdx);
+    }
+    
+    onIRValueClick?.(step, paramName, value);
+  };
+
   return (
     <>
       <div 
@@ -704,7 +401,6 @@ const RuntimeStepRow: React.FC<{
         style={{ paddingLeft: `${8 + indent}px` }}
         onClick={handleRowClick}
       >
-        {/* Expand/collapse button - separate from row click */}
         {hasChildren ? (
           <button
             onClick={handleExpandClick}
@@ -716,12 +412,10 @@ const RuntimeStepRow: React.FC<{
           <span className="w-4 shrink-0" />
         )}
         
-        {/* Icon */}
         <span className={`shrink-0 ${typeColors[step.type]}`}>
           <StepIcon type={step.type} />
         </span>
         
-        {/* Content */}
         <div className="flex-1 min-w-0">
           {step.type === 'call' && (
             <div>
@@ -735,33 +429,7 @@ const RuntimeStepRow: React.FC<{
               <span className="text-purple-400">let </span>
               <span className="text-orange-400">{step.variable}</span>
               <span className="text-muted-foreground"> = </span>
-              <span 
-                className={`cursor-pointer hover:underline ${
-                  valueChain.includes(`${step.id}:value`) 
-                    ? currentNavValueKey === `${step.id}:value`
-                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
-                      : 'text-primary/70 bg-primary/10 px-1 rounded'
-                    : 'text-muted-foreground'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onValueClick?.(step, `${step.id}:value`);
-                }}
-              >
-                {formatValue(step.value)}
-              </span>
-              {/* Inline nav buttons for let value */}
-              {currentNavValueKey === `${step.id}:value` && (
-                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
-                    <ChevronUp className="h-2.5 w-2.5" />
-                  </Button>
-                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
-                    <ChevronDown className="h-2.5 w-2.5" />
-                  </Button>
-                </span>
-              )}
+              <span className="text-muted-foreground">{formatValue(step.value)}</span>
             </div>
           )}
           
@@ -770,60 +438,8 @@ const RuntimeStepRow: React.FC<{
               <span className="text-purple-400">foreach </span>
               <span className="text-orange-400">{step.iteration.var}</span>
               <span className="text-muted-foreground"> = </span>
-              <span 
-                className={`cursor-pointer hover:underline ${
-                  valueChain.includes(`${step.id}:iteration.value`) 
-                    ? currentNavValueKey === `${step.id}:iteration.value`
-                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
-                      : 'text-primary/70 bg-primary/10 px-1 rounded'
-                    : 'text-muted-foreground'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onValueClick?.(step, `${step.id}:iteration.value`);
-                }}
-              >
-                {formatValue(step.iteration.value)}
-              </span>
-              {/* Inline nav buttons for iteration value */}
-              {currentNavValueKey === `${step.id}:iteration.value` && (
-                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
-                    <ChevronUp className="h-2.5 w-2.5" />
-                  </Button>
-                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
-                    <ChevronDown className="h-2.5 w-2.5" />
-                  </Button>
-                </span>
-              )}
-              <span 
-                className={`cursor-pointer hover:underline ${
-                  valueChain.includes(`${step.id}:iteration.index`) 
-                    ? currentNavValueKey === `${step.id}:iteration.index`
-                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
-                      : 'text-primary/70 bg-primary/10 px-1 rounded'
-                    : 'text-muted-foreground/60'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onValueClick?.(step, `${step.id}:iteration.index`);
-                }}
-              >
-                (iter {step.iteration.index})
-              </span>
-              {/* Inline nav buttons for iteration index */}
-              {currentNavValueKey === `${step.id}:iteration.index` && (
-                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
-                    <ChevronUp className="h-2.5 w-2.5" />
-                  </Button>
-                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
-                    <ChevronDown className="h-2.5 w-2.5" />
-                  </Button>
-                </span>
-              )}
+              <span className="text-muted-foreground">{formatValue(step.iteration.value)}</span>
+              <span className="text-muted-foreground/60">(iter {step.iteration.index})</span>
             </div>
           )}
           
@@ -841,71 +457,40 @@ const RuntimeStepRow: React.FC<{
             </div>
           )}
         </div>
-        
-        {/* Navigation buttons - shown inline on anchor or current nav */}
-        {showNavButtons && (
-          <div className="flex items-center gap-0.5 shrink-0 ml-1 mr-3" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 hover:bg-muted"
-              onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
-              disabled={!canGoUp}
-              title="Navigate up to parent caller"
-            >
-              <ChevronUp className="h-3 w-3" />
-            </Button>
-            <span className="text-[10px] text-muted-foreground w-6 text-center">
-              {navIndex}/{chainLength}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 hover:bg-muted -ml-1"
-              onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
-              disabled={!canGoDown}
-              title="Navigate down toward anchor"
-            >
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </div>
-        )}
       </div>
       
-      {/* Params rows for call/ir - rendered separately with own highlighting */}
-      {(step.type === 'call' || step.type === 'ir') && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
+      {/* IR params - ONLY IR steps have clickable values */}
+      {step.type === 'ir' && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
         <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
           {Object.entries(step.resolvedArgs).map(([k, v]) => {
             const paramKey = `${step.id}:${k}`;
-            // Only mark param selected if the param itself is selected, NOT when a child value is selected
-            const isParamSelected = selectedParamKey === paramKey;
-            const isParamInChain = chainStepIds.includes(paramKey);
-            const isParamCurrentNav = currentNavigationParamKey === paramKey;
             return (
-              <ParamRow
+              <IRParamRow
                 key={k}
                 paramName={k}
                 paramValue={v}
                 paramKey={paramKey}
-                isSelected={selectedParamKey === paramKey}
-                isInChain={isParamInChain}
-                separator={step.type === 'call' ? '=' : ':'}
+                isSelected={false}
                 indent={8 + indent + 24}
-                onParamClick={() => onParamClick?.(step, k)}
+                onValueClick={handleIRValueClick}
                 selectedValueKey={selectedValueKey}
-                onValueClick={(valueKey) => onValueClick?.(step, valueKey)}
-                valueChain={valueChain}
-                currentNavValueKey={currentNavValueKey}
-                isCurrentNav={isParamCurrentNav}
-                canGoUp={canGoUp}
-                canGoDown={canGoDown}
-                onNavigateUp={onNavigateUp}
-                onNavigateDown={onNavigateDown}
-                navIndex={navIndex}
-                chainLength={chainLength}
               />
             );
           })}
+        </div>
+      )}
+      
+      {/* Non-IR params - display only, not clickable */}
+      {step.type === 'call' && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
+        <div className="text-xs font-mono text-muted-foreground/70" style={{ paddingLeft: `${8 + indent + 24}px` }}>
+          {Object.entries(step.resolvedArgs).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1 py-0.5 px-2">
+              <span className="w-3 shrink-0" />
+              <span className="text-orange-400/70">{k}</span>
+              <span>=</span>
+              <span>{formatValue(v)}</span>
+            </div>
+          ))}
         </div>
       )}
       
@@ -918,24 +503,10 @@ const RuntimeStepRow: React.FC<{
           onToggle={onToggle} 
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
-          onParamClick={onParamClick}
-          onValueClick={onValueClick}
+          onIRValueClick={onIRValueClick}
           selectedStepId={selectedStepId}
-          selectedParamKey={selectedParamKey}
           selectedValueKey={selectedValueKey}
           highlightedStepIds={highlightedStepIds}
-          currentNavigationStepId={currentNavigationStepId}
-          currentNavigationParamKey={currentNavigationParamKey}
-          currentNavValueKey={currentNavValueKey}
-          valueChain={valueChain}
-          chainStepIds={chainStepIds}
-          canGoUp={canGoUp}
-          canGoDown={canGoDown}
-          onNavigateUp={onNavigateUp}
-          onNavigateDown={onNavigateDown}
-          navIndex={navIndex}
-          chainLength={chainLength}
-          deepestHighlightedStepId={deepestHighlightedStepId}
           elementHighlightedStepId={elementHighlightedStepId}
         />
       ))}
@@ -945,24 +516,21 @@ const RuntimeStepRow: React.FC<{
 
 export const RuntimePanel: React.FC<RuntimePanelProps> = ({ 
   steps, 
-  elementCallChain, 
   selectedElementId,
   zoomLevel = 100,
   onStepClick,
   selectedStepId,
   highlightedStepIds = [],
-  stepCallChains,
+  dependencyAnalysis,
+  onOutputClick,
 }) => {
   // Initialize with top-level items expanded
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     return new Set(steps.filter(s => s.depth === 0).map(s => s.id));
   });
   
-  // Navigation state: anchor is the clicked step or param, navIndex is current position in chain
-  const [anchorStepId, setAnchorStepId] = useState<string | null>(null);
-  const [anchorParamKey, setAnchorParamKey] = useState<string | null>(null); // format: "stepId:paramName"
-  const [selectedValueKey, setSelectedValueKey] = useState<string | null>(null); // format: "stepId:paramName[0].key..."
-  const [navIndex, setNavIndex] = useState<number>(0);
+  // Track selected value (for highlighting)
+  const [selectedValueKey, setSelectedValueKey] = useState<string | null>(null);
   
   // Reinitialize expanded when steps change
   useEffect(() => {
@@ -993,11 +561,10 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [selectedElementId, allStepsMap]);
   
-  // Auto-expand ancestors when element is clicked in Anim panel (to reveal the IR step)
+  // Auto-expand ancestors when element is clicked
   useEffect(() => {
     if (!elementHighlightedStepId) return;
     
-    // Build parent map: step ID -> parent step ID
     const parentMap = new Map<string, string>();
     const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
       for (const step of items) {
@@ -1011,7 +578,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     };
     buildParentMap(steps);
     
-    // Walk up parent chain and expand each ancestor
     const toExpand = new Set<string>();
     let currentId: string | undefined = elementHighlightedStepId;
     while (currentId) {
@@ -1022,7 +588,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       currentId = parentId;
     }
     
-    // Update expanded set
     if (toExpand.size > 0) {
       setExpanded(prev => {
         const next = new Set(prev);
@@ -1037,249 +602,35 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       });
     }
   }, [elementHighlightedStepId, steps]);
-
   
-  // Build ancestor chain for the anchor step (from anchor up to root)
-  const ancestorChain = useMemo(() => {
-    if (!anchorStepId || !stepCallChains) return [];
-    
-    const callChain = stepCallChains.get(anchorStepId);
-    if (!callChain || callChain.length === 0) return [];
-    
-    // Find steps that match each call chain entry
-    // callChain is ordered innermost first (closest to anchor) to outermost (entry point)
-    const ancestorStepIds: string[] = [];
-    
-    for (const entry of callChain) {
-      // Find a step that matches this call chain entry
-      for (const [stepId, step] of allStepsMap) {
-        if (step.type === 'call' && step.functionName === entry.fnName) {
-          if (!ancestorStepIds.includes(stepId)) {
-            ancestorStepIds.push(stepId);
-            break; // Take first match for each level
-          }
-        }
-      }
-    }
-    
-    return ancestorStepIds;
-  }, [anchorStepId, stepCallChains, allStepsMap]);
-  
-  // Current navigation position step ID
-  // navIndex 0 = anchor, navIndex 1 = first ancestor, etc.
-  const currentNavStepId = useMemo(() => {
-    if (!anchorStepId) return null;
-    if (navIndex === 0) return anchorStepId; // At anchor
-    if (navIndex > 0 && navIndex <= ancestorChain.length) {
-      return ancestorChain[navIndex - 1];
-    }
-    return null;
-  }, [anchorStepId, navIndex, ancestorChain]);
-  
-  // Current navigation param key (when navigating at param level - only when no value selected)
-  const currentNavParamKey = useMemo(() => {
-    if (selectedValueKey) return null; // Value takes precedence
-    if (!anchorParamKey) return null;
-    if (navIndex === 0) return anchorParamKey;
-    return null;
-  }, [anchorParamKey, selectedValueKey, navIndex]);
-  
-  // Build value chain - trace upstream values that contributed to the selected value
-  // This traces up the step tree (parent steps, not just call chain) to find:
-  // - foreach iteration values (the loop variable)
-  // - let statement values
-  // - function call resolved args
-  const valueChain = useMemo(() => {
-    if (!selectedValueKey || !anchorStepId) return [];
-    
-    const chain: string[] = [selectedValueKey];
-    
-    // Build parent map: step ID -> parent step ID (tree structure)
-    const parentMap = new Map<string, string>();
-    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
-      for (const step of items) {
-        if (parentId) {
-          parentMap.set(step.id, parentId);
-        }
-        if (step.children) {
-          buildParentMap(step.children, step.id);
-        }
-      }
-    };
-    buildParentMap(steps);
-    
-    // Walk up the step tree from anchor to root
-    let currentStepId: string | undefined = anchorStepId;
-    while (currentStepId) {
-      const parentId = parentMap.get(currentStepId);
-      if (!parentId) break;
-      
-      const parentStep = allStepsMap.get(parentId);
-      if (!parentStep) break;
-      
-      // Check foreach iteration - the loop variable is a key upstream value
-      if (parentStep.type === 'foreach' && parentStep.iteration) {
-        // Add the iteration variable value (e.g., "i" with its current value)
-        const iterKey = `${parentId}:iteration.value`;
-        if (!chain.includes(iterKey)) {
-          chain.push(iterKey);
-        }
-        // Also add the index
-        const indexKey = `${parentId}:iteration.index`;
-        if (!chain.includes(indexKey)) {
-          chain.push(indexKey);
-        }
-      }
-      
-      // Check let statements - the assigned value
-      if (parentStep.type === 'let' && parentStep.variable !== undefined) {
-        const letKey = `${parentId}:value`;
-        if (!chain.includes(letKey)) {
-          chain.push(letKey);
-        }
-      }
-      
-      // Check function calls - resolved args that might have contributed
-      if (parentStep.type === 'call' && parentStep.resolvedArgs) {
-        for (const [paramName] of Object.entries(parentStep.resolvedArgs)) {
-          const argKey = `${parentId}:${paramName}`;
-          if (!chain.includes(argKey)) {
-            chain.push(argKey);
-          }
-        }
-      }
-      
-      currentStepId = parentId;
-    }
-    
-    // Also check the call chain (ancestorChain) for function args
-    for (const ancestorStepId of ancestorChain) {
-      const ancestorStep = allStepsMap.get(ancestorStepId);
-      if (!ancestorStep?.resolvedArgs) continue;
-      
-      for (const [paramName] of Object.entries(ancestorStep.resolvedArgs)) {
-        const valueKey = `${ancestorStepId}:${paramName}`;
-        if (!chain.includes(valueKey)) {
-          chain.push(valueKey);
-        }
-      }
-    }
-    
-    return chain;
-  }, [selectedValueKey, anchorStepId, allStepsMap, ancestorChain, steps]);
-  
-  // Current navigation value key - which value in the chain is currently focused
-  const currentNavValueKey = useMemo(() => {
-    if (!selectedValueKey || valueChain.length === 0) return null;
-    if (navIndex < valueChain.length) {
-      return valueChain[navIndex];
-    }
-    return null;
-  }, [selectedValueKey, valueChain, navIndex]);
-  
-  // Chain step IDs: all steps and params that should be dimly highlighted
-  // When a value is selected, we DON'T highlight steps - only values in the valueChain
-  const chainStepIds = useMemo(() => {
-    // When a value is selected, don't highlight steps at all - value chain handles it
-    if (selectedValueKey) return [];
-    
-    if (!anchorStepId) return [];
-    const allInChain: string[] = [anchorStepId, ...ancestorChain];
-
-    if (anchorParamKey) {
-      allInChain.push(anchorParamKey);
-    }
-
-    return allInChain.filter(
-      (id) => id !== currentNavStepId && id !== currentNavParamKey
-    );
-  }, [anchorStepId, ancestorChain, anchorParamKey, selectedValueKey, currentNavStepId, currentNavParamKey]);
-  
-  // Handle step click - set as anchor, clear param/value selection
+  // Handle step click
   const handleStepClick = useCallback((step: RuntimeStep) => {
-    if (anchorStepId === step.id && !anchorParamKey && !selectedValueKey) {
-      // Click same step when no param/value selected - clear navigation
-      setAnchorStepId(null);
-      setAnchorParamKey(null);
-      setSelectedValueKey(null);
-      setNavIndex(0);
-    } else {
-      setAnchorStepId(step.id);
-      setAnchorParamKey(null);
-      setSelectedValueKey(null);
-      setNavIndex(0);
-    }
+    setSelectedValueKey(null);
     onStepClick?.(step);
-  }, [anchorStepId, anchorParamKey, selectedValueKey, onStepClick]);
+  }, [onStepClick]);
   
-  // Handle param click - set param as primary anchor, step + upstream as secondary
-  const handleParamClick = useCallback((step: RuntimeStep, paramName: string) => {
-    const paramKey = `${step.id}:${paramName}`;
-    if (anchorParamKey === paramKey && !selectedValueKey) {
-      // Click same param when no value selected - clear
-      setAnchorStepId(null);
-      setAnchorParamKey(null);
-      setSelectedValueKey(null);
-      setNavIndex(0);
+  // Handle IR value click - find dependent constants and notify parent
+  const handleIRValueClick = useCallback((step: RuntimeStep, paramName: string, value: unknown) => {
+    if (!step.functionName || !dependencyAnalysis) {
+      setSelectedValueKey(`${step.id}:${paramName}`);
+      return;
+    }
+    
+    // Find the output path in the dependency matrix
+    const { findOutputPath, getConstantsForOutput } = require('../core/dependencyAnalyzer');
+    const outputPath = findOutputPath(dependencyAnalysis, step.functionName, paramName, value);
+    
+    if (outputPath) {
+      const dependentConstants = getConstantsForOutput(dependencyAnalysis, outputPath);
+      setSelectedValueKey(`${step.id}:${paramName}`);
+      onOutputClick?.(step.functionName, paramName, value, dependentConstants);
     } else {
-      // Set step as anchor (for upstream chain), param as selected
-      setAnchorStepId(step.id);
-      setAnchorParamKey(paramKey);
-      setSelectedValueKey(null);
-      setNavIndex(0);
+      setSelectedValueKey(`${step.id}:${paramName}`);
+      onOutputClick?.(step.functionName, paramName, value, []);
     }
-  }, [anchorParamKey, selectedValueKey]);
+  }, [dependencyAnalysis, onOutputClick]);
   
-  // Handle value click - set specific value as selected, with upstream highlighting
-  const handleValueClick = useCallback((step: RuntimeStep, valueKey: string) => {
-    if (selectedValueKey === valueKey) {
-      // Click same value - clear
-      setAnchorStepId(null);
-      setAnchorParamKey(null);
-      setSelectedValueKey(null);
-      setNavIndex(0);
-    } else {
-      // Extract param key from value key (format: stepId:paramName[...])
-      const colonIndex = valueKey.indexOf(':');
-      const bracketIndex = valueKey.indexOf('[');
-      const dotIndex = valueKey.indexOf('.');
-      
-      // Find where the base paramKey ends
-      let paramKeyEnd = valueKey.length;
-      if (bracketIndex > colonIndex) paramKeyEnd = Math.min(paramKeyEnd, bracketIndex);
-      if (dotIndex > colonIndex) paramKeyEnd = Math.min(paramKeyEnd, dotIndex);
-      
-      const paramKey = valueKey.slice(0, paramKeyEnd);
-      
-      setAnchorStepId(step.id);
-      setAnchorParamKey(paramKey);
-      setSelectedValueKey(valueKey);
-      setNavIndex(0);
-    }
-  }, [selectedValueKey]);
-  
-  // Navigate up (to higher level / parent) - use valueChain when value selected
-  const navigateUp = useCallback(() => {
-    const maxIndex = selectedValueKey ? valueChain.length - 1 : ancestorChain.length;
-    if (navIndex < maxIndex) {
-      setNavIndex(navIndex + 1);
-    }
-  }, [navIndex, ancestorChain.length, selectedValueKey, valueChain.length]);
-  
-  // Navigate down (back toward anchor)
-  const navigateDown = useCallback(() => {
-    if (navIndex > 0) {
-      setNavIndex(navIndex - 1);
-    }
-  }, [navIndex]);
-  
-  // Can navigate - use valueChain when value selected
-  const canGoUp = selectedValueKey 
-    ? navIndex < valueChain.length - 1 
-    : anchorStepId && navIndex < ancestorChain.length;
-  const canGoDown = navIndex > 0;
-  
-  // Get highlight level for a step - only highlight the single IR step that created the element
+  // Get highlight level for a step
   const getHighlightLevel = (step: RuntimeStep): 'primary' | 'secondary' | null => {
     if (!elementHighlightedStepId) return null;
     if (step.id === elementHighlightedStepId) {
@@ -1287,159 +638,6 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
     return null;
   };
-  
-
-  // Auto-expand upstream items only (NOT the clicked item itself) so highlights are visible
-  useEffect(() => {
-    if (!anchorStepId || ancestorChain.length === 0) return;
-    
-    // Only expand ancestor chain items, NOT the anchor itself
-    setExpanded(prev => {
-      const next = new Set(prev);
-      let changed = false;
-      
-      // Also need to expand parents in the tree structure for ancestor steps to be visible
-      const parentMap = new Map<string, string>();
-      const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
-        for (const step of items) {
-          if (parentId) {
-            parentMap.set(step.id, parentId);
-          }
-          if (step.children) {
-            buildParentMap(step.children, step.id);
-          }
-        }
-      };
-      buildParentMap(steps);
-      
-      // Expand parent tree for each ancestor
-      for (const ancestorId of ancestorChain) {
-        let currentId: string | undefined = ancestorId;
-        while (currentId) {
-          const parentId = parentMap.get(currentId);
-          if (parentId && !next.has(parentId)) {
-            next.add(parentId);
-            changed = true;
-          }
-          currentId = parentId;
-        }
-      }
-      
-      return changed ? next : prev;
-    });
-  }, [anchorStepId, ancestorChain, steps]);
-
-  // Auto-expand steps that contain values in the valueChain
-  useEffect(() => {
-    if (valueChain.length === 0) return;
-    
-    // Build parent map for tree structure
-    const parentMap = new Map<string, string>();
-    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
-      for (const step of items) {
-        if (parentId) {
-          parentMap.set(step.id, parentId);
-        }
-        if (step.children) {
-          buildParentMap(step.children, step.id);
-        }
-      }
-    };
-    buildParentMap(steps);
-    
-    // Extract step IDs from value keys and expand their parents
-    const stepsToExpand = new Set<string>();
-    for (const valueKey of valueChain) {
-      const colonIdx = valueKey.indexOf(':');
-      if (colonIdx > 0) {
-        const stepId = valueKey.slice(0, colonIdx);
-        // Walk up and expand all parents
-        let currentId: string | undefined = stepId;
-        while (currentId) {
-          const parentId = parentMap.get(currentId);
-          if (parentId) {
-            stepsToExpand.add(parentId);
-          }
-          currentId = parentId;
-        }
-      }
-    }
-    
-    if (stepsToExpand.size > 0) {
-      setExpanded(prev => {
-        const next = new Set(prev);
-        let changed = false;
-        stepsToExpand.forEach(id => {
-          if (!next.has(id)) {
-            next.add(id);
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [valueChain, steps]);
-
-  // Auto-expand ancestors and scroll to deepest highlighted step when highlightedStepIds changes
-  // This is triggered when clicking a TreeView statement or function definition
-  const deepestHighlightedStepRef = useRef<string | null>(null);
-  
-  useEffect(() => {
-    if (highlightedStepIds.length === 0) {
-      deepestHighlightedStepRef.current = null;
-      return;
-    }
-    
-    // Build parent map: step ID -> parent step ID
-    const parentMap = new Map<string, string>();
-    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
-      for (const step of items) {
-        if (parentId) {
-          parentMap.set(step.id, parentId);
-        }
-        if (step.children) {
-          buildParentMap(step.children, step.id);
-        }
-      }
-    };
-    buildParentMap(steps);
-    
-    // Find all ancestors of highlighted steps and expand them
-    const toExpand = new Set<string>();
-    let deepestStep: { id: string; depth: number } | null = null;
-    
-    for (const stepId of highlightedStepIds) {
-      const step = allStepsMap.get(stepId);
-      if (step) {
-        // Track deepest (highest depth) highlighted step for scrolling
-        if (!deepestStep || step.depth > deepestStep.depth) {
-          deepestStep = { id: stepId, depth: step.depth };
-        }
-        
-        // Walk up parent chain and expand each ancestor
-        let currentId: string | undefined = stepId;
-        while (currentId) {
-          const parentId = parentMap.get(currentId);
-          if (parentId) {
-            toExpand.add(parentId);
-          }
-          currentId = parentId;
-        }
-      }
-    }
-    
-    // Update expanded set
-    if (toExpand.size > 0) {
-      setExpanded(prev => {
-        const next = new Set(prev);
-        toExpand.forEach(id => next.add(id));
-        return next;
-      });
-    }
-    
-    // Set the deepest step for auto-scroll
-    deepestHighlightedStepRef.current = deepestStep?.id || null;
-  }, [highlightedStepIds, steps, allStepsMap]);
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -1498,47 +696,25 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
               <ChevronsUpDown className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <span className="text-xs text-muted-foreground">{steps.length} steps</span>
         </div>
       </div>
-      
       <ScrollArea className="flex-1 min-h-0">
-        <div className="py-1" style={{ zoom: zoomLevel / 100 }}>
-          {steps.length === 0 ? (
-            <div className="text-xs text-muted-foreground text-center py-8">
-              No execution steps yet
-            </div>
-          ) : (
-            steps.map(step => (
-              <RuntimeStepRow 
-                key={step.id} 
-                step={step} 
-                expanded={expanded}
-                onToggle={toggleExpand}
-                getHighlightLevel={getHighlightLevel}
-                onStepClick={handleStepClick}
-                onParamClick={handleParamClick}
-                onValueClick={handleValueClick}
-                selectedStepId={selectedStepId}
-                selectedParamKey={selectedValueKey ? null : anchorParamKey}
-                selectedValueKey={selectedValueKey}
-                highlightedStepIds={highlightedStepIds}
-                currentNavigationStepId={selectedValueKey ? null : (anchorParamKey ? null : currentNavStepId)}
-                currentNavigationParamKey={selectedValueKey ? null : currentNavParamKey}
-                currentNavValueKey={currentNavValueKey}
-                valueChain={valueChain}
-                chainStepIds={chainStepIds}
-                canGoUp={!!canGoUp}
-                canGoDown={!!canGoDown}
-                onNavigateUp={navigateUp}
-                onNavigateDown={navigateDown}
-                navIndex={navIndex}
-                chainLength={selectedValueKey ? valueChain.length - 1 : ancestorChain.length}
-                deepestHighlightedStepId={deepestHighlightedStepRef.current}
-                elementHighlightedStepId={elementHighlightedStepId}
-              />
-            ))
-          )}
+        <div className="p-2 space-y-0.5" style={{ fontSize: `${zoomLevel}%` }}>
+          {steps.map(step => (
+            <RuntimeStepRow 
+              key={step.id} 
+              step={step} 
+              expanded={expanded} 
+              onToggle={toggleExpand}
+              getHighlightLevel={getHighlightLevel}
+              onStepClick={handleStepClick}
+              onIRValueClick={handleIRValueClick}
+              selectedStepId={selectedStepId}
+              selectedValueKey={selectedValueKey}
+              highlightedStepIds={highlightedStepIds}
+              elementHighlightedStepId={elementHighlightedStepId}
+            />
+          ))}
         </div>
       </ScrollArea>
     </div>

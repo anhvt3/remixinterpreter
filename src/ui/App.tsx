@@ -15,6 +15,7 @@ import { usePanelExpansion, PanelSelector, PanelContentArea, type PanelId } from
 import { loadYAML } from '../core/yamlLoader';
 import { validateSchema } from '../core/schemaValidator';
 import { executeWithTrace, type CallChainEntry } from '../core/runtimeTracer';
+import { analyzeDependencies, type DependencyAnalysisResult, type ConstantDef } from '../core/dependencyAnalyzer';
 import type { TimelineEvent, YAMLSpec, Params } from '../core/types';
 import exampleYaml from '../fixtures/example.yaml?raw';
 import yaml from 'js-yaml';
@@ -767,6 +768,11 @@ export const App: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [activeTab, setActiveTab] = useState('editing');
   const [activeConfigSubtab, setActiveConfigSubtab] = useState('IRF-IR-FUNCTIONS');
+  
+  // Dependency analysis for constant-output mapping
+  const [dependencyAnalysis, setDependencyAnalysis] = useState<DependencyAnalysisResult | null>(null);
+  // Constants that affect the currently selected output (for TreeView highlighting)
+  const [highlightedConstants, setHighlightedConstants] = useState<ConstantDef[]>([]);
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 10, 150));
@@ -860,6 +866,17 @@ export const App: React.FC = () => {
       setElementCallChains(result.elementCallChains);
       setStepCallChains(result.stepCallChains);
       setStepCreatedElements(result.stepCreatedElements);
+      
+      // Run dependency analysis for constant-output mapping
+      try {
+        const depAnalysis = analyzeDependencies(spec);
+        setDependencyAnalysis(depAnalysis);
+        addLog('info', 'Runtime', `Analyzed ${depAnalysis.constants.length} constants, ${depAnalysis.outputs.length} outputs`);
+      } catch (depErr) {
+        console.error('Dependency analysis failed:', depErr);
+        setDependencyAnalysis(null);
+      }
+      
       setError(null);
       addLog('success', 'Runtime', `Built ${result.timeline.length} events, ${result.steps.length} steps`);
     } catch (e) {
@@ -1167,6 +1184,16 @@ export const App: React.FC = () => {
     setSelectedElementId(null);
   }, []);
 
+  // Handle output click from RuntimePanel - sets up TreeView constant highlighting
+  const handleOutputClick = useCallback((irFn: string, argName: string, argValue: unknown, dependentConstants: ConstantDef[]) => {
+    console.log(`Output clicked: ${irFn}.${argName} =`, argValue, 'depends on:', dependentConstants.map(c => c.path));
+    setHighlightedConstants(dependentConstants);
+    // Clear other selections
+    setSelectedStatement(null);
+    setSelectedFunctionDefinition(null);
+    setSelectedRuntimeStepId(null);
+  }, []);
+
   const dslPanelProps = {
     spec: parsedSpec,
     content: paramsContent,
@@ -1290,13 +1317,13 @@ export const App: React.FC = () => {
       render: () => (
         <RuntimePanel 
           steps={runtimeSteps} 
-          elementCallChain={selectedElementCallChain}
           selectedElementId={selectedElementId}
           zoomLevel={zoomLevel}
           onStepClick={handleRuntimeStepClick}
           selectedStepId={selectedRuntimeStepId}
           highlightedStepIds={combinedHighlightedStepIds}
-          stepCallChains={stepCallChains}
+          dependencyAnalysis={dependencyAnalysis}
+          onOutputClick={handleOutputClick}
         />
       ),
     },
