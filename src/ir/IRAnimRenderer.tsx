@@ -553,6 +553,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           style={{
             width: displayWidth,
             height: displayHeight,
+            zIndex: 0,
           }}
         />
 
