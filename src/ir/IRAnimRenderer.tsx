@@ -178,7 +178,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       ctx.save();
       ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
 
-      const content = typeof node.content === 'string' ? node.content : '';
+      const raw = node.content as unknown; const content = (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') ? String(raw) : '';
       const widthPx = ctx.measureText(content).width;
       const heightPx = textStyle.fontSize;
 
@@ -399,8 +399,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
 
     for (const node of runtime.nodes.values()) {
       if (node.type !== 'text') continue;
-      const content = (node as TextProps).content;
-      if (typeof content !== 'string') continue;
+      const raw = (node as TextProps).content as unknown; const content = (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') ? String(raw) : null;
+      if (content === null) continue;
 
       // Skip invisible nodes
       if (!node.visible || node.style.opacity <= 0) continue;
@@ -670,10 +670,10 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'text': {
-          const content = (n as TextProps).content;
-          const ctx = runtime.ctx;
-          const textStyle = n.style.text ?? theme.defaultText;
-          if (!ctx || typeof content !== 'string') return null;
+           const raw = (n as TextProps).content as unknown;
+           const content = (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') ? String(raw) : null;
+           const ctx = runtime.ctx;
+           const textStyle = n.style.text ?? theme.defaultText; if (!ctx || content === null) return null;
 
           ctx.save();
           ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
