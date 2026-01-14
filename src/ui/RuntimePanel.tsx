@@ -80,6 +80,113 @@ const isExpandable = (value: unknown): boolean => {
   return false;
 };
 
+// Helper to get value at a dot/bracket path (e.g., "param.x.y" or "param[0].x")
+const getValueAtPath = (obj: Record<string, unknown>, path: string): unknown => {
+  // Parse the path into segments
+  const segments: (string | number)[] = [];
+  let current = '';
+  
+  for (let i = 0; i < path.length; i++) {
+    const char = path[i];
+    if (char === '.') {
+      if (current) segments.push(current);
+      current = '';
+    } else if (char === '[') {
+      if (current) segments.push(current);
+      current = '';
+    } else if (char === ']') {
+      if (current) {
+        const num = parseInt(current, 10);
+        segments.push(isNaN(num) ? current : num);
+      }
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current) segments.push(current);
+  
+  // Navigate through the object
+  let value: unknown = obj;
+  for (const segment of segments) {
+    if (value === null || value === undefined) return undefined;
+    if (typeof segment === 'number' && Array.isArray(value)) {
+      value = value[segment];
+    } else if (typeof value === 'object') {
+      value = (value as Record<string, unknown>)[String(segment)];
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+};
+
+// Helper to check if two values are equal (for value tracing)
+const valuesEqual = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return Math.abs(a - b) < 0.0001;
+  }
+  if (typeof a === 'string' && typeof b === 'string') return a === b;
+  if (typeof a === 'boolean' && typeof b === 'boolean') return a === b;
+  return false;
+};
+
+// Helper to find the path within an object where a specific value exists
+// Returns the full path (e.g., "param.x.y") if found, null otherwise
+const findValuePath = (obj: unknown, targetValue: unknown, basePath: string): string | null => {
+  // Direct match
+  if (valuesEqual(obj, targetValue)) {
+    return basePath;
+  }
+  
+  // Search in arrays
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const result = findValuePath(obj[i], targetValue, `${basePath}[${i}]`);
+      if (result) return result;
+    }
+  }
+  
+  // Search in objects
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+      const result = findValuePath(val, targetValue, `${basePath}.${key}`);
+      if (result) return result;
+    }
+  }
+  
+  return null;
+};
+
+// Helper to check if two values are related (for upstream value tracing)
+// Returns true if ancestorValue contributed to or contains selectedValue
+const valuesAreRelated = (ancestorValue: unknown, selectedValue: unknown): boolean => {
+  // Exact equality
+  if (ancestorValue === selectedValue) return true;
+  
+  // Both are numbers and close enough (floating point)
+  if (typeof ancestorValue === 'number' && typeof selectedValue === 'number') {
+    return Math.abs(ancestorValue - selectedValue) < 0.0001;
+  }
+  
+  // Ancestor is an array that contains the selected value
+  if (Array.isArray(ancestorValue)) {
+    for (const item of ancestorValue) {
+      if (valuesAreRelated(item, selectedValue)) return true;
+    }
+  }
+  
+  // Ancestor is an object whose properties contain the selected value
+  if (ancestorValue && typeof ancestorValue === 'object' && !Array.isArray(ancestorValue)) {
+    for (const val of Object.values(ancestorValue as Record<string, unknown>)) {
+      if (valuesAreRelated(val, selectedValue)) return true;
+    }
+  }
+  
+  return false;
+};
+
 // Recursive component for rendering values (arrays and objects) with click support
 const ValueRow: React.FC<{
   label: string;
@@ -899,57 +1006,51 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [anchorParamKey, selectedValueKey, navIndex]);
   
-  // Build value chain - trace upstream values within the same step and parent values
-  // For a selected value like "stepId:param.x.y", include parent path values and sibling params
+  // Build value chain - trace upstream values that contributed to the selected value
+  // This finds values in ancestor function calls that were passed down the call chain
   const valueChain = useMemo(() => {
     if (!selectedValueKey || !anchorStepId) return [];
     
     const chain: string[] = [selectedValueKey];
     
     // Get the step containing this value
-    const step = allStepsMap.get(anchorStepId);
-    if (!step?.resolvedArgs) return chain;
+    const anchorStep = allStepsMap.get(anchorStepId);
+    if (!anchorStep?.resolvedArgs) return chain;
     
-    // Parse the selected value key to understand its structure
+    // Parse the selected value key to extract the param name and path
     // Format: "stepId:paramName" or "stepId:paramName.key" or "stepId:paramName[idx]..."
     const colonIdx = selectedValueKey.indexOf(':');
     if (colonIdx === -1) return chain;
     
     const pathPart = selectedValueKey.slice(colonIdx + 1); // e.g., "param.x.y" or "param[0].x"
     
-    // Build parent path values (walk up the object/array path)
-    // For "stepId:span.x.y", add "stepId:span.x" and "stepId:span"
-    let currentPath = pathPart;
-    while (currentPath.includes('.') || currentPath.includes('[')) {
-      // Find the last accessor (. or [)
-      const lastDot = currentPath.lastIndexOf('.');
-      const lastBracket = currentPath.lastIndexOf('[');
-      const cutPoint = Math.max(lastDot, lastBracket);
-      
-      if (cutPoint > 0) {
-        currentPath = currentPath.slice(0, cutPoint);
-        const parentKey = `${anchorStepId}:${currentPath}`;
-        if (!chain.includes(parentKey)) {
-          chain.push(parentKey);
-        }
-      } else {
-        break;
-      }
-    }
+    // Extract the actual selected value by following the path
+    const selectedValue = getValueAtPath(anchorStep.resolvedArgs, pathPart);
     
-    // Also add other params from the same step as related values
-    // (they're siblings in the calculation context)
-    const entries = Object.entries(step.resolvedArgs);
-    for (const [paramName] of entries) {
-      const siblingKey = `${anchorStepId}:${paramName}`;
-      // Don't add if it's already in chain or is ancestor of selected value
-      if (!chain.includes(siblingKey) && !selectedValueKey.startsWith(siblingKey)) {
-        chain.push(siblingKey);
+    // Now trace upstream: for each ancestor step in the call chain,
+    // find which of its resolved args contains the same or related value
+    for (const ancestorStepId of ancestorChain) {
+      const ancestorStep = allStepsMap.get(ancestorStepId);
+      if (!ancestorStep?.resolvedArgs) continue;
+      
+      // Look through ancestor's resolved args for matching values
+      for (const [paramName, paramValue] of Object.entries(ancestorStep.resolvedArgs)) {
+        // Check if this param value matches or contains our selected value
+        if (paramValue !== null && paramValue !== undefined) {
+          // Find the specific path within this param that matches the selected value
+          const matchPath = findValuePath(paramValue, selectedValue, paramName);
+          if (matchPath) {
+            const valueKey = `${ancestorStepId}:${matchPath}`;
+            if (!chain.includes(valueKey)) {
+              chain.push(valueKey);
+            }
+          }
+        }
       }
     }
     
     return chain;
-  }, [selectedValueKey, anchorStepId, allStepsMap]);
+  }, [selectedValueKey, anchorStepId, allStepsMap, ancestorChain]);
   
   // Current navigation value key - which value in the chain is currently focused
   const currentNavValueKey = useMemo(() => {
@@ -1111,6 +1212,57 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       return changed ? next : prev;
     });
   }, [anchorStepId, ancestorChain, steps]);
+
+  // Auto-expand steps that contain values in the valueChain
+  useEffect(() => {
+    if (valueChain.length === 0) return;
+    
+    // Build parent map for tree structure
+    const parentMap = new Map<string, string>();
+    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
+      for (const step of items) {
+        if (parentId) {
+          parentMap.set(step.id, parentId);
+        }
+        if (step.children) {
+          buildParentMap(step.children, step.id);
+        }
+      }
+    };
+    buildParentMap(steps);
+    
+    // Extract step IDs from value keys and expand their parents
+    const stepsToExpand = new Set<string>();
+    for (const valueKey of valueChain) {
+      const colonIdx = valueKey.indexOf(':');
+      if (colonIdx > 0) {
+        const stepId = valueKey.slice(0, colonIdx);
+        // Walk up and expand all parents
+        let currentId: string | undefined = stepId;
+        while (currentId) {
+          const parentId = parentMap.get(currentId);
+          if (parentId) {
+            stepsToExpand.add(parentId);
+          }
+          currentId = parentId;
+        }
+      }
+    }
+    
+    if (stepsToExpand.size > 0) {
+      setExpanded(prev => {
+        const next = new Set(prev);
+        let changed = false;
+        stepsToExpand.forEach(id => {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [valueChain, steps]);
 
   // Auto-expand ancestors and scroll to deepest highlighted step when highlightedStepIds changes
   // This is triggered when clicking a TreeView statement or function definition
