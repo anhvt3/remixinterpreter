@@ -782,6 +782,18 @@ const TreeParamRow: React.FC<{
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  
+  // Local state for editing - only commit on Enter
+  const [localValue, setLocalValue] = useState(String(paramValue));
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Sync local value when external paramValue changes (e.g., undo/redo)
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(String(paramValue));
+    }
+  }, [paramValue, isEditing]);
+  
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray && !('expr' in (paramValue as object));
   const expandable = isExpandableValue(paramValue);
@@ -810,6 +822,28 @@ const TreeParamRow: React.FC<{
     if (isArray) return `[...${(paramValue as unknown[]).length} items]`;
     if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
     return formatValue(paramValue);
+  };
+  
+  // Commit the local value to parent
+  const commitValue = () => {
+    if (localValue !== String(paramValue)) {
+      onEdit?.(localValue);
+    }
+    setIsEditing(false);
+  };
+  
+  // Handle key events - commit on Enter, cancel on Escape
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitValue();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setLocalValue(String(paramValue)); // Reset to original
+      setIsEditing(false);
+      (e.target as HTMLInputElement).blur();
+    }
   };
   
   // Render navigation buttons for param chain
@@ -868,8 +902,14 @@ const TreeParamRow: React.FC<{
         {canEdit ? (
           <Input
             type={typeof paramValue === 'number' ? 'number' : 'text'}
-            value={String(paramValue)}
-            onChange={(e) => onEdit?.(e.target.value)}
+            value={localValue}
+            onChange={(e) => {
+              setLocalValue(e.target.value);
+              setIsEditing(true);
+            }}
+            onKeyDown={handleKeyDown}
+            onBlur={commitValue}
+            onFocus={() => setIsEditing(true)}
             onClick={(e) => e.stopPropagation()}
             className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
           />
