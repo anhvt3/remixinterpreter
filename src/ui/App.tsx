@@ -1393,7 +1393,7 @@ export const App: React.FC = () => {
       {/* Header */}
       <header className="h-12 px-4 flex items-center justify-between border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-foreground">VectorAnim Studio</h1>
+          <h1 className="text-sm font-semibold text-foreground">Clevai VectorAnim Studio</h1>
           <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary glow-primary">v0.72</span>
         </div>
         <div className="flex items-center gap-3">
