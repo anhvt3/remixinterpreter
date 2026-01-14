@@ -389,9 +389,9 @@ function valuesEqual(a: unknown, b: unknown): boolean {
  * Main analysis function - build the constant-output dependency matrix
  */
 export function analyzeDependencies(spec: YAMLSpec): DependencyAnalysisResult {
-  // 1. Extract constants from entry point args
-  const entryArgs = spec.program.entry.call.args;
-  const constants = extractConstants(entryArgs as Record<string, unknown>);
+  // 1. Extract DSL constants from spec.params (user-editable constants)
+  // NOTE: We intentionally use the same path format as the TreeView params editor (e.g. "number", "layout.title.y").
+  const constants = extractConstants(spec.params as unknown as Record<string, unknown>);
   
   // 2. Run baseline execution to get all outputs
   const baselineOutputs = executeAndCollectOutputs(spec);
@@ -415,9 +415,9 @@ export function analyzeDependencies(spec: YAMLSpec): DependencyAnalysisResult {
     
     // Create perturbed spec
     const perturbedSpec = deepClone(spec);
-    const perturbedArgs = perturbedSpec.program.entry.call.args as Record<string, unknown>;
+    const perturbedParams = perturbedSpec.params as unknown as Record<string, unknown>;
     const perturbedValue = perturbValue(constant);
-    setValueAtPath(perturbedArgs, constant.path, perturbedValue);
+    setValueAtPath(perturbedParams, constant.path, perturbedValue);
     
     // Run perturbed execution
     try {
