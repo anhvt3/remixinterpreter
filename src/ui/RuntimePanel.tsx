@@ -376,7 +376,13 @@ const RuntimeStepRow: React.FC<{
   // Show nav buttons only on the current navigation position
   const showNavButtons = isCurrentNav;
 
-  // No auto-scroll - user controls scroll position manually
+  // Auto-scroll when this step is the element-highlighted step
+  const isElementHighlighted = step.id === elementHighlightedStepId;
+  useEffect(() => {
+    if (isElementHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isElementHighlighted]);
 
   // Match TreeView primary/secondary color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
@@ -620,6 +626,52 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
     return null;
   }, [selectedElementId, allStepsMap]);
+  
+  // Auto-expand ancestors when element is clicked in Anim panel (to reveal the IR step)
+  useEffect(() => {
+    if (!elementHighlightedStepId) return;
+    
+    // Build parent map: step ID -> parent step ID
+    const parentMap = new Map<string, string>();
+    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
+      for (const step of items) {
+        if (parentId) {
+          parentMap.set(step.id, parentId);
+        }
+        if (step.children) {
+          buildParentMap(step.children, step.id);
+        }
+      }
+    };
+    buildParentMap(steps);
+    
+    // Walk up parent chain and expand each ancestor
+    const toExpand = new Set<string>();
+    let currentId: string | undefined = elementHighlightedStepId;
+    while (currentId) {
+      const parentId = parentMap.get(currentId);
+      if (parentId) {
+        toExpand.add(parentId);
+      }
+      currentId = parentId;
+    }
+    
+    // Update expanded set
+    if (toExpand.size > 0) {
+      setExpanded(prev => {
+        const next = new Set(prev);
+        let changed = false;
+        toExpand.forEach(id => {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [elementHighlightedStepId, steps]);
+
   
   // Build ancestor chain for the anchor step (from anchor up to root)
   const ancestorChain = useMemo(() => {

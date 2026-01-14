@@ -930,7 +930,13 @@ const StatementRow: React.FC<StatementRowProps> = ({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
-  // No auto-expand - user controls expansion manually
+  // Auto-scroll when this statement is the primary highlighted (element creator)
+  useEffect(() => {
+    if (highlightLevel === 'primary' && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightLevel]);
+  
   // forceExpanded only affects highlighting, not expansion state
   const isExpanded = expanded;
   
@@ -2405,7 +2411,20 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return null;
   }, [highlightedElementId, spec]);
   
-  // No auto-expand for elementCallChain - user controls expansion manually
+  // Auto-expand function containing the lowest-level (innermost) statement when element is clicked in Anim panel
+  useEffect(() => {
+    if (!elementCallChain || elementCallChain.length === 0) return;
+    
+    // The first entry is the innermost/lowest-level statement that created the element
+    const lowestLevelEntry = elementCallChain[0];
+    const fnToExpand = lowestLevelEntry.fnName;
+    
+    if (!fnToExpand || expandedFunctions.has(fnToExpand)) return;
+    
+    const next = new Set(expandedFunctions);
+    next.add(fnToExpand);
+    onExpandedFunctionsChange?.(next);
+  }, [elementCallChain, expandedFunctions, onExpandedFunctionsChange]);
   
   // Show all functions as flat list
   const allFunctions = useMemo(() => {
