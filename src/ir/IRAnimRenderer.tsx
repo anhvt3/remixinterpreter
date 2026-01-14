@@ -151,6 +151,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
     ) => {
       // Inverse of: T(x,y) · R(rot) · S(scale) · T(-origin)
+      // We return coordinates in the *draw-local* space (after origin is applied),
+      // because render() draws shapes/text at local (0,0) after applyTransform().
       let x = worldPoint.x - t.x;
       let y = worldPoint.y - t.y;
 
@@ -162,7 +164,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const sx = t.scaleX === 0 ? rx : rx / t.scaleX;
       const sy = t.scaleY === 0 ? ry : ry / t.scaleY;
 
-      return { x: sx + t.originX, y: sy + t.originY };
+      return { x: sx, y: sy };
     };
 
     const hitTestText = (node: TextProps, localX: number, localY: number) => {
@@ -471,10 +473,85 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
             height: displayHeight,
           }}
         />
-        
+
+        {/* Plain text hit-target layer (invisible but clickable) */}
+        <div className="absolute inset-0 pointer-events-none">
+          {plainTextHitTargets.map((t) => {
+            const isSelected = t.id === selectedElementId;
+            const isHighlighted = highlightedElementIds.includes(t.id);
+
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-label={`Select text ${t.content}`}
+                className={`absolute pointer-events-auto bg-transparent rounded transition-all ${
+                  isSelected
+                    ? 'outline outline-2 outline-primary ring-2 ring-primary/50'
+                    : isHighlighted
+                    ? 'outline outline-1 outline-primary/50'
+                    : 'hover:outline hover:outline-2 hover:outline-primary/50'
+                }`}
+                style={{
+                  left: t.x,
+                  top: t.y,
+                  width: t.w,
+                  height: t.h,
+                  transform: 'translate(-50%, -50%)',
+                  opacity: isSelected || isHighlighted ? 0.08 : 0,
+                  zIndex: 1000 + t.zIndex,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onElementClick?.(t.id);
+                }}
+              />
+            );
+          })}
+        </div>
+
         {/* LaTeX overlay layer - pointer-events-none so canvas clicks pass through */}
         <div className="absolute inset-0 pointer-events-none">
           {latexOverlays.map((overlay) => {
+            const isSelected = overlay.id === selectedElementId;
+            const isHighlighted = highlightedElementIds.includes(overlay.id);
+            return (
+              <div
+                key={overlay.id}
+                className={`absolute cursor-pointer rounded transition-all pointer-events-auto ${
+                  isSelected 
+                    ? 'outline outline-2 outline-primary ring-2 ring-primary/50' 
+                    : isHighlighted 
+                    ? 'outline outline-1 outline-yellow-400/60' 
+                    : 'hover:outline hover:outline-2 hover:outline-primary/50'
+                }`}
+                style={{
+                  left: overlay.x,
+                  top: overlay.y,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: overlay.fontSize,
+                  color: overlay.color,
+                  opacity: overlay.opacity,
+                  textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
+                  padding: '4px 8px',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onElementClick) {
+                    console.log('[IRAnimRenderer] Clicked LaTeX overlay:', overlay.id);
+                    onElementClick(overlay.id);
+                  }
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: katex.renderToString(overlay.latex, {
+                    throwOnError: false,
+                    displayMode: false,
+                  }),
+                }}
+              />
+            );
+          })}
+        </div>
             const isSelected = overlay.id === selectedElementId;
             const isHighlighted = highlightedElementIds.includes(overlay.id);
             return (
