@@ -1014,12 +1014,12 @@ const StatementRow: React.FC<StatementRowProps> = ({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rowRef = useRef<HTMLDivElement>(null);
   
-  // Auto-scroll when this statement is the primary highlighted (element creator)
+  // Auto-scroll when this statement is the current navigation position or primary highlighted
   useEffect(() => {
-    if (highlightLevel === 'primary' && rowRef.current) {
+    if ((isCurrentNav || highlightLevel === 'primary') && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightLevel]);
+  }, [isCurrentNav, highlightLevel]);
   
   // forceExpanded only affects highlighting, not expansion state
   const isExpanded = expanded;
