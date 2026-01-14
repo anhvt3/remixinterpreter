@@ -155,18 +155,25 @@ function executeAndCollectOutputs(spec: YAMLSpec): OutputDef[] {
 
 /**
  * Add an output to the context with a unique path
+ * @param callIndex - optional explicit call index (for nested field additions)
  */
 function addOutput(
   ctx: ExecutionContext,
   source: OutputDef['source'],
   context: string,
   fieldName: string,
-  value: unknown
+  value: unknown,
+  callIndex?: number
 ): void {
-  // Get call index for uniqueness
-  const countKey = `${source}:${context}`;
-  const count = ctx.callCounts.get(countKey) || 0;
-  ctx.callCounts.set(countKey, count + 1);
+  // Get call index for uniqueness (only increment if not provided)
+  let count: number;
+  if (callIndex !== undefined) {
+    count = callIndex;
+  } else {
+    const countKey = `${source}:${context}`;
+    count = ctx.callCounts.get(countKey) || 0;
+    ctx.callCounts.set(countKey, count + 1);
+  }
   
   const path = `${source}:${context}:${count}:${fieldName}`;
   
@@ -178,10 +185,10 @@ function addOutput(
     value,
   });
   
-  // If value is an object, also add nested fields
+  // If value is an object, also add nested fields (with same call index)
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     for (const [k, v] of Object.entries(value)) {
-      addOutput(ctx, source, context, `${fieldName}.${k}`, v);
+      addOutput(ctx, source, context, `${fieldName}.${k}`, v, count);
     }
   }
 }
@@ -527,15 +534,19 @@ export function findOutputPathForRuntimeValue(
       sources = [];
   }
   
-  // Find matching output
+  // First pass: exact match on source, context, field, and value
   for (const output of result.outputs) {
     if (!sources.includes(output.source)) continue;
     
     // For IR, match function name exactly
     if (stepType === 'ir' && functionName && output.context !== functionName) continue;
     
-    // Match field name
-    if (output.fieldName !== fieldName && !output.fieldName.endsWith(`.${fieldName}`)) continue;
+    // Match field name exactly or as nested field
+    const fieldMatches = output.fieldName === fieldName || 
+                         output.fieldName.startsWith(`${fieldName}.`) ||
+                         output.fieldName.endsWith(`.${fieldName}`) ||
+                         fieldName.startsWith(`${output.fieldName}.`);
+    if (!fieldMatches) continue;
     
     // Match value
     if (valuesEqual(output.value, value)) {
@@ -543,7 +554,40 @@ export function findOutputPathForRuntimeValue(
     }
   }
   
-  // Fallback: match by source and field without value check
+  // Second pass: match by source and field, value check with nested objects
+  for (const output of result.outputs) {
+    if (!sources.includes(output.source)) continue;
+    if (stepType === 'ir' && functionName && output.context !== functionName) continue;
+    
+    // Match field name
+    const fieldMatches = output.fieldName === fieldName || 
+                         output.fieldName.startsWith(`${fieldName}.`) ||
+                         output.fieldName.endsWith(`.${fieldName}`);
+    if (!fieldMatches) continue;
+    
+    // For object values, check if the clicked value is nested within
+    if (typeof output.value === 'object' && output.value !== null && typeof value !== 'object') {
+      // Check if value exists somewhere in the output object
+      const checkValue = (obj: unknown): boolean => {
+        if (valuesEqual(obj, value)) return true;
+        if (typeof obj === 'object' && obj !== null) {
+          for (const v of Object.values(obj)) {
+            if (checkValue(v)) return true;
+          }
+        }
+        return false;
+      };
+      if (checkValue(output.value)) {
+        return output.path;
+      }
+    }
+    
+    if (valuesEqual(output.value, value)) {
+      return output.path;
+    }
+  }
+  
+  // Third pass: just match by source and field (first match)
   for (const output of result.outputs) {
     if (!sources.includes(output.source)) continue;
     if (stepType === 'ir' && functionName && output.context !== functionName) continue;
@@ -553,4 +597,14 @@ export function findOutputPathForRuntimeValue(
   }
   
   return null;
+}
+
+/**
+ * Find ALL outputs that match the given value (for debugging)
+ */
+export function findAllMatchingOutputs(
+  result: DependencyAnalysisResult,
+  value: unknown
+): OutputDef[] {
+  return result.outputs.filter(output => valuesEqual(output.value, value));
 }

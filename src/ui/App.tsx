@@ -871,7 +871,30 @@ export const App: React.FC = () => {
       try {
         const depAnalysis = analyzeDependencies(spec);
         setDependencyAnalysis(depAnalysis);
-        addLog('info', 'Runtime', `Analyzed ${depAnalysis.constants.length} constants, ${depAnalysis.outputs.length} outputs`);
+        
+        // Count outputs with dependencies
+        let withDeps = 0;
+        for (const [, deps] of depAnalysis.matrix) {
+          if (deps.size > 0) withDeps++;
+        }
+        
+        addLog('info', 'Runtime', `Analyzed ${depAnalysis.constants.length} constants, ${depAnalysis.outputs.length} outputs (${withDeps} with dependencies)`);
+        
+        // Debug: log constants and sample outputs with dependencies
+        console.log('[Dependency Analysis] Constants:', depAnalysis.constants.map(c => c.path));
+        
+        // Find outputs with dependencies
+        const outputsWithDeps = depAnalysis.outputs.filter(o => {
+          const deps = depAnalysis.matrix.get(o.path);
+          return deps && deps.size > 0;
+        }).slice(0, 10);
+        
+        console.log('[Dependency Analysis] Outputs WITH dependencies:', outputsWithDeps.map(o => ({
+          path: o.path,
+          field: o.fieldName,
+          value: typeof o.value === 'object' ? '[object]' : o.value,
+          deps: Array.from(depAnalysis.matrix.get(o.path) || [])
+        })));
       } catch (depErr) {
         console.error('Dependency analysis failed:', depErr);
         setDependencyAnalysis(null);
