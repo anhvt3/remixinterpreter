@@ -21,12 +21,18 @@ export interface ConfigVersion {
   isActive?: boolean;
 }
 
+// Edge function URL for protected operations
+const getProtectConfigUrl = () => {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'nzdgglqvaeibniasozfw';
+  return `https://${projectId}.supabase.co/functions/v1/protect-config`;
+};
+
 export const useConfigData = () => {
   const [configs, setConfigs] = useState<ConfigRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Fetch all configs from database
+  // Fetch all configs from database (READ is still public)
   const fetchConfigs = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -88,79 +94,83 @@ export const useConfigData = () => {
     return Math.max(...versions);
   }, [configs]);
 
-  // Save/Update config
+  // Save/Update config via edge function (requires password)
   const saveConfig = useCallback(async (
     type: string,
     versionName: string,
     content: string,
     importantNotes: string,
-    existingId?: string
-  ) => {
+    existingId?: string,
+    password?: string
+  ): Promise<{ success: boolean; needsPassword?: boolean; error?: string }> => {
+    if (!password) {
+      return { success: false, needsPassword: true };
+    }
+
     try {
-      if (existingId) {
-        // Update existing
-        const { error } = await supabase
-          .from('config')
-          .update({
-            content,
-            important_notes: importantNotes,
-          })
-          .eq('id', existingId);
+      const response = await fetch(getProtectConfigUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: existingId ? 'update' : 'insert',
+          password,
+          id: existingId,
+          type,
+          version_name: versionName,
+          content,
+          important_notes: importantNotes,
+          is_active: true,
+        }),
+      });
 
-        if (error) throw error;
-        
-        toast({
-          title: 'Saved',
-          description: `${versionName} saved successfully`,
-        });
-      } else {
-        // Insert new
-        const { error } = await supabase
-          .from('config')
-          .insert({
-            type,
-            version_name: versionName,
-            content,
-            important_notes: importantNotes,
-            is_active: true,
-          });
+      const result = await response.json();
 
-        if (error) throw error;
-        
-        toast({
-          title: 'Created',
-          description: `${versionName} created successfully`,
-        });
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { success: false, error: 'Invalid password' };
+        }
+        throw new Error(result.error || 'Failed to save');
       }
       
+      toast({
+        title: existingId ? 'Saved' : 'Created',
+        description: `${versionName} ${existingId ? 'saved' : 'created'} successfully`,
+      });
+      
       await fetchConfigs();
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('Error saving config:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save configuration',
+        description: error instanceof Error ? error.message : 'Failed to save configuration',
         variant: 'destructive',
       });
-      return false;
+      return { success: false, error: 'Failed to save configuration' };
     }
   }, [fetchConfigs, toast]);
 
-  // Create new version
+  // Create new version (requires password)
   const createNewVersion = useCallback(async (
     type: string,
     content: string,
     importantNotes: string,
-    displayPrefix: string
-  ) => {
+    displayPrefix: string,
+    password?: string
+  ): Promise<{ success: boolean; needsPassword?: boolean; error?: string }> => {
     const latestVersion = getLatestVersionNumber(type);
     const newVersionName = `${displayPrefix} v${latestVersion + 1}`;
     
-    return saveConfig(type, newVersionName, content, importantNotes);
+    return saveConfig(type, newVersionName, content, importantNotes, undefined, password);
   }, [getLatestVersionNumber, saveConfig]);
 
-  // Soft delete config (disable instead of delete)
-  const deleteConfig = useCallback(async (id: string) => {
+  // Soft delete config via edge function (requires password)
+  const deleteConfig = useCallback(async (
+    id: string,
+    password?: string
+  ): Promise<{ success: boolean; needsPassword?: boolean; error?: string }> => {
     // Check if id is a valid UUID (database record) vs sample data id
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(id)) {
@@ -169,16 +179,34 @@ export const useConfigData = () => {
         description: 'Sample versions cannot be deleted. Save a version first to create database records.',
         variant: 'destructive',
       });
-      return false;
+      return { success: false, error: 'Cannot delete sample data' };
+    }
+
+    if (!password) {
+      return { success: false, needsPassword: true };
     }
 
     try {
-      const { error } = await supabase
-        .from('config')
-        .update({ is_deleted: true })
-        .eq('id', id);
+      const response = await fetch(getProtectConfigUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: 'delete',
+          password,
+          id,
+        }),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { success: false, error: 'Invalid password' };
+        }
+        throw new Error(result.error || 'Failed to delete');
+      }
       
       toast({
         title: 'Disabled',
@@ -186,15 +214,15 @@ export const useConfigData = () => {
       });
       
       await fetchConfigs();
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('Error deleting config:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete configuration',
+        description: error instanceof Error ? error.message : 'Failed to delete configuration',
         variant: 'destructive',
       });
-      return false;
+      return { success: false, error: 'Failed to delete configuration' };
     }
   }, [fetchConfigs, toast]);
 

@@ -6,6 +6,7 @@ import { Save, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConfigData, type ConfigVersion } from '@/hooks/useConfigData';
 import { IRFMissingPanel } from './IRFMissingPanel';
+import { PasswordDialog } from '@/components/PasswordDialog';
 
 // Placeholder patterns with fuzzy matching support
 const PLACEHOLDER_PATTERNS = [
@@ -626,6 +627,16 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [selectedVersions, setSelectedVersions] = useState<Record<string, string | null>>({});
   const [editableContent, setEditableContent] = useState<Record<string, string>>({});
   const [editableNotes, setEditableNotes] = useState<Record<string, string>>({});
+  
+  // Password dialog state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [pendingOperation, setPendingOperation] = useState<{
+    type: 'save' | 'create' | 'delete';
+    configType?: string;
+    deleteId?: string;
+  } | null>(null);
 
   const subtabs = [
     { id: 'IRF-IR-FUNCTIONS', label: 'IRF-IR Functions', isSpecial: 'irf', prefix: 'IRF' },
@@ -685,35 +696,95 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   };
 
   const handleSave = async (type: string) => {
-    const selectedId = selectedVersions[type];
-    const config = selectedId ? getConfigById(selectedId) : null;
-    const content = getContent(type, selectedId, '');
-    const notes = getNotes(type, selectedId, '');
-    const prefix = getPrefix(type);
-    
-    if (config) {
-      await saveConfig(type, config.version_name, content, notes, config.id);
-    } else {
-      // Create first version if none exists
-      await createNewVersion(type, content, notes, prefix);
-    }
+    setPendingOperation({ type: 'save', configType: type });
+    setPasswordError(undefined);
+    setPasswordDialogOpen(true);
   };
 
   const handleCreate = async (type: string) => {
-    const selectedId = selectedVersions[type];
-    const content = getContent(type, selectedId, '');
-    const notes = getNotes(type, selectedId, '');
-    const prefix = getPrefix(type);
-    await createNewVersion(type, content, notes, prefix);
+    setPendingOperation({ type: 'create', configType: type });
+    setPasswordError(undefined);
+    setPasswordDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    await deleteConfig(id);
+    // First check if it's a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      // Let the hook handle the error message for sample data
+      await deleteConfig(id);
+      return;
+    }
+    setPendingOperation({ type: 'delete', deleteId: id });
+    setPasswordError(undefined);
+    setPasswordDialogOpen(true);
+  };
+
+  const handlePasswordSubmit = async (password: string) => {
+    if (!pendingOperation) return;
+    
+    setPasswordLoading(true);
+    setPasswordError(undefined);
+    
+    try {
+      let result: { success: boolean; error?: string };
+      
+      if (pendingOperation.type === 'save' && pendingOperation.configType) {
+        const type = pendingOperation.configType;
+        const selectedId = selectedVersions[type];
+        const config = selectedId ? getConfigById(selectedId) : null;
+        const content = getContent(type, selectedId, '');
+        const notes = getNotes(type, selectedId, '');
+        const prefix = getPrefix(type);
+        
+        if (config) {
+          result = await saveConfig(type, config.version_name, content, notes, config.id, password);
+        } else {
+          result = await createNewVersion(type, content, notes, prefix, password);
+        }
+      } else if (pendingOperation.type === 'create' && pendingOperation.configType) {
+        const type = pendingOperation.configType;
+        const selectedId = selectedVersions[type];
+        const content = getContent(type, selectedId, '');
+        const notes = getNotes(type, selectedId, '');
+        const prefix = getPrefix(type);
+        result = await createNewVersion(type, content, notes, prefix, password);
+      } else if (pendingOperation.type === 'delete' && pendingOperation.deleteId) {
+        result = await deleteConfig(pendingOperation.deleteId, password);
+      } else {
+        result = { success: false, error: 'Invalid operation' };
+      }
+      
+      if (result.success) {
+        setPasswordDialogOpen(false);
+        setPendingOperation(null);
+      } else if (result.error) {
+        setPasswordError(result.error);
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
-    <Tabs value={activeSubtab} onValueChange={onSubtabChange} className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 p-2 overflow-hidden">
+    <>
+      <PasswordDialog
+        open={passwordDialogOpen}
+        onOpenChange={(open) => {
+          setPasswordDialogOpen(open);
+          if (!open) {
+            setPendingOperation(null);
+            setPasswordError(undefined);
+          }
+        }}
+        onSubmit={handlePasswordSubmit}
+        title="Config Password Required"
+        description="Enter the password to modify configuration data."
+        error={passwordError}
+        loading={passwordLoading}
+      />
+      <Tabs value={activeSubtab} onValueChange={onSubtabChange} className="h-full flex flex-col">
+        <div className="flex-1 min-h-0 p-2 overflow-hidden">
         {/* IRF-IR Functions Tab - with Missing Functions panel */}
         <TabsContent value="IRF-IR-FUNCTIONS" className="h-full m-0">
           <div className="grid grid-cols-3 gap-2 h-full">
@@ -775,8 +846,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             />
           </TabsContent>
         ))}
-      </div>
-    </Tabs>
+        </div>
+      </Tabs>
+    </>
   );
 };
 
