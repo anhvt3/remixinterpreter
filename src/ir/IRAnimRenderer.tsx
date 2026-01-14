@@ -352,12 +352,33 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     const scaleY = displayHeight / (program.scene.height || 600);
     const ctx = runtime.ctx;
 
+    const latexOverlays: Array<{
+      id: string;
+      x: number;
+      y: number;
+      latex: string;
+      fontSize: number;
+      color: string;
+      opacity: number;
+      zIndex: number;
+    }> = [];
+
+    const plainTextHitTargets: Array<{
+      id: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      opacity: number;
+      zIndex: number;
+      content: string;
+    }> = [];
+
     const localToWorld = (
       localPoint: { x: number; y: number },
       t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
     ) => {
-      // Same order as applyTransform(): translate → rotate → scale → translate(-origin)
-      // So local(0,0) in draw commands is pre-origin local(0,0).
+      // Matches: T(x,y) · R(rot) · S(scale) · T(-origin)
       const lx = localPoint.x - t.originX;
       const ly = localPoint.y - t.originY;
 
@@ -372,24 +393,66 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       return { x: rx + t.x, y: ry + t.y };
     };
 
-      // Anchor at the same point the canvas uses for drawing: local (0,0)
-      const anchorWorld = localToWorld({ x: 0, y: 0 }, wt);
-      const x = anchorWorld.x * scaleX;
-      const y = anchorWorld.y * scaleY;
+    for (const node of runtime.nodes.values()) {
+      if (node.type !== 'text') continue;
+      const content = (node as TextProps).content;
+      if (typeof content !== 'string') continue;
+
+      const wt = getWorldTransform(runtime, node.id);
+      const style = node.style;
+      const textStyle = style.text;
       const zIndex = node.zIndex;
+
+      // Compute a reasonable clickable center for text based on textAlign/textBaseline.
+      // This fixes cases where the drawn text's bounding box is offset from (0,0).
+      let widthPx = 0;
+      let heightPx = 0;
+      let x0 = 0;
+      let y0 = 0;
+
+      if (ctx && textStyle) {
+        ctx.save();
+        ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
+        widthPx = ctx.measureText(content).width;
+        heightPx = textStyle.fontSize;
+        ctx.restore();
+
+        if (textStyle.textAlign === 'center') x0 = -widthPx / 2;
+        if (textStyle.textAlign === 'right') x0 = -widthPx;
+
+        switch (textStyle.textBaseline) {
+          case 'middle':
+            y0 = -heightPx / 2;
+            break;
+          case 'bottom':
+            y0 = -heightPx;
+            break;
+          case 'alphabetic':
+            y0 = -heightPx * 0.8;
+            break;
+          case 'top':
+          default:
+            y0 = 0;
+        }
+      }
+
+      const centerLocal = { x: x0 + widthPx / 2, y: y0 + heightPx / 2 };
+      const centerWorld = localToWorld(centerLocal, wt);
+      const x = centerWorld.x * scaleX;
+      const y = centerWorld.y * scaleY;
 
       if (isLatexContent(content)) {
         // Extract LaTeX from delimiters
         let latex = content;
-        const inlineMatch = content.match(/\\\(([\s\S]*?)\\\)/);
+        const inlineMatch = content.match(/\\\(([^]*?)\\\)/);
         if (inlineMatch) {
           latex = inlineMatch[1];
         } else {
-          const displayMatch = content.match(/\\\[([\s\S]*?)\\\]/);
+          const displayMatch = content.match(/\\\[([^]*?)\\\]/);
           if (displayMatch) {
             latex = displayMatch[1];
           } else {
-            const dollarMatch = content.match(/\$([\s\S]*?)\$/);
+            const dollarMatch = content.match(/\$([^]*?)\$/);
             if (dollarMatch) {
               latex = dollarMatch[1];
             }
@@ -412,18 +475,12 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       } else {
         // Invisible click target for plain text.
         // We intentionally overshoot so tiny numerals are easy to select.
-        let w = 44;
-        let h = 44;
+        const pad = 8;
+        const localW = Math.max(0, widthPx + pad * 2);
+        const localH = Math.max(0, heightPx + pad * 2);
 
-        if (ctx && textStyle) {
-          ctx.save();
-          ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
-          const widthPx = ctx.measureText(content).width;
-          ctx.restore();
-
-          w = Math.max(44, widthPx * Math.abs(wt.scaleX || 1) * scaleX + 20);
-          h = Math.max(44, textStyle.fontSize * Math.abs(wt.scaleY || 1) * scaleY + 20);
-        }
+        const w = Math.max(44, localW * Math.abs(wt.scaleX || 1) * scaleX);
+        const h = Math.max(44, localH * Math.abs(wt.scaleY || 1) * scaleY);
 
         plainTextHitTargets.push({
           id: node.id,
@@ -443,7 +500,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     plainTextHitTargets.sort((a, b) => a.zIndex - b.zIndex);
 
     return { latexOverlays, plainTextHitTargets };
-  }, [program, displayWidth, renderKey, currentTime]);
+  }, [program, displayWidth, displayHeight, renderKey, currentTime]);
+
 
   
   return (
