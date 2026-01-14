@@ -731,21 +731,99 @@ const RuntimeStepRow: React.FC<{
           )}
           
           {step.type === 'let' && (
-            <div>
+            <div className="flex items-center gap-1 flex-wrap">
               <span className="text-purple-400">let </span>
               <span className="text-orange-400">{step.variable}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-muted-foreground">{formatValue(step.value)}</span>
+              <span 
+                className={`cursor-pointer hover:underline ${
+                  valueChain.includes(`${step.id}:value`) 
+                    ? currentNavValueKey === `${step.id}:value`
+                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
+                      : 'text-primary/70 bg-primary/10 px-1 rounded'
+                    : 'text-muted-foreground'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onValueClick?.(step, `${step.id}:value`);
+                }}
+              >
+                {formatValue(step.value)}
+              </span>
+              {/* Inline nav buttons for let value */}
+              {currentNavValueKey === `${step.id}:value` && (
+                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
+                    <ChevronUp className="h-2.5 w-2.5" />
+                  </Button>
+                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
+                    <ChevronDown className="h-2.5 w-2.5" />
+                  </Button>
+                </span>
+              )}
             </div>
           )}
           
           {step.type === 'foreach' && step.iteration && (
-            <div>
+            <div className="flex items-center gap-1">
               <span className="text-purple-400">foreach </span>
               <span className="text-orange-400">{step.iteration.var}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-muted-foreground">{formatValue(step.iteration.value)}</span>
-              <span className="text-muted-foreground/60"> (iter {step.iteration.index})</span>
+              <span 
+                className={`cursor-pointer hover:underline ${
+                  valueChain.includes(`${step.id}:iteration.value`) 
+                    ? currentNavValueKey === `${step.id}:iteration.value`
+                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
+                      : 'text-primary/70 bg-primary/10 px-1 rounded'
+                    : 'text-muted-foreground'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onValueClick?.(step, `${step.id}:iteration.value`);
+                }}
+              >
+                {formatValue(step.iteration.value)}
+              </span>
+              {/* Inline nav buttons for iteration value */}
+              {currentNavValueKey === `${step.id}:iteration.value` && (
+                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
+                    <ChevronUp className="h-2.5 w-2.5" />
+                  </Button>
+                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
+                    <ChevronDown className="h-2.5 w-2.5" />
+                  </Button>
+                </span>
+              )}
+              <span 
+                className={`cursor-pointer hover:underline ${
+                  valueChain.includes(`${step.id}:iteration.index`) 
+                    ? currentNavValueKey === `${step.id}:iteration.index`
+                      ? 'text-primary font-semibold bg-primary/20 px-1 rounded'
+                      : 'text-primary/70 bg-primary/10 px-1 rounded'
+                    : 'text-muted-foreground/60'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onValueClick?.(step, `${step.id}:iteration.index`);
+                }}
+              >
+                (iter {step.iteration.index})
+              </span>
+              {/* Inline nav buttons for iteration index */}
+              {currentNavValueKey === `${step.id}:iteration.index` && (
+                <span className="inline-flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateUp?.()} disabled={!canGoUp}>
+                    <ChevronUp className="h-2.5 w-2.5" />
+                  </Button>
+                  <span className="text-[9px] text-muted-foreground">{navIndex}/{chainLength}</span>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onNavigateDown?.()} disabled={!canGoDown}>
+                    <ChevronDown className="h-2.5 w-2.5" />
+                  </Button>
+                </span>
+              )}
             </div>
           )}
           
@@ -1007,50 +1085,88 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   }, [anchorParamKey, selectedValueKey, navIndex]);
   
   // Build value chain - trace upstream values that contributed to the selected value
-  // This finds values in ancestor function calls that were passed down the call chain
+  // This traces up the step tree (parent steps, not just call chain) to find:
+  // - foreach iteration values (the loop variable)
+  // - let statement values
+  // - function call resolved args
   const valueChain = useMemo(() => {
     if (!selectedValueKey || !anchorStepId) return [];
     
     const chain: string[] = [selectedValueKey];
     
-    // Get the step containing this value
-    const anchorStep = allStepsMap.get(anchorStepId);
-    if (!anchorStep?.resolvedArgs) return chain;
+    // Build parent map: step ID -> parent step ID (tree structure)
+    const parentMap = new Map<string, string>();
+    const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
+      for (const step of items) {
+        if (parentId) {
+          parentMap.set(step.id, parentId);
+        }
+        if (step.children) {
+          buildParentMap(step.children, step.id);
+        }
+      }
+    };
+    buildParentMap(steps);
     
-    // Parse the selected value key to extract the param name and path
-    // Format: "stepId:paramName" or "stepId:paramName.key" or "stepId:paramName[idx]..."
-    const colonIdx = selectedValueKey.indexOf(':');
-    if (colonIdx === -1) return chain;
+    // Walk up the step tree from anchor to root
+    let currentStepId: string | undefined = anchorStepId;
+    while (currentStepId) {
+      const parentId = parentMap.get(currentStepId);
+      if (!parentId) break;
+      
+      const parentStep = allStepsMap.get(parentId);
+      if (!parentStep) break;
+      
+      // Check foreach iteration - the loop variable is a key upstream value
+      if (parentStep.type === 'foreach' && parentStep.iteration) {
+        // Add the iteration variable value (e.g., "i" with its current value)
+        const iterKey = `${parentId}:iteration.value`;
+        if (!chain.includes(iterKey)) {
+          chain.push(iterKey);
+        }
+        // Also add the index
+        const indexKey = `${parentId}:iteration.index`;
+        if (!chain.includes(indexKey)) {
+          chain.push(indexKey);
+        }
+      }
+      
+      // Check let statements - the assigned value
+      if (parentStep.type === 'let' && parentStep.variable !== undefined) {
+        const letKey = `${parentId}:value`;
+        if (!chain.includes(letKey)) {
+          chain.push(letKey);
+        }
+      }
+      
+      // Check function calls - resolved args that might have contributed
+      if (parentStep.type === 'call' && parentStep.resolvedArgs) {
+        for (const [paramName] of Object.entries(parentStep.resolvedArgs)) {
+          const argKey = `${parentId}:${paramName}`;
+          if (!chain.includes(argKey)) {
+            chain.push(argKey);
+          }
+        }
+      }
+      
+      currentStepId = parentId;
+    }
     
-    const pathPart = selectedValueKey.slice(colonIdx + 1); // e.g., "param.x.y" or "param[0].x"
-    
-    // Extract the actual selected value by following the path
-    const selectedValue = getValueAtPath(anchorStep.resolvedArgs, pathPart);
-    
-    // Now trace upstream: for each ancestor step in the call chain,
-    // find which of its resolved args contains the same or related value
+    // Also check the call chain (ancestorChain) for function args
     for (const ancestorStepId of ancestorChain) {
       const ancestorStep = allStepsMap.get(ancestorStepId);
       if (!ancestorStep?.resolvedArgs) continue;
       
-      // Look through ancestor's resolved args for matching values
-      for (const [paramName, paramValue] of Object.entries(ancestorStep.resolvedArgs)) {
-        // Check if this param value matches or contains our selected value
-        if (paramValue !== null && paramValue !== undefined) {
-          // Find the specific path within this param that matches the selected value
-          const matchPath = findValuePath(paramValue, selectedValue, paramName);
-          if (matchPath) {
-            const valueKey = `${ancestorStepId}:${matchPath}`;
-            if (!chain.includes(valueKey)) {
-              chain.push(valueKey);
-            }
-          }
+      for (const [paramName] of Object.entries(ancestorStep.resolvedArgs)) {
+        const valueKey = `${ancestorStepId}:${paramName}`;
+        if (!chain.includes(valueKey)) {
+          chain.push(valueKey);
         }
       }
     }
     
     return chain;
-  }, [selectedValueKey, anchorStepId, allStepsMap, ancestorChain]);
+  }, [selectedValueKey, anchorStepId, allStepsMap, ancestorChain, steps]);
   
   // Current navigation value key - which value in the chain is currently focused
   const currentNavValueKey = useMemo(() => {
