@@ -552,45 +552,6 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
             );
           })}
         </div>
-            const isSelected = overlay.id === selectedElementId;
-            const isHighlighted = highlightedElementIds.includes(overlay.id);
-            return (
-              <div
-                key={overlay.id}
-                className={`absolute cursor-pointer rounded transition-all pointer-events-auto ${
-                  isSelected 
-                    ? 'outline outline-2 outline-primary ring-2 ring-primary/50' 
-                    : isHighlighted 
-                    ? 'outline outline-1 outline-yellow-400/60' 
-                    : 'hover:outline hover:outline-2 hover:outline-primary/50'
-                }`}
-                style={{
-                  left: overlay.x,
-                  top: overlay.y,
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: overlay.fontSize,
-                  color: overlay.color,
-                  opacity: overlay.opacity,
-                  textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
-                  padding: '4px 8px',
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onElementClick) {
-                    console.log('[IRAnimRenderer] Clicked LaTeX overlay:', overlay.id);
-                    onElementClick(overlay.id);
-                  }
-                }}
-                dangerouslySetInnerHTML={{
-                  __html: katex.renderToString(overlay.latex, {
-                    throwOnError: false,
-                    displayMode: false,
-                  }),
-                }}
-              />
-            );
-          })}
-        </div>
       </div>
       
       {/* Debug overlay */}
