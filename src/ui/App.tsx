@@ -1157,12 +1157,19 @@ export const App: React.FC = () => {
       // Deselect if clicking same step
       setSelectedRuntimeStepId(null);
       setSelectedElementId(null);
+      setSelectedFunctionDefinition(null);
     } else {
       setSelectedRuntimeStepId(step.id);
       // Clear other selections when selecting a runtime step
       setSelectedElementId(null);
       setSelectedStatement(null);
-      setSelectedFunctionDefinition(null);
+      
+      // For call steps, trigger function chain navigation in TreeView
+      if (step.type === 'call' && step.functionName) {
+        setSelectedFunctionDefinition(step.functionName);
+      } else {
+        setSelectedFunctionDefinition(null);
+      }
     }
   }, [selectedRuntimeStepId]);
 
