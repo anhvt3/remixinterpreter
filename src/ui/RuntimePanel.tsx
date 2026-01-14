@@ -89,26 +89,46 @@ const ValueRow: React.FC<{
   valueKey: string;
   selectedValueKey?: string | null;
   onValueClick?: (valueKey: string) => void;
-}> = ({ label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, selectedValueKey, onValueClick }) => {
+  // Value navigation props
+  isCurrentNav?: boolean;
+  canGoUp?: boolean;
+  canGoDown?: boolean;
+  onNavigateUp?: () => void;
+  onNavigateDown?: () => void;
+  navIndex?: number;
+  chainLength?: number;
+  valueChain?: string[];
+}> = ({ 
+  label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, selectedValueKey, onValueClick,
+  isCurrentNav = false, canGoUp = false, canGoDown = false, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0, valueChain = []
+}) => {
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
   const expandable = isExpandable(value);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   // Check if this value is directly selected
   const isSelected = selectedValueKey === valueKey;
   
-  // Check if this value is in the upstream chain (a parent of the selected value)
-  const isInChain = selectedValueKey ? 
-    (selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey) : false;
+  // Check if this value is in the upstream chain
+  const isInChain = valueChain.includes(valueKey) && !isCurrentNav && !isSelected;
 
-  // Auto-expand if this value is in the upstream chain (so child can be seen)
-  const [isExpanded, setIsExpanded] = useState(isInChain);
+  // Auto-expand if this value is in the chain or a child is selected
+  const hasChildInChain = valueChain.some(v => v.startsWith(valueKey + '[') || v.startsWith(valueKey + '.'));
+  const [isExpanded, setIsExpanded] = useState(hasChildInChain);
   
   useEffect(() => {
-    if (isInChain && expandable && !isExpanded) {
+    if ((hasChildInChain || (selectedValueKey && selectedValueKey.startsWith(valueKey) && selectedValueKey !== valueKey)) && expandable && !isExpanded) {
       setIsExpanded(true);
     }
-  }, [isInChain, expandable]);
+  }, [hasChildInChain, selectedValueKey, expandable, valueKey]);
+
+  // Auto-scroll when this is the current nav position
+  useEffect(() => {
+    if (isCurrentNav && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isCurrentNav]);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,15 +141,50 @@ const ValueRow: React.FC<{
     return formatValue(value);
   };
 
-  const highlight = isSelected 
+  const highlight = isCurrentNav
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
+    : isSelected 
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
     : isInChain 
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
 
+  // Render navigation buttons directly on the value row
+  const renderNavButtons = () => {
+    if (!isCurrentNav) return null;
+    return (
+      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted"
+          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
+          disabled={!canGoUp}
+          title="Navigate up to source value"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </Button>
+        <span className="text-[10px] text-muted-foreground w-6 text-center">
+          {navIndex}/{chainLength}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted -ml-1"
+          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
+          disabled={!canGoDown}
+          title="Navigate down toward anchor"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <>
       <div 
+        ref={rowRef}
         className={`flex items-center gap-1 py-0.5 px-2 text-muted-foreground hover:bg-muted/30 cursor-pointer ${highlight}`}
         style={{ paddingLeft: `${indent}px` }}
         onClick={(e) => {
@@ -155,13 +210,15 @@ const ValueRow: React.FC<{
         ) : (
           <span>{formatValue(value)}</span>
         )}
+        {renderNavButtons()}
       </div>
       
-      {/* Expanded children - pass selectedValueKey for proper chain highlighting */}
+      {/* Expanded children - pass navigation props */}
       {expandable && isExpanded && (
         <>
           {isArray && (value as unknown[]).map((item, idx) => {
             const childKey = `${valueKey}[${idx}]`;
+            const isChildCurrentNav = valueChain[navIndex] === childKey;
             return (
               <ValueRow
                 key={idx}
@@ -171,11 +228,20 @@ const ValueRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
+                isCurrentNav={isChildCurrentNav}
+                canGoUp={isChildCurrentNav ? canGoUp : false}
+                canGoDown={isChildCurrentNav ? canGoDown : false}
+                onNavigateUp={onNavigateUp}
+                onNavigateDown={onNavigateDown}
+                navIndex={navIndex}
+                chainLength={chainLength}
+                valueChain={valueChain}
               />
             );
           })}
           {isObject && Object.entries(value as object).map(([k, v]) => {
             const childKey = `${valueKey}.${k}`;
+            const isChildCurrentNav = valueChain[navIndex] === childKey;
             return (
               <ValueRow
                 key={k}
@@ -186,6 +252,14 @@ const ValueRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
+                isCurrentNav={isChildCurrentNav}
+                canGoUp={isChildCurrentNav ? canGoUp : false}
+                canGoDown={isChildCurrentNav ? canGoDown : false}
+                onNavigateUp={onNavigateUp}
+                onNavigateDown={onNavigateDown}
+                navIndex={navIndex}
+                chainLength={chainLength}
+                valueChain={valueChain}
               />
             );
           })}
@@ -214,7 +288,10 @@ const ParamRow: React.FC<{
   onParamClick: () => void;
   selectedValueKey?: string | null;
   onValueClick?: (valueKey: string) => void;
-  // Navigation props
+  // Value chain for navigation (values only, not params/steps)
+  valueChain?: string[];
+  currentNavValueKey?: string | null;
+  // Navigation props (for param-level, kept for backward compat)
   isCurrentNav?: boolean;
   canGoUp?: boolean;
   canGoDown?: boolean;
@@ -224,6 +301,7 @@ const ParamRow: React.FC<{
   chainLength?: number;
 }> = ({ 
   paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick,
+  valueChain = [], currentNavValueKey,
   isCurrentNav = false, canGoUp = false, canGoDown = false, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
 }) => {
   const isArray = Array.isArray(paramValue);
@@ -235,16 +313,19 @@ const ParamRow: React.FC<{
   const hasChildSelected = selectedValueKey ? 
     (selectedValueKey.startsWith(paramKey) && selectedValueKey !== paramKey) : false;
   
-  // Auto-expand if a child value is selected so it can be seen
-  const [isExpanded, setIsExpanded] = useState(hasChildSelected);
+  // Check if any child is in the value chain
+  const hasChildInChain = valueChain.some(v => v.startsWith(paramKey + '[') || v.startsWith(paramKey + '.'));
+  
+  // Auto-expand if a child value is selected or in chain
+  const [isExpanded, setIsExpanded] = useState(hasChildSelected || hasChildInChain);
   
   useEffect(() => {
-    if (hasChildSelected && expandable && !isExpanded) {
+    if ((hasChildSelected || hasChildInChain) && expandable && !isExpanded) {
       setIsExpanded(true);
     }
-  }, [hasChildSelected, expandable]);
+  }, [hasChildSelected, hasChildInChain, expandable]);
   
-  // Auto-scroll when this param is the current navigation position
+  // Auto-scroll when this param is the current navigation position (only for param-level nav)
   useEffect(() => {
     if (isCurrentNav && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -254,13 +335,13 @@ const ParamRow: React.FC<{
   // Param itself is highlighted only if selected directly (not a child value)
   const isParamDirectlySelected = isSelected || (selectedValueKey === paramKey);
   
-  // Don't highlight param when only a child is selected - only highlight the value chain
+  // Don't highlight param when a child is in the value chain - we only highlight values
   const paramHighlight = isCurrentNav
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : isParamDirectlySelected
+    : isParamDirectlySelected && !hasChildSelected
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : hasChildSelected
-    ? ''
+    : hasChildSelected || hasChildInChain
+    ? '' // No highlight when child value is the focus
     : isInChain
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
@@ -276,9 +357,9 @@ const ParamRow: React.FC<{
     return formatValue(paramValue);
   };
 
-  // Render navigation buttons for param chain
+  // Render navigation buttons for param chain (only used when no value chain)
   const renderParamNavButtons = () => {
-    if (!isCurrentNav) return null;
+    if (!isCurrentNav || valueChain.length > 0) return null;
     return (
       <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
         <Button
@@ -340,11 +421,12 @@ const ParamRow: React.FC<{
         {renderParamNavButtons()}
       </div>
       
-      {/* Expanded children - using recursive ValueRow with value highlighting */}
+      {/* Expanded children - using recursive ValueRow with value chain navigation */}
       {expandable && isExpanded && (
         <>
           {isArray && (paramValue as unknown[]).map((item, idx) => {
             const childKey = `${paramKey}[${idx}]`;
+            const isChildCurrentNav = currentNavValueKey === childKey;
             return (
               <ValueRow
                 key={idx}
@@ -354,11 +436,20 @@ const ParamRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
+                isCurrentNav={isChildCurrentNav}
+                canGoUp={isChildCurrentNav ? canGoUp : false}
+                canGoDown={isChildCurrentNav ? canGoDown : false}
+                onNavigateUp={onNavigateUp}
+                onNavigateDown={onNavigateDown}
+                navIndex={navIndex}
+                chainLength={chainLength}
+                valueChain={valueChain}
               />
             );
           })}
           {isObject && Object.entries(paramValue as object).map(([k, v]) => {
             const childKey = `${paramKey}.${k}`;
+            const isChildCurrentNav = currentNavValueKey === childKey;
             return (
               <ValueRow
                 key={k}
@@ -369,6 +460,14 @@ const ParamRow: React.FC<{
                 valueKey={childKey}
                 selectedValueKey={selectedValueKey}
                 onValueClick={onValueClick}
+                isCurrentNav={isChildCurrentNav}
+                canGoUp={isChildCurrentNav ? canGoUp : false}
+                canGoDown={isChildCurrentNav ? canGoDown : false}
+                onNavigateUp={onNavigateUp}
+                onNavigateDown={onNavigateDown}
+                navIndex={navIndex}
+                chainLength={chainLength}
+                valueChain={valueChain}
               />
             );
           })}
@@ -399,6 +498,8 @@ const RuntimeStepRow: React.FC<{
   highlightedStepIds?: string[];
   currentNavigationStepId?: string | null;
   currentNavigationParamKey?: string | null; // for param-level navigation
+  currentNavValueKey?: string | null; // for value-level navigation
+  valueChain?: string[]; // chain of value keys only
   chainStepIds?: string[];
   // Navigation controls
   canGoUp?: boolean;
@@ -414,7 +515,7 @@ const RuntimeStepRow: React.FC<{
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, onValueClick, selectedStepId, selectedParamKey, selectedValueKey,
   highlightedStepIds = [], 
-  currentNavigationStepId, currentNavigationParamKey, chainStepIds = [],
+  currentNavigationStepId, currentNavigationParamKey, currentNavValueKey, valueChain = [], chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
   deepestHighlightedStepId, elementHighlightedStepId
 }) => {
@@ -597,9 +698,11 @@ const RuntimeStepRow: React.FC<{
                 onParamClick={() => onParamClick?.(step, k)}
                 selectedValueKey={selectedValueKey}
                 onValueClick={(valueKey) => onValueClick?.(step, valueKey)}
+                valueChain={valueChain}
+                currentNavValueKey={currentNavValueKey}
                 isCurrentNav={isParamCurrentNav}
-                canGoUp={isParamCurrentNav ? canGoUp : false}
-                canGoDown={isParamCurrentNav ? canGoDown : false}
+                canGoUp={canGoUp}
+                canGoDown={canGoDown}
                 onNavigateUp={onNavigateUp}
                 onNavigateDown={onNavigateDown}
                 navIndex={navIndex}
@@ -627,6 +730,8 @@ const RuntimeStepRow: React.FC<{
           highlightedStepIds={highlightedStepIds}
           currentNavigationStepId={currentNavigationStepId}
           currentNavigationParamKey={currentNavigationParamKey}
+          currentNavValueKey={currentNavValueKey}
+          valueChain={valueChain}
           chainStepIds={chainStepIds}
           canGoUp={canGoUp}
           canGoDown={canGoDown}
@@ -775,28 +880,70 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [anchorStepId, navIndex, ancestorChain]);
   
-  // Current navigation param key (when navigating at param level)
-  // When navIndex is 0 and a param is selected, that param is current nav
+  // Current navigation param key (when navigating at param level - only when no value selected)
   const currentNavParamKey = useMemo(() => {
+    if (selectedValueKey) return null; // Value takes precedence
     if (!anchorParamKey) return null;
     if (navIndex === 0) return anchorParamKey;
-    return null; // When navigating up, we highlight steps not params
-  }, [anchorParamKey, navIndex]);
+    return null;
+  }, [anchorParamKey, selectedValueKey, navIndex]);
+  
+  // Build value chain - chain of value keys upstream of the selected value
+  // This traces the calculation path: for each upstream step, find values that contributed
+  const valueChain = useMemo(() => {
+    if (!selectedValueKey || ancestorChain.length === 0) return [];
+    
+    // The valueChain contains only value keys from upstream steps
+    // For each ancestor step, we look at its resolvedArgs and find values that match the flow
+    const chain: string[] = [];
+    
+    // Start with the selected value (index 0 in chain)
+    chain.push(selectedValueKey);
+    
+    // For each ancestor step, find values from its resolvedArgs
+    for (const ancestorStepId of ancestorChain) {
+      const ancestorStep = allStepsMap.get(ancestorStepId);
+      if (ancestorStep?.resolvedArgs) {
+        // Find the first param value that could have contributed
+        // This is a simplified heuristic - we take the first param's value
+        const entries = Object.entries(ancestorStep.resolvedArgs);
+        for (const [paramName, paramValue] of entries) {
+          const baseKey = `${ancestorStepId}:${paramName}`;
+          // If it's a simple value, add the param key as a value key
+          if (paramValue !== null && paramValue !== undefined) {
+            chain.push(baseKey);
+            break; // Take first param for simplicity
+          }
+        }
+      }
+    }
+    
+    return chain;
+  }, [selectedValueKey, ancestorChain, allStepsMap]);
+  
+  // Current navigation value key - which value in the chain is currently focused
+  const currentNavValueKey = useMemo(() => {
+    if (!selectedValueKey || valueChain.length === 0) return null;
+    if (navIndex < valueChain.length) {
+      return valueChain[navIndex];
+    }
+    return null;
+  }, [selectedValueKey, valueChain, navIndex]);
   
   // Chain step IDs: all steps and params that should be dimly highlighted
-  // This includes anchor (when not current) and all ancestors (except current)
+  // This includes ancestor steps (for context) but NOT values (handled separately)
   const chainStepIds = useMemo(() => {
     if (!anchorStepId) return [];
     const allInChain: string[] = [anchorStepId, ...ancestorChain];
 
-    // Only include the param row in the chain when the param itself is selected.
-    // When a nested value is selected, we avoid highlighting the parent param row.
+    // When a value is selected, don't include param in step chain
+    // Value chain handles the value highlighting separately
     if (anchorParamKey && !selectedValueKey) {
       allInChain.push(anchorParamKey);
     }
 
     return allInChain.filter(
-      (id) => id !== currentNavStepId && id !== currentNavParamKey && id !== selectedValueKey
+      (id) => id !== currentNavStepId && id !== currentNavParamKey
     );
   }, [anchorStepId, ancestorChain, anchorParamKey, selectedValueKey, currentNavStepId, currentNavParamKey]);
   
@@ -863,12 +1010,13 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
   }, [selectedValueKey]);
   
-  // Navigate up (to higher level / parent)
+  // Navigate up (to higher level / parent) - use valueChain when value selected
   const navigateUp = useCallback(() => {
-    if (navIndex < ancestorChain.length) {
+    const maxIndex = selectedValueKey ? valueChain.length - 1 : ancestorChain.length;
+    if (navIndex < maxIndex) {
       setNavIndex(navIndex + 1);
     }
-  }, [navIndex, ancestorChain.length]);
+  }, [navIndex, ancestorChain.length, selectedValueKey, valueChain.length]);
   
   // Navigate down (back toward anchor)
   const navigateDown = useCallback(() => {
@@ -877,8 +1025,11 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
   }, [navIndex]);
   
-  const canGoUp = anchorStepId && navIndex < ancestorChain.length;
-  const canGoDown = anchorStepId && navIndex > 0;
+  // Can navigate - use valueChain when value selected
+  const canGoUp = selectedValueKey 
+    ? navIndex < valueChain.length - 1 
+    : anchorStepId && navIndex < ancestorChain.length;
+  const canGoDown = navIndex > 0;
   
   // Get highlight level for a step - only highlight the single IR step that created the element
   const getHighlightLevel = (step: RuntimeStep): 'primary' | 'secondary' | null => {
@@ -1073,15 +1224,17 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 selectedParamKey={selectedValueKey ? null : anchorParamKey}
                 selectedValueKey={selectedValueKey}
                 highlightedStepIds={highlightedStepIds}
-                currentNavigationStepId={anchorParamKey ? null : currentNavStepId}
-                currentNavigationParamKey={currentNavParamKey}
+                currentNavigationStepId={selectedValueKey ? null : (anchorParamKey ? null : currentNavStepId)}
+                currentNavigationParamKey={selectedValueKey ? null : currentNavParamKey}
+                currentNavValueKey={currentNavValueKey}
+                valueChain={valueChain}
                 chainStepIds={chainStepIds}
                 canGoUp={!!canGoUp}
                 canGoDown={!!canGoDown}
                 onNavigateUp={navigateUp}
                 onNavigateDown={navigateDown}
                 navIndex={navIndex}
-                chainLength={ancestorChain.length}
+                chainLength={selectedValueKey ? valueChain.length - 1 : ancestorChain.length}
                 deepestHighlightedStepId={deepestHighlightedStepRef.current}
                 elementHighlightedStepId={elementHighlightedStepId}
               />
