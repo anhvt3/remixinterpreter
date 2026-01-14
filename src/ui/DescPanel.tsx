@@ -170,7 +170,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
   const renderVideoPanel = () => {
     return (
       <div className="flex-1 flex flex-col gap-2 min-h-0 h-full p-2">
-        {/* Version dropdown for VideoDesc */}
+        {/* Version dropdown with name */}
         <div className="shrink-0 flex items-center gap-2">
           <Label className="text-xs text-muted-foreground whitespace-nowrap">
             {videoDesc?.name || 'Video Desc'}
@@ -180,7 +180,7 @@ export const DescPanel: React.FC<DescPanelProps> = ({
             onValueChange={(value) => onSelectVersion(5, value || null)}
           >
             <SelectTrigger className="h-7 text-xs flex-1 bg-background border-border">
-              <SelectValue placeholder={videoDesc?.versions?.length ? "Select version" : "No versions"} />
+              <SelectValue placeholder="Select version" />
             </SelectTrigger>
             <SelectContent>
               {videoDesc?.versions?.map((version) => (
@@ -200,34 +200,15 @@ export const DescPanel: React.FC<DescPanelProps> = ({
           </Button>
         </div>
         
-        <div className="shrink-0">
-          <Label htmlFor="desc-video-link" className="text-xs text-muted-foreground mb-1 block">
-            Google Drive Video Link
-          </Label>
-          <Input
-            id="desc-video-link"
-            type="text"
-            value={descVideoLink}
-            onChange={(e) => setDescVideoLink(e.target.value)}
-            placeholder="https://drive.google.com/file/d/.../view"
-            className="h-8 text-xs bg-background border-border"
+        {/* Description content textarea - replaces video display */}
+        <div className="flex-1 min-h-0">
+          <Textarea
+            value={descContents[5] || ''}
+            onChange={(e) => handleContentChange(5, e.target.value)}
+            placeholder="Extracted video description will appear here..."
+            className="w-full h-full resize-none bg-background border-border font-mono"
+            style={{ fontSize: `${fontSize}px` }}
           />
-        </div>
-        
-        <div className="flex-1 min-h-0 border border-border rounded-md overflow-hidden bg-muted/30">
-          {embedUrl ? (
-            <iframe
-              src={embedUrl}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              title="Google Drive Video"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-              {descVideoLink ? 'Invalid Google Drive link' : 'Enter a Google Drive video link above'}
-            </div>
-          )}
         </div>
       </div>
     );
