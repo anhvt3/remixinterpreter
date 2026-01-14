@@ -376,13 +376,13 @@ const RuntimeStepRow: React.FC<{
   // Show nav buttons only on the current navigation position
   const showNavButtons = isCurrentNav;
 
-  // Auto-scroll when this step is the element-highlighted step
+  // Auto-scroll when this step is the current navigation position or element-highlighted
   const isElementHighlighted = step.id === elementHighlightedStepId;
   useEffect(() => {
-    if (isElementHighlighted && rowRef.current) {
+    if ((isCurrentNav || isElementHighlighted) && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isElementHighlighted]);
+  }, [isCurrentNav, isElementHighlighted]);
 
   // Match TreeView primary/secondary color scheme
   const typeColors: Record<RuntimeStep['type'], string> = {
