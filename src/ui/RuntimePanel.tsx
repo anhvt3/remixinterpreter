@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, Play, Variable, ArrowRight, Repeat, CornerDo
 import { Button } from '@/components/ui/button';
 import type { CallChainEntry } from '../core/runtimeTracer';
 import type { DependencyAnalysisResult, ConstantDef } from '../core/dependencyAnalyzer';
+import { findOutputPathForRuntimeValue, getConstantsForOutput } from '../core/dependencyAnalyzer';
 
 export interface RuntimeStep {
   id: string;
@@ -42,8 +43,14 @@ interface RuntimePanelProps {
   stepCallChains?: Map<string, CallChainEntry[]>;
   // Dependency analysis result for constant-output matrix
   dependencyAnalysis?: DependencyAnalysisResult | null;
-  // Callback when an IR output value is clicked (for TreeView navigation)
-  onOutputClick?: (irFn: string, argName: string, argValue: unknown, dependentConstants: ConstantDef[]) => void;
+  // Callback when ANY output value is clicked (for TreeView navigation)
+  onOutputClick?: (
+    stepType: RuntimeStep['type'],
+    functionName: string | undefined,
+    fieldName: string,
+    value: unknown,
+    dependentConstants: ConstantDef[]
+  ) => void;
 }
 
 const StepIcon: React.FC<{ type: RuntimeStep['type'] }> = ({ type }) => {
@@ -85,56 +92,60 @@ const isExpandable = (value: unknown): boolean => {
   return false;
 };
 
-// Recursive component for rendering IR arg values with click support
-const IRValueRow: React.FC<{
-  label: string;
+// Clickable value component for any step type
+const ClickableValue: React.FC<{
+  label?: string;
   value: unknown;
-  indent: number;
-  labelColor?: string;
   valueKey: string;
-  selectedValueKey?: string | null;
-  onValueClick?: (valueKey: string, value: unknown) => void;
-  isClickable?: boolean;
-}> = ({ 
-  label, value, indent, labelColor = 'text-muted-foreground/60', valueKey, selectedValueKey, onValueClick,
-  isClickable = true
-}) => {
+  isSelected: boolean;
+  indent: number;
+  onValueClick: (valueKey: string, value: unknown) => void;
+  labelColor?: string;
+  inline?: boolean;
+}> = ({ label, value, valueKey, isSelected, indent, onValueClick, labelColor = 'text-orange-400', inline = false }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
   const expandable = isExpandable(value);
   const rowRef = useRef<HTMLDivElement>(null);
-  const isSelected = selectedValueKey === valueKey;
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onValueClick(valueKey, value);
+  };
+
   const getCollapsedPreview = () => {
-    if (isArray) return `[...${(value as unknown[]).length} items]`;
-    if (isObject) return `{...${Object.keys(value as object).length} keys}`;
+    if (isArray) return `[...${(value as unknown[]).length}]`;
+    if (isObject) return `{...${Object.keys(value as object).length}}`;
     return formatValue(value);
   };
 
-  const highlight = isSelected 
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
-    : '';
+  const highlight = isSelected ? 'bg-primary/30 ring-2 ring-primary/60 rounded' : '';
 
-  const clickableClass = isClickable ? 'cursor-pointer hover:bg-muted/50' : '';
+  // Inline mode: render as part of parent line
+  if (inline) {
+    return (
+      <span
+        className={`cursor-pointer hover:bg-muted/50 px-0.5 rounded ${highlight}`}
+        onClick={handleClick}
+      >
+        {formatValue(value)}
+      </span>
+    );
+  }
 
   return (
     <>
-      <div 
+      <div
         ref={rowRef}
-        className={`flex items-center gap-1 py-0.5 px-2 text-muted-foreground ${clickableClass} ${highlight}`}
+        className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${highlight}`}
         style={{ paddingLeft: `${indent}px` }}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isClickable) {
-            onValueClick?.(valueKey, value);
-          }
-        }}
+        onClick={handleClick}
       >
         {expandable ? (
           <button
@@ -146,162 +157,45 @@ const IRValueRow: React.FC<{
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <span className={labelColor}>{label}</span>
-        {expandable && !isExpanded ? (
-          <span>{getCollapsedPreview()}</span>
-        ) : expandable && isExpanded ? (
-          <span>{isArray ? '[' : '{'}</span>
-        ) : (
-          <span className={isClickable ? 'hover:underline' : ''}>{formatValue(value)}</span>
-        )}
-      </div>
-      
-      {/* Expanded children */}
-      {expandable && isExpanded && (
-        <>
-          {isArray && (value as unknown[]).map((item, idx) => {
-            const childKey = `${valueKey}[${idx}]`;
-            return (
-              <IRValueRow
-                key={idx}
-                label={`[${idx}]`}
-                value={item}
-                indent={indent + 16}
-                valueKey={childKey}
-                selectedValueKey={selectedValueKey}
-                onValueClick={onValueClick}
-                isClickable={isClickable}
-              />
-            );
-          })}
-          {isObject && Object.entries(value as object).map(([k, v]) => {
-            const childKey = `${valueKey}.${k}`;
-            return (
-              <IRValueRow
-                key={k}
-                label={`${k}:`}
-                value={v}
-                indent={indent + 16}
-                labelColor="text-cyan-400/70"
-                valueKey={childKey}
-                selectedValueKey={selectedValueKey}
-                onValueClick={onValueClick}
-                isClickable={isClickable}
-              />
-            );
-          })}
-          <div 
-            className="flex gap-1 py-0.5 px-2 text-muted-foreground"
-            style={{ paddingLeft: `${indent}px` }}
-          >
-            <span className="w-3 shrink-0" />
-            <span>{isArray ? ']' : '}'}</span>
-          </div>
-        </>
-      )}
-    </>
-  );
-};
-
-// Component for rendering IR param rows (clickable)
-const IRParamRow: React.FC<{
-  paramName: string;
-  paramValue: unknown;
-  paramKey: string;
-  isSelected: boolean;
-  indent: number;
-  onValueClick: (valueKey: string, value: unknown) => void;
-  selectedValueKey?: string | null;
-}> = ({ 
-  paramName, paramValue, paramKey, isSelected, indent, onValueClick, selectedValueKey
-}) => {
-  const isArray = Array.isArray(paramValue);
-  const isObject = paramValue && typeof paramValue === 'object' && !isArray;
-  const expandable = isExpandable(paramValue);
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const handleExpandClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsExpanded(!isExpanded);
-  };
-
-  const getCollapsedPreview = () => {
-    if (isArray) return `[...${(paramValue as unknown[]).length} items]`;
-    if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
-    return formatValue(paramValue);
-  };
-
-  const paramHighlight = isSelected || selectedValueKey === paramKey
-    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : '';
-
-  return (
-    <>
-      <div 
-        ref={rowRef}
-        className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onValueClick(paramKey, paramValue);
-        }}
-      >
-        {expandable ? (
-          <button
-            onClick={handleExpandClick}
-            className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
-          >
-            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
-          </button>
-        ) : (
-          <span className="w-3 shrink-0" />
-        )}
-        <span className="text-orange-400">{paramName}</span>
-        <span className="text-muted-foreground">:</span>
+        {label && <span className={labelColor}>{label}</span>}
+        {label && <span className="text-muted-foreground">:</span>}
         {expandable && !isExpanded ? (
           <span className="text-muted-foreground hover:underline">{getCollapsedPreview()}</span>
         ) : !expandable ? (
-          <span className="text-muted-foreground hover:underline">{formatValue(paramValue)}</span>
+          <span className="text-muted-foreground hover:underline">{formatValue(value)}</span>
         ) : (
           <span className="text-muted-foreground">{isArray ? '[' : '{'}</span>
         )}
       </div>
-      
+
       {/* Expanded children */}
       {expandable && isExpanded && (
         <>
-          {isArray && (paramValue as unknown[]).map((item, idx) => {
-            const childKey = `${paramKey}[${idx}]`;
-            return (
-              <IRValueRow
-                key={idx}
-                label={`[${idx}]`}
-                value={item}
-                indent={indent + 16}
-                valueKey={childKey}
-                selectedValueKey={selectedValueKey}
-                onValueClick={onValueClick}
-                isClickable={true}
-              />
-            );
-          })}
-          {isObject && Object.entries(paramValue as object).map(([k, v]) => {
-            const childKey = `${paramKey}.${k}`;
-            return (
-              <IRValueRow
-                key={k}
-                label={`${k}:`}
-                value={v}
-                indent={indent + 16}
-                labelColor="text-cyan-400/70"
-                valueKey={childKey}
-                selectedValueKey={selectedValueKey}
-                onValueClick={onValueClick}
-                isClickable={true}
-              />
-            );
-          })}
-          <div 
+          {isArray && (value as unknown[]).map((item, idx) => (
+            <ClickableValue
+              key={idx}
+              label={`[${idx}]`}
+              value={item}
+              valueKey={`${valueKey}[${idx}]`}
+              isSelected={false}
+              indent={indent + 16}
+              onValueClick={onValueClick}
+              labelColor="text-muted-foreground/60"
+            />
+          ))}
+          {isObject && Object.entries(value as object).map(([k, v]) => (
+            <ClickableValue
+              key={k}
+              label={k}
+              value={v}
+              valueKey={`${valueKey}.${k}`}
+              isSelected={false}
+              indent={indent + 16}
+              onValueClick={onValueClick}
+              labelColor="text-cyan-400/70"
+            />
+          ))}
+          <div
             className="flex gap-1 py-0.5 px-2 text-muted-foreground"
             style={{ paddingLeft: `${indent}px` }}
           >
@@ -314,19 +208,19 @@ const IRParamRow: React.FC<{
   );
 };
 
-const RuntimeStepRow: React.FC<{ 
-  step: RuntimeStep; 
+const RuntimeStepRow: React.FC<{
+  step: RuntimeStep;
   expanded: Set<string>;
   onToggle: (id: string) => void;
   getHighlightLevel: (step: RuntimeStep) => 'primary' | 'secondary' | null;
   onStepClick?: (step: RuntimeStep) => void;
-  onIRValueClick?: (step: RuntimeStep, paramName: string, value: unknown) => void;
+  onValueClick?: (step: RuntimeStep, fieldName: string, value: unknown) => void;
   selectedStepId?: string | null;
   selectedValueKey?: string | null;
   highlightedStepIds?: string[];
   elementHighlightedStepId?: string | null;
-}> = ({ 
-  step, expanded, onToggle, getHighlightLevel, onStepClick, onIRValueClick, selectedStepId, selectedValueKey,
+}> = ({
+  step, expanded, onToggle, getHighlightLevel, onStepClick, onValueClick, selectedStepId, selectedValueKey,
   highlightedStepIds = [], elementHighlightedStepId
 }) => {
   const isSelected = step.id === selectedStepId;
@@ -336,7 +230,7 @@ const RuntimeStepRow: React.FC<{
   const hasChildren = step.children && step.children.length > 0;
   const indent = step.depth * 16;
   const highlightLevel = getHighlightLevel(step);
-  
+
   const isElementHighlighted = step.id === elementHighlightedStepId;
   useEffect(() => {
     if (isElementHighlighted && rowRef.current) {
@@ -374,28 +268,18 @@ const RuntimeStepRow: React.FC<{
     }
   };
 
-  const handleIRValueClick = (valueKey: string, value: unknown) => {
-    // Extract param name from valueKey (format: stepId:paramName or stepId:paramName.path)
-    const colonIdx = valueKey.indexOf(':');
-    if (colonIdx === -1) return;
-    
-    const afterColon = valueKey.slice(colonIdx + 1);
-    const dotIdx = afterColon.indexOf('.');
-    const bracketIdx = afterColon.indexOf('[');
-    
-    let paramName = afterColon;
-    if (dotIdx > 0 && (bracketIdx === -1 || dotIdx < bracketIdx)) {
-      paramName = afterColon.slice(0, dotIdx);
-    } else if (bracketIdx > 0) {
-      paramName = afterColon.slice(0, bracketIdx);
-    }
-    
-    onIRValueClick?.(step, paramName, value);
+  const handleValueClick = (valueKey: string, value: unknown) => {
+    // Extract field name from valueKey
+    const parts = valueKey.split(':');
+    const fieldPart = parts.length > 1 ? parts[1] : valueKey;
+    // Remove array indices for field name
+    const fieldName = fieldPart.replace(/\[\d+\]/g, '');
+    onValueClick?.(step, fieldName, value);
   };
 
   return (
     <>
-      <div 
+      <div
         ref={rowRef}
         className={`flex items-start gap-1.5 py-1 px-2 hover:bg-muted/50 cursor-pointer text-xs font-mono rounded ${highlightStyles}`}
         style={{ paddingLeft: `${8 + indent}px` }}
@@ -411,11 +295,11 @@ const RuntimeStepRow: React.FC<{
         ) : (
           <span className="w-4 shrink-0" />
         )}
-        
+
         <span className={`shrink-0 ${typeColors[step.type]}`}>
           <StepIcon type={step.type} />
         </span>
-        
+
         <div className="flex-1 min-w-0">
           {step.type === 'call' && (
             <div>
@@ -423,33 +307,54 @@ const RuntimeStepRow: React.FC<{
               <span className="text-primary">{step.functionName}</span>
             </div>
           )}
-          
+
           {step.type === 'let' && (
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-purple-400">let </span>
               <span className="text-orange-400">{step.variable}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-muted-foreground">{formatValue(step.value)}</span>
+              <ClickableValue
+                value={step.value}
+                valueKey={`${step.id}:${step.variable}`}
+                isSelected={selectedValueKey === `${step.id}:${step.variable}`}
+                indent={0}
+                onValueClick={handleValueClick}
+                inline
+              />
             </div>
           )}
-          
+
           {step.type === 'foreach' && step.iteration && (
             <div className="flex items-center gap-1">
               <span className="text-purple-400">foreach </span>
               <span className="text-orange-400">{step.iteration.var}</span>
               <span className="text-muted-foreground"> = </span>
-              <span className="text-muted-foreground">{formatValue(step.iteration.value)}</span>
+              <ClickableValue
+                value={step.iteration.value}
+                valueKey={`${step.id}:${step.iteration.var}`}
+                isSelected={selectedValueKey === `${step.id}:${step.iteration.var}`}
+                indent={0}
+                onValueClick={handleValueClick}
+                inline
+              />
               <span className="text-muted-foreground/60">(iter {step.iteration.index})</span>
             </div>
           )}
-          
+
           {step.type === 'return' && (
-            <div>
+            <div className="flex items-center gap-1">
               <span className="text-purple-400">return </span>
-              <span className="text-muted-foreground">{formatValue(step.returnValue)}</span>
+              <ClickableValue
+                value={step.returnValue}
+                valueKey={`${step.id}:return`}
+                isSelected={selectedValueKey === `${step.id}:return`}
+                indent={0}
+                onValueClick={handleValueClick}
+                inline
+              />
             </div>
           )}
-          
+
           {step.type === 'ir' && (
             <div>
               <span className="text-cyan-400">→ </span>
@@ -458,52 +363,52 @@ const RuntimeStepRow: React.FC<{
           )}
         </div>
       </div>
-      
-      {/* IR params - ONLY IR steps have clickable values */}
+
+      {/* IR params - clickable */}
       {step.type === 'ir' && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
         <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
-          {Object.entries(step.resolvedArgs).map(([k, v]) => {
-            const paramKey = `${step.id}:${k}`;
-            return (
-              <IRParamRow
-                key={k}
-                paramName={k}
-                paramValue={v}
-                paramKey={paramKey}
-                isSelected={false}
-                indent={8 + indent + 24}
-                onValueClick={handleIRValueClick}
-                selectedValueKey={selectedValueKey}
-              />
-            );
-          })}
-        </div>
-      )}
-      
-      {/* Non-IR params - display only, not clickable */}
-      {step.type === 'call' && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
-        <div className="text-xs font-mono text-muted-foreground/70" style={{ paddingLeft: `${8 + indent + 24}px` }}>
           {Object.entries(step.resolvedArgs).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1 py-0.5 px-2">
-              <span className="w-3 shrink-0" />
-              <span className="text-orange-400/70">{k}</span>
-              <span>=</span>
-              <span>{formatValue(v)}</span>
-            </div>
+            <ClickableValue
+              key={k}
+              label={k}
+              value={v}
+              valueKey={`${step.id}:${k}`}
+              isSelected={selectedValueKey === `${step.id}:${k}`}
+              indent={8 + indent + 24}
+              onValueClick={handleValueClick}
+            />
           ))}
         </div>
       )}
-      
+
+      {/* Call params - clickable */}
+      {step.type === 'call' && step.resolvedArgs && Object.keys(step.resolvedArgs).length > 0 && (
+        <div className="text-xs font-mono" style={{ paddingLeft: `${8 + indent + 24}px` }}>
+          {Object.entries(step.resolvedArgs).map(([k, v]) => (
+            <ClickableValue
+              key={k}
+              label={k}
+              value={v}
+              valueKey={`${step.id}:${k}`}
+              isSelected={selectedValueKey === `${step.id}:${k}`}
+              indent={8 + indent + 24}
+              onValueClick={handleValueClick}
+              labelColor="text-orange-400/70"
+            />
+          ))}
+        </div>
+      )}
+
       {/* Children */}
       {isExpanded && step.children?.map(child => (
-        <RuntimeStepRow 
-          key={child.id} 
-          step={child} 
-          expanded={expanded} 
-          onToggle={onToggle} 
+        <RuntimeStepRow
+          key={child.id}
+          step={child}
+          expanded={expanded}
+          onToggle={onToggle}
           getHighlightLevel={getHighlightLevel}
           onStepClick={onStepClick}
-          onIRValueClick={onIRValueClick}
+          onValueClick={onValueClick}
           selectedStepId={selectedStepId}
           selectedValueKey={selectedValueKey}
           highlightedStepIds={highlightedStepIds}
@@ -514,8 +419,8 @@ const RuntimeStepRow: React.FC<{
   );
 };
 
-export const RuntimePanel: React.FC<RuntimePanelProps> = ({ 
-  steps, 
+export const RuntimePanel: React.FC<RuntimePanelProps> = ({
+  steps,
   selectedElementId,
   zoomLevel = 100,
   onStepClick,
@@ -528,15 +433,15 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     return new Set(steps.filter(s => s.depth === 0).map(s => s.id));
   });
-  
+
   // Track selected value (for highlighting)
   const [selectedValueKey, setSelectedValueKey] = useState<string | null>(null);
-  
+
   // Reinitialize expanded when steps change
   useEffect(() => {
     setExpanded(new Set(steps.filter(s => s.depth === 0).map(s => s.id)));
   }, [steps]);
-  
+
   // Build flat list of all steps for lookup
   const allStepsMap = useMemo(() => {
     const map = new Map<string, RuntimeStep>();
@@ -549,7 +454,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     addSteps(steps);
     return map;
   }, [steps]);
-  
+
   // Find the single IR step that created the selected element
   const elementHighlightedStepId = useMemo(() => {
     if (!selectedElementId) return null;
@@ -560,11 +465,11 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
     return null;
   }, [selectedElementId, allStepsMap]);
-  
+
   // Auto-expand ancestors when element is clicked
   useEffect(() => {
     if (!elementHighlightedStepId) return;
-    
+
     const parentMap = new Map<string, string>();
     const buildParentMap = (items: RuntimeStep[], parentId: string | null = null) => {
       for (const step of items) {
@@ -577,7 +482,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       }
     };
     buildParentMap(steps);
-    
+
     const toExpand = new Set<string>();
     let currentId: string | undefined = elementHighlightedStepId;
     while (currentId) {
@@ -587,7 +492,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       }
       currentId = parentId;
     }
-    
+
     if (toExpand.size > 0) {
       setExpanded(prev => {
         const next = new Set(prev);
@@ -602,34 +507,40 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       });
     }
   }, [elementHighlightedStepId, steps]);
-  
+
   // Handle step click
   const handleStepClick = useCallback((step: RuntimeStep) => {
     setSelectedValueKey(null);
     onStepClick?.(step);
   }, [onStepClick]);
-  
-  // Handle IR value click - find dependent constants and notify parent
-  const handleIRValueClick = useCallback((step: RuntimeStep, paramName: string, value: unknown) => {
-    if (!step.functionName || !dependencyAnalysis) {
-      setSelectedValueKey(`${step.id}:${paramName}`);
+
+  // Handle value click - find dependent constants and notify parent
+  const handleValueClick = useCallback((step: RuntimeStep, fieldName: string, value: unknown) => {
+    const valueKey = `${step.id}:${fieldName}`;
+    setSelectedValueKey(valueKey);
+
+    if (!dependencyAnalysis) {
+      onOutputClick?.(step.type, step.functionName, fieldName, value, []);
       return;
     }
-    
+
     // Find the output path in the dependency matrix
-    const { findOutputPath, getConstantsForOutput } = require('../core/dependencyAnalyzer');
-    const outputPath = findOutputPath(dependencyAnalysis, step.functionName, paramName, value);
-    
+    const outputPath = findOutputPathForRuntimeValue(
+      dependencyAnalysis,
+      step.type,
+      step.functionName,
+      fieldName,
+      value
+    );
+
     if (outputPath) {
       const dependentConstants = getConstantsForOutput(dependencyAnalysis, outputPath);
-      setSelectedValueKey(`${step.id}:${paramName}`);
-      onOutputClick?.(step.functionName, paramName, value, dependentConstants);
+      onOutputClick?.(step.type, step.functionName, fieldName, value, dependentConstants);
     } else {
-      setSelectedValueKey(`${step.id}:${paramName}`);
-      onOutputClick?.(step.functionName, paramName, value, []);
+      onOutputClick?.(step.type, step.functionName, fieldName, value, []);
     }
   }, [dependencyAnalysis, onOutputClick]);
-  
+
   // Get highlight level for a step
   const getHighlightLevel = (step: RuntimeStep): 'primary' | 'secondary' | null => {
     if (!elementHighlightedStepId) return null;
@@ -701,14 +612,14 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-0.5" style={{ fontSize: `${zoomLevel}%` }}>
           {steps.map(step => (
-            <RuntimeStepRow 
-              key={step.id} 
-              step={step} 
-              expanded={expanded} 
+            <RuntimeStepRow
+              key={step.id}
+              step={step}
+              expanded={expanded}
               onToggle={toggleExpand}
               getHighlightLevel={getHighlightLevel}
               onStepClick={handleStepClick}
-              onIRValueClick={handleIRValueClick}
+              onValueClick={handleValueClick}
               selectedStepId={selectedStepId}
               selectedValueKey={selectedValueKey}
               highlightedStepIds={highlightedStepIds}

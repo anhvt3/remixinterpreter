@@ -2,8 +2,8 @@
  * Dependency Analyzer - Builds a Constant-Output dependency matrix
  * 
  * Uses perturbation analysis:
- * 1. Identify all constants (entry point params)
- * 2. Identify all outputs (values passed to IR functions)
+ * 1. Identify all DSL constants (entry point params)
+ * 2. Identify all Runtime outputs (ALL values from ANY function, not just IR)
  * 3. Perturb each constant and see which outputs change
  * 4. Build a dependency map: Output -> Set<Constants that affect it>
  */
@@ -19,11 +19,18 @@ export interface ConstantDef {
   valueType: 'number' | 'string' | 'boolean' | 'other';
 }
 
-// An output is a value passed to an IR function
+// An output is ANY value computed during execution
 export interface OutputDef {
-  irFn: string;       // e.g., "text.create", "board.init"
-  argName: string;    // e.g., "y", "content"
-  path: string;       // Full path: "text.create:0:y" (fn:callIndex:arg)
+  // Where this output comes from
+  source: 'ir' | 'let' | 'call-arg' | 'call-return' | 'foreach-iter';
+  // For IR: the IR function name (e.g., "text.create")
+  // For others: the context (function name + variable/param)
+  context: string;
+  // The specific field/variable name
+  fieldName: string;
+  // Unique path for this output: "source:context:callIndex:fieldName"
+  path: string;
+  // The computed value
   value: unknown;
 }
 
@@ -110,27 +117,73 @@ function perturbValue(def: ConstantDef): unknown {
   }
 }
 
+// Execution context for tracking outputs
+interface ExecutionContext {
+  outputs: OutputDef[];
+  callCounts: Map<string, number>; // context -> count for unique paths
+}
+
 /**
- * Execute spec silently (no IR calls) and collect outputs
+ * Execute spec silently (no actual IR side effects) and collect ALL outputs
  */
 function executeAndCollectOutputs(spec: YAMLSpec): OutputDef[] {
-  const outputs: OutputDef[] = [];
+  const ctx: ExecutionContext = {
+    outputs: [],
+    callCounts: new Map(),
+  };
   const globalEnv: Environment = new Map();
-  const irCallCounts = new Map<string, number>();
   
   const entry = spec.program.entry.call;
   const entryFn = spec.defs[entry.fn];
   
-  if (!entryFn) return outputs;
+  if (!entryFn) return ctx.outputs;
   
   const resolvedArgs: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(entry.args)) {
     resolvedArgs[key] = resolveValue(val, globalEnv, spec);
   }
   
-  executeFunction(entryFn, resolvedArgs, spec, globalEnv, outputs, irCallCounts);
+  // Record entry call args as outputs
+  for (const [key, val] of Object.entries(resolvedArgs)) {
+    addOutput(ctx, 'call-arg', `entry:${entry.fn}`, key, val);
+  }
   
-  return outputs;
+  executeFunction(entryFn, resolvedArgs, spec, globalEnv, ctx, `entry:${entry.fn}`);
+  
+  return ctx.outputs;
+}
+
+/**
+ * Add an output to the context with a unique path
+ */
+function addOutput(
+  ctx: ExecutionContext,
+  source: OutputDef['source'],
+  context: string,
+  fieldName: string,
+  value: unknown
+): void {
+  // Get call index for uniqueness
+  const countKey = `${source}:${context}`;
+  const count = ctx.callCounts.get(countKey) || 0;
+  ctx.callCounts.set(countKey, count + 1);
+  
+  const path = `${source}:${context}:${count}:${fieldName}`;
+  
+  ctx.outputs.push({
+    source,
+    context,
+    fieldName,
+    path,
+    value,
+  });
+  
+  // If value is an object, also add nested fields
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const [k, v] of Object.entries(value)) {
+      addOutput(ctx, source, context, `${fieldName}.${k}`, v);
+    }
+  }
 }
 
 function executeFunction(
@@ -138,8 +191,8 @@ function executeFunction(
   args: Record<string, unknown>,
   spec: YAMLSpec,
   parentEnv: Environment,
-  outputs: OutputDef[],
-  irCallCounts: Map<string, number>
+  ctx: ExecutionContext,
+  fnContext: string
 ): unknown {
   const env: Environment = new Map(parentEnv);
   
@@ -150,8 +203,10 @@ function executeFunction(
   }
   
   for (const stmt of fn.body) {
-    const result = executeStatement(stmt, spec, env, outputs, irCallCounts);
+    const result = executeStatement(stmt, spec, env, ctx, fnContext);
     if (result !== undefined && 'return' in stmt) {
+      // Record return value
+      addOutput(ctx, 'call-return', fnContext, 'return', result);
       return result;
     }
   }
@@ -163,14 +218,14 @@ function executeStatement(
   stmt: Statement,
   spec: YAMLSpec,
   env: Environment,
-  outputs: OutputDef[],
-  irCallCounts: Map<string, number>
+  ctx: ExecutionContext,
+  fnContext: string
 ): unknown {
-  if ('call' in stmt) return executeCall(stmt.call, spec, env, outputs, irCallCounts);
-  if ('let' in stmt) return executeLet(stmt.let, spec, env);
-  if ('foreach' in stmt) return executeForeach(stmt.foreach, spec, env, outputs, irCallCounts);
+  if ('call' in stmt) return executeCall(stmt.call, spec, env, ctx, fnContext);
+  if ('let' in stmt) return executeLet(stmt.let, spec, env, ctx, fnContext);
+  if ('foreach' in stmt) return executeForeach(stmt.foreach, spec, env, ctx, fnContext);
   if ('return' in stmt) return resolveValue(stmt.return, env, spec);
-  if ('ir' in stmt) return executeIR(stmt.ir, spec, env, outputs, irCallCounts);
+  if ('ir' in stmt) return executeIR(stmt.ir, spec, env, ctx);
   return undefined;
 }
 
@@ -178,37 +233,51 @@ function executeCall(
   call: CallStatement,
   spec: YAMLSpec,
   env: Environment,
-  outputs: OutputDef[],
-  irCallCounts: Map<string, number>
+  ctx: ExecutionContext,
+  fnContext: string
 ): unknown {
   const fnDef = spec.defs[call.fn];
   
+  // Resolve args and record them as outputs
+  const resolvedArgs: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(call.args)) {
+    resolvedArgs[key] = resolveValue(val, env, spec);
+    // Record each resolved arg
+    addOutput(ctx, 'call-arg', `${fnContext}:${call.fn}`, key, resolvedArgs[key]);
+  }
+  
   if (!fnDef) {
-    // IR function or missing function - treat as IR
+    // IR function or missing function
     if (call.fn.startsWith('board.') || call.fn.startsWith('text.') || call.fn.startsWith('shape.')) {
-      return executeIR({ fn: call.fn, args: call.args }, spec, env, outputs, irCallCounts);
+      return executeIR({ fn: call.fn, args: call.args }, spec, env, ctx);
     }
     return undefined;
   }
   
-  const resolvedArgs: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(call.args)) {
-    resolvedArgs[key] = resolveValue(val, env, spec);
+  const newContext = `${fnContext}:${call.fn}`;
+  const result = executeFunction(fnDef, resolvedArgs, spec, env, ctx, newContext);
+  
+  if (call.out) {
+    env.set(call.out, result);
+    // Record the out assignment
+    addOutput(ctx, 'call-return', newContext, call.out, result);
   }
   
-  const result = executeFunction(fnDef, resolvedArgs, spec, env, outputs, irCallCounts);
-  if (call.out) env.set(call.out, result);
   return result;
 }
 
 function executeLet(
   letStmt: Record<string, unknown>,
   spec: YAMLSpec,
-  env: Environment
+  env: Environment,
+  ctx: ExecutionContext,
+  fnContext: string
 ): void {
   for (const [varName, value] of Object.entries(letStmt)) {
     const resolved = resolveValue(value, env, spec);
     env.set(varName, resolved);
+    // Record let assignment as output
+    addOutput(ctx, 'let', fnContext, varName, resolved);
   }
 }
 
@@ -216,8 +285,8 @@ function executeForeach(
   foreach: ForeachStatement,
   spec: YAMLSpec,
   env: Environment,
-  outputs: OutputDef[],
-  irCallCounts: Map<string, number>
+  ctx: ExecutionContext,
+  fnContext: string
 ): void {
   const rangeValue = resolveValue(foreach.range, env, spec);
   if (!Array.isArray(rangeValue)) return;
@@ -227,8 +296,12 @@ function executeForeach(
     const loopEnv: Environment = new Map(env);
     loopEnv.set(foreach.var, value);
     
+    // Record foreach iteration value
+    addOutput(ctx, 'foreach-iter', `${fnContext}:foreach`, `${foreach.var}[${i}]`, value);
+    
+    const loopContext = `${fnContext}:foreach[${i}]`;
     for (const stmt of foreach.do) {
-      executeStatement(stmt, spec, loopEnv, outputs, irCallCounts);
+      executeStatement(stmt, spec, loopEnv, ctx, loopContext);
     }
   }
 }
@@ -237,24 +310,12 @@ function executeIR(
   ir: { fn: string; args: Record<string, unknown> },
   spec: YAMLSpec,
   env: Environment,
-  outputs: OutputDef[],
-  irCallCounts: Map<string, number>
+  ctx: ExecutionContext
 ): void {
-  // Get call index for this IR function
-  const count = irCallCounts.get(ir.fn) || 0;
-  irCallCounts.set(ir.fn, count + 1);
-  
   // Resolve all args and record them as outputs
   for (const [argName, value] of Object.entries(ir.args)) {
     const resolved = resolveValue(value, env, spec);
-    const outputPath = `${ir.fn}:${count}:${argName}`;
-    
-    outputs.push({
-      irFn: ir.fn,
-      argName,
-      path: outputPath,
-      value: resolved,
-    });
+    addOutput(ctx, 'ir', ir.fn, argName, resolved);
   }
 }
 
@@ -370,7 +431,7 @@ export function analyzeDependencies(spec: YAMLSpec): DependencyAnalysisResult {
     } catch {
       // If perturbed execution fails, mark all outputs as depending on this constant
       // (the constant might be critical for execution)
-      for (const [outputPath, deps] of matrix) {
+      for (const [, deps] of matrix) {
         deps.add(constant.path);
       }
     }
@@ -398,27 +459,95 @@ export function getConstantsForOutput(
 }
 
 /**
- * Find the output path that matches a runtime IR step's resolved arg
- * Returns the output path or null if not found
+ * Find matching output by various criteria
+ * Returns the matching output or null
  */
-export function findOutputPath(
+export function findMatchingOutput(
   result: DependencyAnalysisResult,
-  irFn: string,
-  argName: string,
-  argValue: unknown
-): string | null {
-  // Find matching output by IR function, arg name, and value
+  criteria: {
+    source?: OutputDef['source'];
+    context?: string;     // Partial match
+    fieldName?: string;   // Exact or partial match
+    value?: unknown;      // Value match
+  }
+): OutputDef | null {
   for (const output of result.outputs) {
-    if (output.irFn === irFn && output.argName === argName) {
-      if (valuesEqual(output.value, argValue)) {
-        return output.path;
+    // Check source
+    if (criteria.source && output.source !== criteria.source) continue;
+    
+    // Check context (partial match)
+    if (criteria.context && !output.context.includes(criteria.context)) continue;
+    
+    // Check field name
+    if (criteria.fieldName) {
+      if (output.fieldName !== criteria.fieldName && !output.fieldName.endsWith(`.${criteria.fieldName}`)) {
+        continue;
       }
+    }
+    
+    // Check value
+    if (criteria.value !== undefined && !valuesEqual(output.value, criteria.value)) continue;
+    
+    return output;
+  }
+  
+  return null;
+}
+
+/**
+ * Find output path for a Runtime step's value
+ * This maps runtime panel values back to the dependency matrix
+ */
+export function findOutputPathForRuntimeValue(
+  result: DependencyAnalysisResult,
+  stepType: 'ir' | 'let' | 'call' | 'foreach' | 'return',
+  functionName: string | undefined,
+  fieldName: string,
+  value: unknown
+): string | null {
+  // Map step type to output source
+  let sources: OutputDef['source'][];
+  switch (stepType) {
+    case 'ir':
+      sources = ['ir'];
+      break;
+    case 'let':
+      sources = ['let'];
+      break;
+    case 'call':
+      sources = ['call-arg', 'call-return'];
+      break;
+    case 'foreach':
+      sources = ['foreach-iter'];
+      break;
+    case 'return':
+      sources = ['call-return'];
+      break;
+    default:
+      sources = [];
+  }
+  
+  // Find matching output
+  for (const output of result.outputs) {
+    if (!sources.includes(output.source)) continue;
+    
+    // For IR, match function name exactly
+    if (stepType === 'ir' && functionName && output.context !== functionName) continue;
+    
+    // Match field name
+    if (output.fieldName !== fieldName && !output.fieldName.endsWith(`.${fieldName}`)) continue;
+    
+    // Match value
+    if (valuesEqual(output.value, value)) {
+      return output.path;
     }
   }
   
-  // If exact match not found, find by just fn and argName (first match)
+  // Fallback: match by source and field without value check
   for (const output of result.outputs) {
-    if (output.irFn === irFn && output.argName === argName) {
+    if (!sources.includes(output.source)) continue;
+    if (stepType === 'ir' && functionName && output.context !== functionName) continue;
+    if (output.fieldName === fieldName || output.fieldName.endsWith(`.${fieldName}`)) {
       return output.path;
     }
   }

@@ -1185,8 +1185,14 @@ export const App: React.FC = () => {
   }, []);
 
   // Handle output click from RuntimePanel - sets up TreeView constant highlighting
-  const handleOutputClick = useCallback((irFn: string, argName: string, argValue: unknown, dependentConstants: ConstantDef[]) => {
-    console.log(`Output clicked: ${irFn}.${argName} =`, argValue, 'depends on:', dependentConstants.map(c => c.path));
+  const handleOutputClick = useCallback((
+    stepType: RuntimeStep['type'],
+    functionName: string | undefined,
+    fieldName: string,
+    value: unknown,
+    dependentConstants: ConstantDef[]
+  ) => {
+    console.log(`Output clicked: ${stepType}:${functionName}.${fieldName} =`, value, 'depends on:', dependentConstants.map(c => c.path));
     setHighlightedConstants(dependentConstants);
     // Clear other selections
     setSelectedStatement(null);
