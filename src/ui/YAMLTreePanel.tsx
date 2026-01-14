@@ -2341,6 +2341,24 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const [anchorParam, setAnchorParam] = useState<ParamHighlightKey | null>(null);
   const [paramNavIndex, setParamNavIndex] = useState<number>(0);
   
+  // Sync anchorFunction with external selectedFunctionDefinition (e.g., from RuntimePanel click)
+  useEffect(() => {
+    if (selectedFunctionDefinition && selectedFunctionDefinition !== anchorFunction) {
+      // External source set a new function - sync our internal state
+      setAnchorFunction(selectedFunctionDefinition);
+      setFnNavIndex(0);
+      // Clear other navigation types
+      setAnchorStatement(null);
+      setStmtNavIndex(0);
+      setAnchorParam(null);
+      setParamNavIndex(0);
+    } else if (!selectedFunctionDefinition && anchorFunction) {
+      // External source cleared the selection - clear our internal state
+      setAnchorFunction(null);
+      setFnNavIndex(0);
+    }
+  }, [selectedFunctionDefinition]); // Only depend on external prop, not internal anchorFunction
+  
   const nodes = useMemo(() => {
     if (!spec) return new Map();
     return buildTree(spec);
