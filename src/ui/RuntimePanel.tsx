@@ -309,39 +309,50 @@ const ParamRow: React.FC<{
   const expandable = isExpandable(paramValue);
   const rowRef = useRef<HTMLDivElement>(null);
   
+  // Check if this param is the current value nav position
+  const isThisCurrentValueNav = currentNavValueKey === paramKey;
+  
+  // Check if this param is in the value chain (but not currently navigated)
+  const isThisInValueChain = valueChain.includes(paramKey) && !isThisCurrentValueNav;
+  
   // Check if a child value is selected (not the param itself)
   const hasChildSelected = selectedValueKey ? 
-    (selectedValueKey.startsWith(paramKey) && selectedValueKey !== paramKey) : false;
+    (selectedValueKey.startsWith(paramKey + '[') || selectedValueKey.startsWith(paramKey + '.')) : false;
   
   // Check if any child is in the value chain
   const hasChildInChain = valueChain.some(v => v.startsWith(paramKey + '[') || v.startsWith(paramKey + '.'));
   
-  // Auto-expand if a child value is selected or in chain
-  const [isExpanded, setIsExpanded] = useState(hasChildSelected || hasChildInChain);
+  // Check if any child is the current nav value
+  const hasChildAsCurrentNav = currentNavValueKey ? 
+    (currentNavValueKey.startsWith(paramKey + '[') || currentNavValueKey.startsWith(paramKey + '.')) : false;
+  
+  // Auto-expand if a child value is selected, in chain, or is current nav
+  const [isExpanded, setIsExpanded] = useState(hasChildSelected || hasChildInChain || hasChildAsCurrentNav);
   
   useEffect(() => {
-    if ((hasChildSelected || hasChildInChain) && expandable && !isExpanded) {
+    if ((hasChildSelected || hasChildInChain || hasChildAsCurrentNav) && expandable && !isExpanded) {
       setIsExpanded(true);
     }
-  }, [hasChildSelected, hasChildInChain, expandable]);
+  }, [hasChildSelected, hasChildInChain, hasChildAsCurrentNav, expandable]);
   
-  // Auto-scroll when this param is the current navigation position (only for param-level nav)
+  // Auto-scroll when this param is the current value navigation position
   useEffect(() => {
-    if (isCurrentNav && rowRef.current) {
+    if (isThisCurrentValueNav && rowRef.current) {
       rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [isCurrentNav]);
+  }, [isThisCurrentValueNav]);
   
-  // Param itself is highlighted only if selected directly (not a child value)
-  const isParamDirectlySelected = isSelected || (selectedValueKey === paramKey);
-  
-  // Don't highlight param when a child is in the value chain - we only highlight values
-  const paramHighlight = isCurrentNav
+  // Param highlighting
+  const paramHighlight = isThisCurrentValueNav
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : isParamDirectlySelected && !hasChildSelected
+    : isThisInValueChain
+    ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
+    : (isCurrentNav && valueChain.length === 0) // Old param-level nav (when no value selected)
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
-    : hasChildSelected || hasChildInChain
-    ? '' // No highlight when child value is the focus
+    : (selectedValueKey === paramKey) // Direct selection
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
+    : hasChildSelected || hasChildInChain || hasChildAsCurrentNav
+    ? '' // No highlight when child is the focus
     : isInChain
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded'
     : '';
@@ -357,9 +368,9 @@ const ParamRow: React.FC<{
     return formatValue(paramValue);
   };
 
-  // Render navigation buttons for param chain (only used when no value chain)
-  const renderParamNavButtons = () => {
-    if (!isCurrentNav || valueChain.length > 0) return null;
+  // Render navigation buttons for value chain navigation
+  const renderValueNavButtons = () => {
+    if (!isThisCurrentValueNav) return null;
     return (
       <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
         <Button
@@ -368,7 +379,7 @@ const ParamRow: React.FC<{
           className="h-5 w-5 hover:bg-muted"
           onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
           disabled={!canGoUp}
-          title="Navigate up to source"
+          title="Navigate up to source value"
         >
           <ChevronUp className="h-3 w-3" />
         </Button>
@@ -418,7 +429,7 @@ const ParamRow: React.FC<{
         ) : (
           <span className="text-muted-foreground">{isArray ? '[' : '{'}</span>
         )}
-        {renderParamNavButtons()}
+        {renderValueNavButtons()}
       </div>
       
       {/* Expanded children - using recursive ValueRow with value chain navigation */}
@@ -891,21 +902,17 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   // Build value chain - chain of value keys upstream of the selected value
   // This traces the calculation path: for each upstream step, find values that contributed
   const valueChain = useMemo(() => {
-    if (!selectedValueKey || ancestorChain.length === 0) return [];
+    if (!selectedValueKey) return [];
     
     // The valueChain contains only value keys from upstream steps
-    // For each ancestor step, we look at its resolvedArgs and find values that match the flow
-    const chain: string[] = [];
-    
     // Start with the selected value (index 0 in chain)
-    chain.push(selectedValueKey);
+    const chain: string[] = [selectedValueKey];
     
     // For each ancestor step, find values from its resolvedArgs
     for (const ancestorStepId of ancestorChain) {
       const ancestorStep = allStepsMap.get(ancestorStepId);
       if (ancestorStep?.resolvedArgs) {
         // Find the first param value that could have contributed
-        // This is a simplified heuristic - we take the first param's value
         const entries = Object.entries(ancestorStep.resolvedArgs);
         for (const [paramName, paramValue] of entries) {
           const baseKey = `${ancestorStepId}:${paramName}`;
@@ -931,14 +938,15 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
   }, [selectedValueKey, valueChain, navIndex]);
   
   // Chain step IDs: all steps and params that should be dimly highlighted
-  // This includes ancestor steps (for context) but NOT values (handled separately)
+  // When a value is selected, we DON'T highlight steps - only values in the valueChain
   const chainStepIds = useMemo(() => {
+    // When a value is selected, don't highlight steps at all - value chain handles it
+    if (selectedValueKey) return [];
+    
     if (!anchorStepId) return [];
     const allInChain: string[] = [anchorStepId, ...ancestorChain];
 
-    // When a value is selected, don't include param in step chain
-    // Value chain handles the value highlighting separately
-    if (anchorParamKey && !selectedValueKey) {
+    if (anchorParamKey) {
       allInChain.push(anchorParamKey);
     }
 
