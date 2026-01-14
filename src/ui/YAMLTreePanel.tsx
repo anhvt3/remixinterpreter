@@ -1982,6 +1982,71 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   );
 };
 
+// Editable input that only commits on Enter
+interface CommitOnEnterInputProps {
+  value: string | number;
+  onCommit: (value: string) => void;
+  type?: 'text' | 'number';
+  className?: string;
+}
+
+const CommitOnEnterInput: React.FC<CommitOnEnterInputProps> = ({
+  value,
+  onCommit,
+  type = 'text',
+  className = '',
+}) => {
+  const [localValue, setLocalValue] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Sync local value when external value changes (e.g., undo/redo)
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(String(value));
+    }
+  }, [value, isEditing]);
+  
+  const commitValue = () => {
+    if (localValue !== String(value)) {
+      onCommit(localValue);
+    }
+    setIsEditing(false);
+  };
+  
+  const cancelEdit = () => {
+    setLocalValue(String(value));
+    setIsEditing(false);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitValue();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+  
+  return (
+    <Input
+      type={type}
+      value={localValue}
+      onChange={(e) => {
+        setLocalValue(e.target.value);
+        setIsEditing(true);
+      }}
+      onKeyDown={handleKeyDown}
+      onBlur={cancelEdit}
+      onFocus={() => setIsEditing(true)}
+      onClick={(e) => e.stopPropagation()}
+      className={className}
+    />
+  );
+};
+
 // Editable params section component
 interface ParamsEditorProps {
   params: Params;
@@ -2086,6 +2151,26 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
       const highlightClass = highlighted 
         ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
         : '';
+      
+      const handleNestedCommit = (newValue: string) => {
+        // Update nested value
+        if (path.length === 0) {
+          handleValueChange(key, newValue);
+        } else {
+          // Deep update for nested params
+          const newParams = JSON.parse(JSON.stringify(params)) as Params;
+          let obj: Record<string, unknown> = newParams as unknown as Record<string, unknown>;
+          for (const p of path) {
+            obj = obj[p] as Record<string, unknown>;
+          }
+          const parsed = !isNaN(Number(newValue)) && newValue.trim() !== '' 
+            ? Number(newValue) 
+            : newValue;
+          obj[key] = parsed;
+          onChange(newParams);
+        }
+      };
+      
       return (
         <div 
           key={fullPath} 
@@ -2093,27 +2178,10 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
           className={`flex items-center gap-2 py-1 ${highlightClass}`}
         >
           <span className="text-xs text-orange-400 min-w-[80px]">{key}:</span>
-          <Input
+          <CommitOnEnterInput
             type={typeof value === 'number' ? 'number' : 'text'}
-            value={String(value)}
-            onChange={(e) => {
-              // Update nested value
-              if (path.length === 0) {
-                handleValueChange(key, e.target.value);
-              } else {
-                // Deep update for nested params
-                const newParams = JSON.parse(JSON.stringify(params)) as Params;
-                let obj: Record<string, unknown> = newParams as unknown as Record<string, unknown>;
-                for (const p of path) {
-                  obj = obj[p] as Record<string, unknown>;
-                }
-                const parsed = !isNaN(Number(e.target.value)) && e.target.value.trim() !== '' 
-                  ? Number(e.target.value) 
-                  : e.target.value;
-                obj[key] = parsed;
-                onChange(newParams);
-              }
-            }}
+            value={value}
+            onCommit={handleNestedCommit}
             className="h-6 text-xs px-2 py-0 bg-muted/50 border-border/50 w-24"
           />
         </div>
@@ -2163,10 +2231,10 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
               </TooltipContent>
             )}
           </Tooltip>
-          <Input
+          <CommitOnEnterInput
             type={typeof value === 'number' ? 'number' : 'text'}
-            value={String(value)}
-            onChange={(e) => handleValueChange(key, e.target.value)}
+            value={value as string | number}
+            onCommit={(v) => handleValueChange(key, v)}
             className="h-6 text-xs px-2 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
           />
         </div>
