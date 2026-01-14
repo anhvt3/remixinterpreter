@@ -19,8 +19,9 @@ import {
   getWorldTransform,
   type RuntimeState,
 } from './runtime';
-import type { IRProgram, TextProps, NodeProps } from './types';
+import type { IRProgram, TextProps, NodeProps, GroupProps } from './types';
 import { colorToRGBA } from './types';
+import { theme } from './theme';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -544,14 +545,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     setTime(runtime, currentTime);
     applyAnimations(runtime);
 
-    const node = runtime.nodes.get(selectedElementId);
-    if (!node || node.type === 'group') return null;
-
-    if (!node.visible || node.style.opacity <= 0) return null;
-    if (node.visibilitySpan) {
-      const { t0, t1 } = node.visibilitySpan;
-      if (currentTime < t0 || currentTime > t1) return null;
-    }
+    const root = runtime.nodes.get(selectedElementId);
+    if (!root) return null;
 
     const scaleX = displayWidth / (program.scene.width || 800);
     const scaleY = displayHeight / (program.scene.height || 600);
@@ -574,14 +569,24 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       return { x: rx + t.x, y: ry + t.y };
     };
 
-    const strokePad = node.style.stroke?.enabled ? Math.max(node.style.stroke.width ?? 0, 2) / 2 + 3 : 3;
+    const isVisibleAtTime = (n: NodeProps) => {
+      if (!n.visible) return false;
+      if (n.style.opacity <= 0) return false;
+      if (n.visibilitySpan) {
+        const { t0, t1 } = n.visibilitySpan;
+        if (currentTime < t0 || currentTime > t1) return false;
+      }
+      return true;
+    };
 
-    const cornersLocal = (() => {
-      switch (node.type) {
+    const getCornersLocal = (n: NodeProps): Array<{ x: number; y: number }> | null => {
+      const strokePad = n.style.stroke?.enabled ? Math.max(n.style.stroke.width ?? 0, 2) / 2 + 3 : 3;
+
+      switch (n.type) {
         case 'rect':
         case 'roundedRect': {
-          const w = (node as any).width as number;
-          const h = (node as any).height as number;
+          const w = (n as any).width as number;
+          const h = (n as any).height as number;
           return [
             { x: -strokePad, y: -strokePad },
             { x: w + strokePad, y: -strokePad },
@@ -590,7 +595,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'circle': {
-          const r = ((node as any).radius as number) + strokePad;
+          const r = ((n as any).radius as number) + strokePad;
           return [
             { x: -r, y: -r },
             { x: r, y: -r },
@@ -599,8 +604,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'ellipse': {
-          const rx = ((node as any).radiusX as number) + strokePad;
-          const ry = ((node as any).radiusY as number) + strokePad;
+          const rx = ((n as any).radiusX as number) + strokePad;
+          const ry = ((n as any).radiusY as number) + strokePad;
           return [
             { x: -rx, y: -ry },
             { x: rx, y: -ry },
@@ -609,7 +614,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'arc': {
-          const r = ((node as any).radius as number) + strokePad;
+          const r = ((n as any).radius as number) + strokePad;
           return [
             { x: -r, y: -r },
             { x: r, y: -r },
@@ -618,10 +623,10 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'line': {
-          const x1 = (node as any).x1 as number;
-          const y1 = (node as any).y1 as number;
-          const x2 = (node as any).x2 as number;
-          const y2 = (node as any).y2 as number;
+          const x1 = (n as any).x1 as number;
+          const y1 = (n as any).y1 as number;
+          const x2 = (n as any).x2 as number;
+          const y2 = (n as any).y2 as number;
           const minX = Math.min(x1, x2) - strokePad;
           const maxX = Math.max(x1, x2) + strokePad;
           const minY = Math.min(y1, y2) - strokePad;
@@ -635,7 +640,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         }
         case 'polyline':
         case 'polygon': {
-          const pts = ((node as any).points as Array<{ x: number; y: number }>) ?? [];
+          const pts = ((n as any).points as Array<{ x: number; y: number }>) ?? [];
           if (!pts.length) return null;
           const minX = Math.min(...pts.map((p) => p.x)) - strokePad;
           const maxX = Math.max(...pts.map((p) => p.x)) + strokePad;
@@ -649,16 +654,9 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           ];
         }
         case 'text': {
-          const content = (node as TextProps).content;
-          const textStyle = node.style.text ?? {
-            fontFamily: 'Georgia, serif',
-            fontSize: 24,
-            fontWeight: 'normal' as const,
-            fontStyle: 'normal' as const,
-            textAlign: 'center' as const,
-            textBaseline: 'middle' as const,
-          };
+          const content = (n as TextProps).content;
           const ctx = runtime.ctx;
+          const textStyle = n.style.text ?? theme.defaultText;
           if (!ctx || typeof content !== 'string') return null;
 
           ctx.save();
@@ -714,7 +712,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
 
           ctx.restore();
 
-          const pad = 6;
+          const pad = 8; // make tiny numerals clearly highlightable
           return [
             { x: xMin - pad, y: yMin - pad },
             { x: xMax + pad, y: yMin - pad },
@@ -722,32 +720,86 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
             { x: xMin - pad, y: yMax + pad },
           ];
         }
+        case 'path':
         default:
           return null;
       }
-    })();
+    };
 
-    if (!cornersLocal) return null;
+    const collectLeafNodes = (n: NodeProps, out: NodeProps[]) => {
+      if (n.type !== 'group') {
+        out.push(n);
+        return;
+      }
 
-    const wt = getWorldTransform(runtime, node.id);
-    const cornersScreen = cornersLocal
-      .map((p) => localToWorld(p, wt))
-      .map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+      const children = ((n as unknown as GroupProps).children ?? []) as string[];
+      for (const childId of children) {
+        const child = runtime.nodes.get(childId);
+        if (child) collectLeafNodes(child, out);
+      }
+    };
 
-    const minX = Math.min(...cornersScreen.map((p) => p.x));
-    const maxX = Math.max(...cornersScreen.map((p) => p.x));
-    const minY = Math.min(...cornersScreen.map((p) => p.y));
-    const maxY = Math.max(...cornersScreen.map((p) => p.y));
+    const targets: NodeProps[] = [];
+    collectLeafNodes(root, targets);
 
-    // Small extra padding in screen-space.
-    const padScreen = 2;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    let used = false;
+
+    let topZ = Number.NEGATIVE_INFINITY;
+
+    for (const n of targets) {
+      if (!isVisibleAtTime(n)) continue;
+
+      const cornersLocal = getCornersLocal(n);
+      if (!cornersLocal) continue;
+
+      const wt = getWorldTransform(runtime, n.id);
+      const cornersScreen = cornersLocal
+        .map((p) => localToWorld(p, wt))
+        .map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+
+      for (const p of cornersScreen) {
+        if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+        used = true;
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      }
+
+      topZ = Math.max(topZ, n.zIndex);
+    }
+
+    if (!used) return null;
+
+    // Extra padding in screen-space so thin outlines remain visible.
+    const padScreen = 8;
+
+    let left = minX - padScreen;
+    let top = minY - padScreen;
+    let w = maxX - minX + padScreen * 2;
+    let h = maxY - minY + padScreen * 2;
+
+    // Ensure tiny items (like single digits) still have an obvious highlight.
+    const minSize = 32;
+    if (w < minSize) {
+      left -= (minSize - w) / 2;
+      w = minSize;
+    }
+    if (h < minSize) {
+      top -= (minSize - h) / 2;
+      h = minSize;
+    }
 
     return {
-      left: minX - padScreen,
-      top: minY - padScreen,
-      width: maxX - minX + padScreen * 2,
-      height: maxY - minY + padScreen * 2,
-      zIndex: 1200 + node.zIndex,
+      left,
+      top,
+      width: w,
+      height: h,
+      zIndex: 1200 + (Number.isFinite(topZ) ? topZ : root.zIndex),
     };
   }, [selectedElementId, currentTime, program, displayWidth, displayHeight, renderKey]);
 
@@ -775,7 +827,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         {/* Selected element highlight (covers canvas-rendered shapes/text) */}
         {selectionRect && (
           <div
-            className="absolute pointer-events-none outline outline-2 outline-primary ring-2 ring-primary/50"
+            className="absolute pointer-events-none rounded-sm bg-primary/10 outline outline-2 outline-primary ring-2 ring-primary/50"
             style={{
               left: selectionRect.left,
               top: selectionRect.top,
@@ -870,7 +922,19 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       {/* Debug overlay */}
       <div className="absolute top-1 left-1 text-[10px] text-white/50 font-mono z-50">
         {program?.nodes.length || 0} nodes @ t={currentTime.toFixed(2)}s
-        {selectedElementId && <span className="ml-2 text-primary">sel: {selectedElementId}</span>}
+        {selectedElementId && (
+          <>
+            <span className="ml-2 text-primary">sel: {selectedElementId}</span>
+            <span className="ml-1 text-white/40">
+              ({runtimeRef.current?.nodes.get(selectedElementId)?.type ?? 'n/a'})
+            </span>
+            <span className="ml-1 text-white/40">
+              {selectionRect
+                ? `[${Math.round(selectionRect.width)}×${Math.round(selectionRect.height)}]`
+                : '[no-rect]'}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
