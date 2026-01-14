@@ -1158,11 +1158,13 @@ export const App: React.FC = () => {
       setSelectedRuntimeStepId(null);
       setSelectedElementId(null);
       setSelectedFunctionDefinition(null);
+      setHighlightedConstants([]);
     } else {
       setSelectedRuntimeStepId(step.id);
-      // Clear other selections when selecting a runtime step
+      // Clear ALL other selections when selecting a runtime step
       setSelectedElementId(null);
       setSelectedStatement(null);
+      setHighlightedConstants([]);
       
       // For call steps, trigger function chain navigation in TreeView
       if (step.type === 'call' && step.functionName) {
@@ -1173,14 +1175,16 @@ export const App: React.FC = () => {
     }
   }, [selectedRuntimeStepId]);
 
-  // Handle element click in Anim panel (modified to clear runtime step selection)
+  // Handle element click in Anim panel (modified to clear all other highlights)
   const handleElementClickWithClear = useCallback((elementId: string) => {
     console.log('[App] Element clicked:', elementId);
     console.log('[App] elementCallChains has element:', elementCallChains.has(elementId));
     console.log('[App] elementCallChains for element:', elementCallChains.get(elementId));
+    // Clear ALL previous highlights before setting new element selection
     setSelectedRuntimeStepId(null);
     setSelectedStatement(null);
     setSelectedFunctionDefinition(null);
+    setHighlightedConstants([]);
     setSelectedElementId(elementId === selectedElementId ? null : elementId);
   }, [selectedElementId, elementCallChains]);
 
@@ -1191,9 +1195,11 @@ export const App: React.FC = () => {
       setSelectedStatement(null);
     } else {
       setSelectedStatement({ fnName, stmtIndex });
+      // Clear ALL other selections when selecting a statement
       setSelectedRuntimeStepId(null);
       setSelectedElementId(null);
       setSelectedFunctionDefinition(null);
+      setHighlightedConstants([]);
     }
   }, [selectedStatement]);
 
@@ -1203,9 +1209,11 @@ export const App: React.FC = () => {
       setSelectedFunctionDefinition(null);
     } else {
       setSelectedFunctionDefinition(fnName);
+      // Clear ALL other selections when selecting a function definition
       setSelectedRuntimeStepId(null);
       setSelectedElementId(null);
       setSelectedStatement(null);
+      setHighlightedConstants([]);
     }
   }, [selectedFunctionDefinition]);
 
