@@ -572,6 +572,8 @@ interface YAMLTreePanelProps {
   selectedFunctionDefinition?: string | null;
   // Callback to clear element-based highlighting (when user clicks in tree view)
   onClearElementHighlight?: () => void;
+  // Highlighted constant paths from dependency analysis (e.g., "number", "limits.max_factors")
+  highlightedConstantPaths?: string[];
 }
 
 interface FunctionNode {
@@ -1944,6 +1946,8 @@ interface ParamsEditorProps {
   expandedParams?: Set<string>;
   onMainExpandedChange?: (expanded: boolean) => void;
   onExpandedParamsChange?: (expanded: Set<string>) => void;
+  // Highlighted constant paths from dependency analysis
+  highlightedConstantPaths?: string[];
 }
 
 const ParamsEditor: React.FC<ParamsEditorProps> = ({ 
@@ -1953,7 +1957,55 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
   expandedParams = new Set(['number']),
   onMainExpandedChange,
   onExpandedParamsChange,
+  highlightedConstantPaths = [],
 }) => {
+  const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  
+  // Auto-expand params that contain highlighted constants
+  useEffect(() => {
+    if (highlightedConstantPaths.length === 0) return;
+    
+    // Get top-level param keys that need to be expanded
+    const paramsToExpand = new Set<string>();
+    for (const path of highlightedConstantPaths) {
+      const topKey = path.split('.')[0];
+      paramsToExpand.add(topKey);
+    }
+    
+    // Check if we need to expand anything
+    const needsExpand = [...paramsToExpand].some(key => !expandedParams.has(key));
+    if (needsExpand) {
+      const next = new Set(expandedParams);
+      paramsToExpand.forEach(key => next.add(key));
+      onExpandedParamsChange?.(next);
+    }
+    
+    // Auto-expand the main params section if collapsed
+    if (!mainExpanded && highlightedConstantPaths.length > 0) {
+      onMainExpandedChange?.(true);
+    }
+  }, [highlightedConstantPaths, expandedParams, onExpandedParamsChange, mainExpanded, onMainExpandedChange]);
+  
+  // Auto-scroll to first highlighted constant
+  useEffect(() => {
+    if (highlightedConstantPaths.length === 0) return;
+    
+    // Small delay to allow expansion to complete
+    const timer = setTimeout(() => {
+      const firstPath = highlightedConstantPaths[0];
+      const ref = scrollRefs.current[firstPath];
+      if (ref) {
+        ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [highlightedConstantPaths]);
+  
+  // Check if a path is highlighted
+  const isHighlighted = (path: string): boolean => {
+    return highlightedConstantPaths.includes(path);
+  };
   
   const toggleParam = (key: string) => {
     const next = new Set(expandedParams);
@@ -1973,6 +2025,7 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
   
   const renderNestedValue = (key: string, value: unknown, path: string[] = []): React.ReactNode => {
     const fullPath = [...path, key].join('.');
+    const highlighted = isHighlighted(fullPath);
     
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Nested object - render recursively
@@ -1985,8 +2038,15 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
     }
     
     if (typeof value === 'number' || typeof value === 'string') {
+      const highlightClass = highlighted 
+        ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+        : '';
       return (
-        <div key={fullPath} className="flex items-center gap-2 py-1">
+        <div 
+          key={fullPath} 
+          ref={(el) => { scrollRefs.current[fullPath] = el; }}
+          className={`flex items-center gap-2 py-1 ${highlightClass}`}
+        >
           <span className="text-xs text-orange-400 min-w-[80px]">{key}:</span>
           <Input
             type={typeof value === 'number' ? 'number' : 'text'}
@@ -2016,8 +2076,15 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
     }
     
     // Array or other - display as read-only
+    const highlightClass = highlighted 
+      ? 'bg-primary/30 ring-2 ring-primary/60 rounded' 
+      : '';
     return (
-      <div key={fullPath} className="flex items-center gap-2 py-1">
+      <div 
+        key={fullPath} 
+        ref={(el) => { scrollRefs.current[fullPath] = el; }}
+        className={`flex items-center gap-2 py-1 ${highlightClass}`}
+      >
         <span className="text-xs text-orange-400 min-w-[80px]">{key}:</span>
         <span className="text-xs text-foreground/60">{JSON.stringify(value)}</span>
       </div>
@@ -2027,12 +2094,20 @@ const ParamsEditor: React.FC<ParamsEditorProps> = ({
   const renderParamInput = (key: string, value: unknown) => {
     const isObject = typeof value === 'object' && value !== null && !Array.isArray(value);
     const isExpanded = expandedParams.has(key);
+    const highlighted = isHighlighted(key);
     
     // For primitive values (like 'number'), just render the input directly
     if (!isObject) {
       const explanation = getExplanation(key);
+      const highlightClass = highlighted 
+        ? 'bg-primary/30 ring-2 ring-primary/60' 
+        : 'hover:bg-muted/30';
       return (
-        <div key={key} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/30 rounded">
+        <div 
+          key={key} 
+          ref={(el) => { scrollRefs.current[key] = el; }}
+          className={`flex items-center gap-2 py-1.5 px-2 rounded ${highlightClass}`}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="text-xs text-orange-400 font-medium min-w-[80px] cursor-help">{key}:</span>
@@ -2137,6 +2212,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   onFunctionDefinitionClick,
   selectedFunctionDefinition,
   onClearElementHighlight,
+  highlightedConstantPaths = [],
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -2704,6 +2780,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               expandedParams={expandedParams}
               onMainExpandedChange={onParamsExpandedChange}
               onExpandedParamsChange={onExpandedParamsChange}
+              highlightedConstantPaths={highlightedConstantPaths}
             />
           )}
           

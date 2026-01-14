@@ -65,6 +65,8 @@ interface YAMLScriptPanelProps {
   onSaveVersion?: (content: string) => Promise<void>;
   // Callback to clear element-based highlighting
   onClearElementHighlight?: () => void;
+  // Highlighted constant paths from dependency analysis
+  highlightedConstantPaths?: string[];
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -89,6 +91,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   onSelectVersion,
   onSaveVersion,
   onClearElementHighlight,
+  highlightedConstantPaths = [],
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   
@@ -436,6 +439,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             onFunctionDefinitionClick={onFunctionDefinitionClick}
             selectedFunctionDefinition={selectedFunctionDefinition}
             onClearElementHighlight={onClearElementHighlight}
+            highlightedConstantPaths={highlightedConstantPaths}
           />
         ) : (
           <div className="h-full flex flex-col min-h-0">
