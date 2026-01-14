@@ -171,13 +171,14 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     };
 
     const hitTestText = (node: TextProps, localX: number, localY: number) => {
-      const textStyle = node.style.text;
-      if (!textStyle) return false;
+      // Important: runtime renders with style.text OR theme.defaultText.
+      // Hit-testing must follow the same rule so small digits ("2", "3") are selectable.
+      const textStyle = node.style.text ?? theme.defaultText;
 
       ctx.save();
       ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
 
-      const content = node.content ?? '';
+      const content = typeof node.content === 'string' ? node.content : '';
       const widthPx = ctx.measureText(content).width;
       const heightPx = textStyle.fontSize;
 
@@ -537,7 +538,22 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
 
   // Selected element highlight (works for canvas-drawn shapes too)
   const selectionRect = useMemo(() => {
-    if (!runtimeRef.current || !program || !selectedElementId) return null;
+    if (!program || !selectedElementId) return null;
+
+    // Fast path: if the selected element is a plain-text hit target, reuse its
+    // already-computed screen-space bounds (this covers tiny digits reliably).
+    const hit = plainTextHitTargets.find((t) => t.id === selectedElementId);
+    if (hit) {
+      return {
+        left: hit.x - hit.w / 2,
+        top: hit.y - hit.h / 2,
+        width: hit.w,
+        height: hit.h,
+        zIndex: 1200 + hit.zIndex,
+      };
+    }
+
+    if (!runtimeRef.current) return null;
 
     const runtime = runtimeRef.current;
 
