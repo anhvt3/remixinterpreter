@@ -824,7 +824,7 @@ const TreeParamRow: React.FC<{
     return formatValue(paramValue);
   };
   
-  // Commit the local value to parent - only called on Enter
+  // Commit the local value to parent - called on Enter or blur
   const commitValue = () => {
     if (localValue !== String(paramValue)) {
       onEdit?.(localValue);
@@ -832,7 +832,7 @@ const TreeParamRow: React.FC<{
     setIsEditing(false);
   };
   
-  // Cancel editing and revert to original value
+  // Cancel editing and revert to original value (only on Escape)
   const cancelEdit = () => {
     setLocalValue(String(paramValue));
     setIsEditing(false);
@@ -849,6 +849,11 @@ const TreeParamRow: React.FC<{
       cancelEdit();
       (e.target as HTMLInputElement).blur();
     }
+  };
+  
+  // Blur should commit (save), not cancel
+  const handleBlur = () => {
+    commitValue();
   };
   
   // Render navigation buttons for param chain
@@ -913,7 +918,7 @@ const TreeParamRow: React.FC<{
               setIsEditing(true);
             }}
             onKeyDown={handleKeyDown}
-            onBlur={cancelEdit}
+            onBlur={handleBlur}
             onFocus={() => setIsEditing(true)}
             onClick={(e) => e.stopPropagation()}
             className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
@@ -2030,6 +2035,11 @@ const CommitOnEnterInput: React.FC<CommitOnEnterInputProps> = ({
     }
   };
   
+  // Blur should commit the value (save on blur), not cancel
+  const handleBlur = () => {
+    commitValue();
+  };
+  
   return (
     <Input
       type={type}
@@ -2039,7 +2049,7 @@ const CommitOnEnterInput: React.FC<CommitOnEnterInputProps> = ({
         setIsEditing(true);
       }}
       onKeyDown={handleKeyDown}
-      onBlur={cancelEdit}
+      onBlur={handleBlur}
       onFocus={() => setIsEditing(true)}
       onClick={(e) => e.stopPropagation()}
       className={className}

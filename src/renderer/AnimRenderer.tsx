@@ -49,7 +49,9 @@ export const AnimRenderer: React.FC<AnimRendererProps> = ({
         {selectedElementId && <span className="ml-2 text-primary">sel: {selectedElementId}</span>}
       </div>
       
-      {elements.map((element) => {
+      {/* Render elements in reverse order so later elements (lower z-index conceptually)
+          are rendered last and can be clicked first (they appear on top in the DOM) */}
+      {[...elements].reverse().map((element) => {
         if (!element.visible) return null;
         
         // Ensure at has valid coordinates

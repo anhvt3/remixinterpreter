@@ -624,13 +624,13 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       <div className="panel-header shrink-0 flex items-center justify-between">
         <span className="panel-title">4. Runtime</span>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
               size="icon"
               className="h-5 w-5"
-              onClick={expandAll}
-              title="Expand all"
+              onClick={collapseAll}
+              title="Collapse all"
             >
               <ChevronsDownUp className="h-3.5 w-3.5" />
             </Button>
@@ -638,8 +638,8 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
               variant="ghost"
               size="icon"
               className="h-5 w-5"
-              onClick={collapseAll}
-              title="Collapse all"
+              onClick={expandAll}
+              title="Expand all"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
             </Button>
