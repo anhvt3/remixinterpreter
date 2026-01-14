@@ -1214,6 +1214,7 @@ export const App: React.FC = () => {
     onSelectVersion: handleSelectDslVersion,
     onSaveVersion: handleSaveDslVersion,
     onClearElementHighlight: handleClearElementHighlight,
+    highlightedConstantPaths: highlightedConstants.map(c => c.path),
   };
 
   // Common Anim panel props
