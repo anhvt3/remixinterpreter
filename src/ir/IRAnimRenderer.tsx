@@ -360,6 +360,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       id: string;
       x: number;
       y: number;
+      w: number;
+      h: number;
       latex: string;
       fontSize: number;
       color: string;
@@ -508,6 +510,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           id: node.id,
           x,
           y,
+          w, // Include computed bounding box width
+          h, // Include computed bounding box height
           latex,
           fontSize: textStyle?.fontSize ?? 16,
           color: style.fill?.color ? colorToRGBA(style.fill.color) : 'black',
@@ -529,9 +533,26 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       }
     }
 
-    // Highest zIndex should be on top in DOM
-    latexOverlays.sort((a, b) => a.zIndex - b.zIndex);
-    plainTextHitTargets.sort((a, b) => a.zIndex - b.zIndex);
+    // Sort overlays so smaller elements render LAST (appear on top in DOM),
+    // making them clickable even when overlapping larger elements.
+    // Primary: higher zIndex on top. Secondary: smaller area on top.
+    const getArea = (o: { w?: number; h?: number; fontSize?: number }) => {
+      if (typeof o.w === 'number' && typeof o.h === 'number') return o.w * o.h;
+      // For LaTeX, estimate area from fontSize
+      return (o.fontSize || 16) * (o.fontSize || 16);
+    };
+    
+    latexOverlays.sort((a, b) => {
+      // First by zIndex (higher on top = later in render)
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
+      // Then by area (smaller on top = later in render)
+      return getArea(b) - getArea(a);
+    });
+    
+    plainTextHitTargets.sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
+      return getArea(b) - getArea(a);
+    });
 
     return { latexOverlays, plainTextHitTargets };
   }, [program, displayWidth, displayHeight, renderKey, currentTime]);
