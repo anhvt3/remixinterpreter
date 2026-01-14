@@ -151,8 +151,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
     ) => {
       // Inverse of: T(x,y) · R(rot) · S(scale) · T(-origin)
-      // We return coordinates in the *draw-local* space (after origin is applied),
-      // because render() draws shapes/text at local (0,0) after applyTransform().
+      // Return coordinates in the node's local coordinate system (the same one
+      // used to build paths / draw text before the origin pivot is applied).
       let x = worldPoint.x - t.x;
       let y = worldPoint.y - t.y;
 
@@ -164,7 +164,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const sx = t.scaleX === 0 ? rx : rx / t.scaleX;
       const sy = t.scaleY === 0 ? ry : ry / t.scaleY;
 
-      return { x: sx, y: sy };
+      return { x: sx + t.originX, y: sy + t.originY };
     };
 
     const hitTestText = (node: TextProps, localX: number, localY: number) => {
@@ -348,42 +348,34 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     setTime(runtime, currentTime);
     applyAnimations(runtime);
 
-    const scale = displayWidth / (program.scene.width || 800);
+    const scaleX = displayWidth / (program.scene.width || 800);
+    const scaleY = displayHeight / (program.scene.height || 600);
     const ctx = runtime.ctx;
 
-    const latexOverlays: Array<{
-      id: string;
-      x: number;
-      y: number;
-      latex: string;
-      fontSize: number;
-      color: string;
-      opacity: number;
-      zIndex: number;
-    }> = [];
+    const localToWorld = (
+      localPoint: { x: number; y: number },
+      t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
+    ) => {
+      // Same order as applyTransform(): translate → rotate → scale → translate(-origin)
+      // So local(0,0) in draw commands is pre-origin local(0,0).
+      const lx = localPoint.x - t.originX;
+      const ly = localPoint.y - t.originY;
 
-    const plainTextHitTargets: Array<{
-      id: string;
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-      opacity: number;
-      zIndex: number;
-      content: string;
-    }> = [];
+      const sx = lx * t.scaleX;
+      const sy = ly * t.scaleY;
 
-    for (const node of runtime.nodes.values()) {
-      if (node.type !== 'text') continue;
-      const content = (node as TextProps).content;
-      if (typeof content !== 'string') continue;
+      const cos = Math.cos(t.rotation);
+      const sin = Math.sin(t.rotation);
+      const rx = sx * cos - sy * sin;
+      const ry = sx * sin + sy * cos;
 
-      const wt = getWorldTransform(runtime, node.id);
-      const style = node.style;
-      const textStyle = style.text;
+      return { x: rx + t.x, y: ry + t.y };
+    };
 
-      const x = wt.x * scale;
-      const y = wt.y * scale;
+      // Anchor at the same point the canvas uses for drawing: local (0,0)
+      const anchorWorld = localToWorld({ x: 0, y: 0 }, wt);
+      const x = anchorWorld.x * scaleX;
+      const y = anchorWorld.y * scaleY;
       const zIndex = node.zIndex;
 
       if (isLatexContent(content)) {
@@ -404,7 +396,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           }
         }
 
-        const fontSize = ((textStyle?.fontSize || 24) * scale);
+        const fontSize = (textStyle?.fontSize || 24) * Math.abs(wt.scaleY || 1) * scaleY;
         const color = colorToRGBA(style.fill.color);
 
         latexOverlays.push({
@@ -419,7 +411,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         });
       } else {
         // Invisible click target for plain text.
-        // We intentionally overshoot a bit so tiny numerals are easy to select.
+        // We intentionally overshoot so tiny numerals are easy to select.
         let w = 44;
         let h = 44;
 
@@ -429,8 +421,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           const widthPx = ctx.measureText(content).width;
           ctx.restore();
 
-          w = Math.max(44, widthPx * scale + 20);
-          h = Math.max(44, textStyle.fontSize * scale + 20);
+          w = Math.max(44, widthPx * Math.abs(wt.scaleX || 1) * scaleX + 20);
+          h = Math.max(44, textStyle.fontSize * Math.abs(wt.scaleY || 1) * scaleY + 20);
         }
 
         plainTextHitTargets.push({
