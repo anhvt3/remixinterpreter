@@ -534,8 +534,216 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     return { latexOverlays, plainTextHitTargets };
   }, [program, displayWidth, displayHeight, renderKey, currentTime]);
 
+  // Selected element highlight (works for canvas-drawn shapes too)
+  const selectionRect = useMemo(() => {
+    if (!runtimeRef.current || !program || !selectedElementId) return null;
 
-  
+    const runtime = runtimeRef.current;
+
+    // Keep selection bounds aligned with current frame.
+    setTime(runtime, currentTime);
+    applyAnimations(runtime);
+
+    const node = runtime.nodes.get(selectedElementId);
+    if (!node || node.type === 'group') return null;
+
+    if (!node.visible || node.style.opacity <= 0) return null;
+    if (node.visibilitySpan) {
+      const { t0, t1 } = node.visibilitySpan;
+      if (currentTime < t0 || currentTime > t1) return null;
+    }
+
+    const scaleX = displayWidth / (program.scene.width || 800);
+    const scaleY = displayHeight / (program.scene.height || 600);
+
+    const localToWorld = (
+      localPoint: { x: number; y: number },
+      t: { x: number; y: number; scaleX: number; scaleY: number; rotation: number; originX: number; originY: number }
+    ) => {
+      const lx = localPoint.x - t.originX;
+      const ly = localPoint.y - t.originY;
+
+      const sx = lx * t.scaleX;
+      const sy = ly * t.scaleY;
+
+      const cos = Math.cos(t.rotation);
+      const sin = Math.sin(t.rotation);
+      const rx = sx * cos - sy * sin;
+      const ry = sx * sin + sy * cos;
+
+      return { x: rx + t.x, y: ry + t.y };
+    };
+
+    const strokePad = node.style.stroke?.enabled ? Math.max(node.style.stroke.width ?? 0, 2) / 2 + 3 : 3;
+
+    const cornersLocal = (() => {
+      switch (node.type) {
+        case 'rect':
+        case 'roundedRect': {
+          const w = (node as any).width as number;
+          const h = (node as any).height as number;
+          return [
+            { x: -strokePad, y: -strokePad },
+            { x: w + strokePad, y: -strokePad },
+            { x: w + strokePad, y: h + strokePad },
+            { x: -strokePad, y: h + strokePad },
+          ];
+        }
+        case 'circle': {
+          const r = ((node as any).radius as number) + strokePad;
+          return [
+            { x: -r, y: -r },
+            { x: r, y: -r },
+            { x: r, y: r },
+            { x: -r, y: r },
+          ];
+        }
+        case 'ellipse': {
+          const rx = ((node as any).radiusX as number) + strokePad;
+          const ry = ((node as any).radiusY as number) + strokePad;
+          return [
+            { x: -rx, y: -ry },
+            { x: rx, y: -ry },
+            { x: rx, y: ry },
+            { x: -rx, y: ry },
+          ];
+        }
+        case 'arc': {
+          const r = ((node as any).radius as number) + strokePad;
+          return [
+            { x: -r, y: -r },
+            { x: r, y: -r },
+            { x: r, y: r },
+            { x: -r, y: r },
+          ];
+        }
+        case 'line': {
+          const x1 = (node as any).x1 as number;
+          const y1 = (node as any).y1 as number;
+          const x2 = (node as any).x2 as number;
+          const y2 = (node as any).y2 as number;
+          const minX = Math.min(x1, x2) - strokePad;
+          const maxX = Math.max(x1, x2) + strokePad;
+          const minY = Math.min(y1, y2) - strokePad;
+          const maxY = Math.max(y1, y2) + strokePad;
+          return [
+            { x: minX, y: minY },
+            { x: maxX, y: minY },
+            { x: maxX, y: maxY },
+            { x: minX, y: maxY },
+          ];
+        }
+        case 'polyline':
+        case 'polygon': {
+          const pts = ((node as any).points as Array<{ x: number; y: number }>) ?? [];
+          if (!pts.length) return null;
+          const minX = Math.min(...pts.map((p) => p.x)) - strokePad;
+          const maxX = Math.max(...pts.map((p) => p.x)) + strokePad;
+          const minY = Math.min(...pts.map((p) => p.y)) - strokePad;
+          const maxY = Math.max(...pts.map((p) => p.y)) + strokePad;
+          return [
+            { x: minX, y: minY },
+            { x: maxX, y: minY },
+            { x: maxX, y: maxY },
+            { x: minX, y: maxY },
+          ];
+        }
+        case 'text': {
+          const content = (node as TextProps).content;
+          const textStyle = node.style.text;
+          const ctx = runtime.ctx;
+          if (!ctx || !textStyle || typeof content !== 'string') return null;
+
+          ctx.save();
+          ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
+          ctx.textAlign = textStyle.textAlign;
+          ctx.textBaseline = textStyle.textBaseline;
+
+          const m = ctx.measureText(content);
+          const ascent = (m as any).actualBoundingBoxAscent ?? textStyle.fontSize * 0.8;
+          const descent = (m as any).actualBoundingBoxDescent ?? textStyle.fontSize * 0.2;
+          const left = (m as any).actualBoundingBoxLeft;
+          const right = (m as any).actualBoundingBoxRight;
+
+          let xMin = 0;
+          let xMax = 0;
+          let yMin = 0;
+          let yMax = 0;
+
+          if (typeof left === 'number' && typeof right === 'number') {
+            xMin = -left;
+            xMax = right;
+            yMin = -ascent;
+            yMax = descent;
+          } else {
+            const widthPx = m.width;
+            const heightPx = textStyle.fontSize;
+
+            let x0 = 0;
+            if (textStyle.textAlign === 'center') x0 = -widthPx / 2;
+            if (textStyle.textAlign === 'right') x0 = -widthPx;
+
+            let y0 = 0;
+            switch (textStyle.textBaseline) {
+              case 'middle':
+                y0 = -heightPx / 2;
+                break;
+              case 'bottom':
+                y0 = -heightPx;
+                break;
+              case 'alphabetic':
+                y0 = -heightPx * 0.8;
+                break;
+              case 'top':
+              default:
+                y0 = 0;
+            }
+
+            xMin = x0;
+            xMax = x0 + widthPx;
+            yMin = y0;
+            yMax = y0 + heightPx;
+          }
+
+          ctx.restore();
+
+          const pad = 6;
+          return [
+            { x: xMin - pad, y: yMin - pad },
+            { x: xMax + pad, y: yMin - pad },
+            { x: xMax + pad, y: yMax + pad },
+            { x: xMin - pad, y: yMax + pad },
+          ];
+        }
+        default:
+          return null;
+      }
+    })();
+
+    if (!cornersLocal) return null;
+
+    const wt = getWorldTransform(runtime, node.id);
+    const cornersScreen = cornersLocal
+      .map((p) => localToWorld(p, wt))
+      .map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+
+    const minX = Math.min(...cornersScreen.map((p) => p.x));
+    const maxX = Math.max(...cornersScreen.map((p) => p.x));
+    const minY = Math.min(...cornersScreen.map((p) => p.y));
+    const maxY = Math.max(...cornersScreen.map((p) => p.y));
+
+    // Small extra padding in screen-space.
+    const padScreen = 2;
+
+    return {
+      left: minX - padScreen,
+      top: minY - padScreen,
+      width: maxX - minX + padScreen * 2,
+      height: maxY - minY + padScreen * 2,
+      zIndex: 1200 + node.zIndex,
+    };
+  }, [selectedElementId, currentTime, program, displayWidth, displayHeight, renderKey]);
+
   return (
     <div
       className="relative overflow-hidden flex items-center justify-center"
@@ -557,6 +765,20 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           }}
         />
 
+        {/* Selected element highlight (covers canvas-rendered shapes/text) */}
+        {selectionRect && (
+          <div
+            className="absolute pointer-events-none outline outline-2 outline-primary ring-2 ring-primary/50"
+            style={{
+              left: selectionRect.left,
+              top: selectionRect.top,
+              width: selectionRect.width,
+              height: selectionRect.height,
+              zIndex: selectionRect.zIndex,
+            }}
+          />
+        )}
+
         {/* Plain text hit-target layer (invisible but clickable) */}
         <div className="absolute inset-0 pointer-events-none">
           {plainTextHitTargets.map((t) => {
@@ -568,7 +790,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
                 key={t.id}
                 type="button"
                 aria-label={`Select text ${t.content}`}
-                className={`absolute pointer-events-auto bg-transparent rounded transition-all ${
+                className={`absolute pointer-events-auto bg-transparent rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   isSelected
                     ? 'outline outline-2 outline-primary ring-2 ring-primary/50'
                     : isHighlighted
@@ -581,7 +803,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
                   width: t.w,
                   height: t.h,
                   transform: 'translate(-50%, -50%)',
-                  opacity: isSelected || isHighlighted ? 0.08 : 0,
+                  // Keep hit targets invisible, but make selection clearly visible.
+                  opacity: isSelected || isHighlighted ? 1 : showHitDebug ? 0.12 : 0,
                   zIndex: 1000 + t.zIndex,
                 }}
                 onClick={(e) => {
