@@ -55,6 +55,14 @@ interface SourcePanelProps {
   onDeleteVideo?: () => void;
 }
 
+// Detect video URL type
+function getVideoUrlType(url: string): 'gdrive' | 'cdn' | null {
+  if (!url) return null;
+  if (url.includes('drive.google.com')) return 'gdrive';
+  if (url.match(/\.(mp4|webm|ogg)($|\?)/) || url.includes('.vcdn.cloud')) return 'cdn';
+  return null;
+}
+
 // Convert Google Drive share link to embeddable video URL
 function getGdriveEmbedUrl(link: string): string | null {
   if (!link) return null;
@@ -116,7 +124,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   onCreateNewVideo,
   onDeleteVideo,
 }) => {
-  const embedUrl = getGdriveEmbedUrl(gdriveLink);
   const isLoExpanded = activeTab === 'lo';
   const isVideoExpanded = activeTab === 'video';
 
@@ -356,39 +363,56 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 </Button>
               </div>
               
-              {/* Row 3: GDrive Link input */}
+              {/* Row 3: Video Link input (supports GDrive and CDN) */}
               <div className="shrink-0 flex items-center gap-2">
-                <Label htmlFor="gdrive-link" className="text-xs text-muted-foreground whitespace-nowrap">
-                  GDrive Link:
+                <Label htmlFor="video-link" className="text-xs text-muted-foreground whitespace-nowrap">
+                  Video Link:
                 </Label>
                 <Input
-                  id="gdrive-link"
+                  id="video-link"
                   value={gdriveLink}
                   onChange={(e) => onGdriveLinkChange(e.target.value)}
-                  placeholder="Paste Google Drive video link..."
+                  placeholder="Paste GDrive or CDN video URL..."
                   className="h-7 text-xs"
                 />
               </div>
               
-              {/* Video Player - rest of the panel */}
+              {/* Video Player - supports both GDrive (iframe) and CDN (video tag) */}
               <div className="flex-1 min-h-0 overflow-hidden rounded-md bg-muted/30 border border-border flex items-center justify-center">
-                {embedUrl ? (
-                  <iframe
-                    src={embedUrl}
-                    className="w-full h-full rounded-md"
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                    title="Google Drive Video"
-                  />
-                ) : (
-                  <div className="text-muted-foreground text-sm text-center p-4">
-                    {gdriveLink ? (
-                      <span className="text-destructive">Invalid Google Drive link format</span>
-                    ) : (
-                      <span>Paste a Google Drive video link above to play</span>
-                    )}
-                  </div>
-                )}
+                {(() => {
+                  const urlType = getVideoUrlType(gdriveLink);
+                  const embedUrl = urlType === 'gdrive' ? getGdriveEmbedUrl(gdriveLink) : null;
+                  
+                  if (urlType === 'cdn') {
+                    return (
+                      <video
+                        src={gdriveLink}
+                        controls
+                        className="w-full h-full rounded-md"
+                      />
+                    );
+                  } else if (embedUrl) {
+                    return (
+                      <iframe
+                        src={embedUrl}
+                        className="w-full h-full rounded-md"
+                        allow="autoplay; encrypted-media"
+                        allowFullScreen
+                        title="Google Drive Video"
+                      />
+                    );
+                  } else {
+                    return (
+                      <div className="text-muted-foreground text-sm text-center p-4">
+                        {gdriveLink ? (
+                          <span className="text-destructive">Invalid video URL format</span>
+                        ) : (
+                          <span>Paste a GDrive or CDN video URL above to play</span>
+                        )}
+                      </div>
+                    );
+                  }
+                })()}
               </div>
             </div>
           )}
