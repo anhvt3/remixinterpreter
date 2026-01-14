@@ -570,6 +570,8 @@ interface YAMLTreePanelProps {
   onFunctionDefinitionClick?: (fnName: string) => void;
   // Currently selected function definition for highlighting
   selectedFunctionDefinition?: string | null;
+  // Callback to clear element-based highlighting (when user clicks in tree view)
+  onClearElementHighlight?: () => void;
 }
 
 interface FunctionNode {
@@ -1970,6 +1972,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   selectedStatement,
   onFunctionDefinitionClick,
   selectedFunctionDefinition,
+  onClearElementHighlight,
 }) => {
   const [selected, setSelected] = useState<string | null>(selectedFunction || null);
   
@@ -2191,6 +2194,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   const handleParamClick = useCallback((fnName: string, stmtIndex: number, paramPath: string) => {
     console.log('YAMLTreePanel: Param clicked', { fnName, stmtIndex, paramPath });
     
+    // Clear element-based highlighting from Anim panel
+    onClearElementHighlight?.();
+    
     // Clear other navigation types
     setAnchorStatement(null);
     setStmtNavIndex(0);
@@ -2203,12 +2209,15 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     } else {
       setAnchorParam({ fnName, stmtIndex, paramPath });
     }
-  }, [anchorParam]);
+  }, [anchorParam, onClearElementHighlight]);
   
   // Handle statement click - clears other highlights
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
     console.log('YAMLTreePanel: Statement clicked', { fnName, stmtIndex });
     const clickedKey = { fnName, stmtIndex };
+    
+    // Clear element-based highlighting from Anim panel
+    onClearElementHighlight?.();
     
     // Clear other navigation types
     setAnchorFunction(null);
@@ -2229,11 +2238,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     
     // Also call external handler if provided
     onStatementClick?.(fnName, stmtIndex);
-  }, [anchorStatement, onStatementClick]);
+  }, [anchorStatement, onStatementClick, onClearElementHighlight]);
   
   // Handle function definition click - clears other highlights
   const handleFunctionDefinitionClickInternal = useCallback((fnName: string) => {
     console.log('YAMLTreePanel: Function definition clicked', { fnName });
+    
+    // Clear element-based highlighting from Anim panel
+    onClearElementHighlight?.();
     
     // Clear other navigation types
     setAnchorStatement(null);
@@ -2254,7 +2266,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     
     // Also call external handler if provided
     onFunctionDefinitionClick?.(fnName);
-  }, [anchorFunction, onFunctionDefinitionClick]);
+  }, [anchorFunction, onFunctionDefinitionClick, onClearElementHighlight]);
   
   // Statement navigation: Navigate up (to higher level / parent caller)
   const navigateUp = useCallback(() => {
