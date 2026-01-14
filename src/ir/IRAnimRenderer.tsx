@@ -472,7 +472,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         ctx.restore();
       }
 
-      const padLocal = 10;
+      const padLocal = 4;
       const cornersLocal = [
         { x: xMin - padLocal, y: yMin - padLocal },
         { x: xMax + padLocal, y: yMin - padLocal },
@@ -492,8 +492,8 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const x = (minX + maxX) / 2;
       const y = (minY + maxY) / 2;
 
-      const w = Math.max(44, maxX - minX);
-      const h = Math.max(44, maxY - minY);
+      const w = Math.max(24, maxX - minX);
+      const h = Math.max(24, maxY - minY);
 
       const opacity = style.opacity;
 
@@ -728,7 +728,7 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
 
           ctx.restore();
 
-          const pad = 8; // make tiny numerals clearly highlightable
+          const pad = 3;
           return [
             { x: xMin - pad, y: yMin - pad },
             { x: xMax + pad, y: yMin - pad },
@@ -792,15 +792,15 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
     if (!used) return null;
 
     // Extra padding in screen-space so thin outlines remain visible.
-    const padScreen = 8;
+    const padScreen = 3;
 
     let left = minX - padScreen;
     let top = minY - padScreen;
     let w = maxX - minX + padScreen * 2;
     let h = maxY - minY + padScreen * 2;
 
-    // Ensure tiny items (like single digits) still have an obvious highlight.
-    const minSize = 32;
+    // Ensure tiny items still have a visible highlight (but keep it tight).
+    const minSize = 20;
     if (w < minSize) {
       left -= (minSize - w) / 2;
       w = minSize;
