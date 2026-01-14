@@ -53,6 +53,9 @@ interface SourcePanelProps {
   // Video Create/Delete
   onCreateNewVideo?: () => void;
   onDeleteVideo?: () => void;
+  // Extract Description
+  onExtractDesc?: () => void;
+  isExtractingDesc?: boolean;
 }
 
 // Detect video URL type
@@ -123,6 +126,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
   hasUnsavedVideoChanges = false,
   onCreateNewVideo,
   onDeleteVideo,
+  onExtractDesc,
+  isExtractingDesc = false,
 }) => {
   const isLoExpanded = activeTab === 'lo';
   const isVideoExpanded = activeTab === 'video';
@@ -356,10 +361,11 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
                 <Button
                   size="sm"
                   className="h-6 text-[10px] whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white px-2"
-                  disabled={!selectedVideoVersionId}
-                  title="Extract Description"
+                  disabled={!selectedVideoVersionId || !gdriveLink || isExtractingDesc}
+                  title="Extract Description from Video (CDN only, max 5MB)"
+                  onClick={onExtractDesc}
                 >
-                  VA-1120-EXTRACT-DESC
+                  {isExtractingDesc ? "Generating..." : "VA-1120-EXTRACT-DESC"}
                 </Button>
               </div>
               
