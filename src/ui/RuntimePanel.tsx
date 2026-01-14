@@ -214,10 +214,22 @@ const ParamRow: React.FC<{
   onParamClick: () => void;
   selectedValueKey?: string | null;
   onValueClick?: (valueKey: string) => void;
-}> = ({ paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick }) => {
+  // Navigation props
+  isCurrentNav?: boolean;
+  canGoUp?: boolean;
+  canGoDown?: boolean;
+  onNavigateUp?: () => void;
+  onNavigateDown?: () => void;
+  navIndex?: number;
+  chainLength?: number;
+}> = ({ 
+  paramName, paramValue, paramKey, isSelected, isInChain, separator, indent, onParamClick, selectedValueKey, onValueClick,
+  isCurrentNav = false, canGoUp = false, canGoDown = false, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0
+}) => {
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray;
   const expandable = isExpandable(paramValue);
+  const rowRef = useRef<HTMLDivElement>(null);
   
   // Check if a child value is selected (not the param itself)
   const hasChildSelected = selectedValueKey ? 
@@ -232,11 +244,20 @@ const ParamRow: React.FC<{
     }
   }, [hasChildSelected, expandable]);
   
+  // Auto-scroll when this param is the current navigation position
+  useEffect(() => {
+    if (isCurrentNav && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isCurrentNav]);
+  
   // Param itself is highlighted only if selected directly (not a child value)
   const isParamDirectlySelected = isSelected || (selectedValueKey === paramKey);
   
   // Don't highlight param when only a child is selected - only highlight the value chain
-  const paramHighlight = isParamDirectlySelected
+  const paramHighlight = isCurrentNav
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
+    : isParamDirectlySelected
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded'
     : hasChildSelected
     ? ''
@@ -255,9 +276,42 @@ const ParamRow: React.FC<{
     return formatValue(paramValue);
   };
 
+  // Render navigation buttons for param chain
+  const renderParamNavButtons = () => {
+    if (!isCurrentNav) return null;
+    return (
+      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted"
+          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
+          disabled={!canGoUp}
+          title="Navigate up to source"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </Button>
+        <span className="text-[10px] text-muted-foreground w-6 text-center">
+          {navIndex}/{chainLength}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted -ml-1"
+          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
+          disabled={!canGoDown}
+          title="Navigate down toward anchor"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <>
       <div 
+        ref={rowRef}
         className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${paramHighlight}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -283,6 +337,7 @@ const ParamRow: React.FC<{
         ) : (
           <span className="text-muted-foreground">{isArray ? '[' : '{'}</span>
         )}
+        {renderParamNavButtons()}
       </div>
       
       {/* Expanded children - using recursive ValueRow with value highlighting */}
@@ -343,6 +398,7 @@ const RuntimeStepRow: React.FC<{
   selectedValueKey?: string | null; // format: "stepId:paramName[0].key..."
   highlightedStepIds?: string[];
   currentNavigationStepId?: string | null;
+  currentNavigationParamKey?: string | null; // for param-level navigation
   chainStepIds?: string[];
   // Navigation controls
   canGoUp?: boolean;
@@ -358,7 +414,7 @@ const RuntimeStepRow: React.FC<{
 }> = ({ 
   step, expanded, onToggle, getHighlightLevel, onStepClick, onParamClick, onValueClick, selectedStepId, selectedParamKey, selectedValueKey,
   highlightedStepIds = [], 
-  currentNavigationStepId, chainStepIds = [],
+  currentNavigationStepId, currentNavigationParamKey, chainStepIds = [],
   canGoUp, canGoDown, onNavigateUp, onNavigateDown, navIndex = 0, chainLength = 0,
   deepestHighlightedStepId, elementHighlightedStepId
 }) => {
@@ -527,6 +583,7 @@ const RuntimeStepRow: React.FC<{
             // Only mark param selected if the param itself is selected, NOT when a child value is selected
             const isParamSelected = selectedParamKey === paramKey;
             const isParamInChain = chainStepIds.includes(paramKey);
+            const isParamCurrentNav = currentNavigationParamKey === paramKey;
             return (
               <ParamRow
                 key={k}
@@ -540,6 +597,13 @@ const RuntimeStepRow: React.FC<{
                 onParamClick={() => onParamClick?.(step, k)}
                 selectedValueKey={selectedValueKey}
                 onValueClick={(valueKey) => onValueClick?.(step, valueKey)}
+                isCurrentNav={isParamCurrentNav}
+                canGoUp={isParamCurrentNav ? canGoUp : false}
+                canGoDown={isParamCurrentNav ? canGoDown : false}
+                onNavigateUp={onNavigateUp}
+                onNavigateDown={onNavigateDown}
+                navIndex={navIndex}
+                chainLength={chainLength}
               />
             );
           })}
@@ -562,6 +626,7 @@ const RuntimeStepRow: React.FC<{
           selectedValueKey={selectedValueKey}
           highlightedStepIds={highlightedStepIds}
           currentNavigationStepId={currentNavigationStepId}
+          currentNavigationParamKey={currentNavigationParamKey}
           chainStepIds={chainStepIds}
           canGoUp={canGoUp}
           canGoDown={canGoDown}
@@ -710,6 +775,14 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [anchorStepId, navIndex, ancestorChain]);
   
+  // Current navigation param key (when navigating at param level)
+  // When navIndex is 0 and a param is selected, that param is current nav
+  const currentNavParamKey = useMemo(() => {
+    if (!anchorParamKey) return null;
+    if (navIndex === 0) return anchorParamKey;
+    return null; // When navigating up, we highlight steps not params
+  }, [anchorParamKey, navIndex]);
+  
   // Chain step IDs: all steps and params that should be dimly highlighted
   // This includes anchor (when not current) and all ancestors (except current)
   const chainStepIds = useMemo(() => {
@@ -723,9 +796,9 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     }
 
     return allInChain.filter(
-      (id) => id !== currentNavStepId && id !== anchorParamKey && id !== selectedValueKey
+      (id) => id !== currentNavStepId && id !== currentNavParamKey && id !== selectedValueKey
     );
-  }, [anchorStepId, ancestorChain, anchorParamKey, selectedValueKey, currentNavStepId]);
+  }, [anchorStepId, ancestorChain, anchorParamKey, selectedValueKey, currentNavStepId, currentNavParamKey]);
   
   // Handle step click - set as anchor, clear param/value selection
   const handleStepClick = useCallback((step: RuntimeStep) => {
@@ -1001,6 +1074,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
                 selectedValueKey={selectedValueKey}
                 highlightedStepIds={highlightedStepIds}
                 currentNavigationStepId={anchorParamKey ? null : currentNavStepId}
+                currentNavigationParamKey={currentNavParamKey}
                 chainStepIds={chainStepIds}
                 canGoUp={!!canGoUp}
                 canGoDown={!!canGoDown}
