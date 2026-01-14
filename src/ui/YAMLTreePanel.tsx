@@ -824,11 +824,17 @@ const TreeParamRow: React.FC<{
     return formatValue(paramValue);
   };
   
-  // Commit the local value to parent
+  // Commit the local value to parent - only called on Enter
   const commitValue = () => {
     if (localValue !== String(paramValue)) {
       onEdit?.(localValue);
     }
+    setIsEditing(false);
+  };
+  
+  // Cancel editing and revert to original value
+  const cancelEdit = () => {
+    setLocalValue(String(paramValue));
     setIsEditing(false);
   };
   
@@ -840,8 +846,7 @@ const TreeParamRow: React.FC<{
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      setLocalValue(String(paramValue)); // Reset to original
-      setIsEditing(false);
+      cancelEdit();
       (e.target as HTMLInputElement).blur();
     }
   };
@@ -908,7 +913,7 @@ const TreeParamRow: React.FC<{
               setIsEditing(true);
             }}
             onKeyDown={handleKeyDown}
-            onBlur={commitValue}
+            onBlur={cancelEdit}
             onFocus={() => setIsEditing(true)}
             onClick={(e) => e.stopPropagation()}
             className="h-5 text-xs px-1.5 py-0 bg-primary/10 border-primary/30 hover:border-primary/50 focus:border-primary w-24"
