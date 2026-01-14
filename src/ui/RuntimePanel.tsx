@@ -519,6 +519,15 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     const valueKey = `${step.id}:${fieldName}`;
     setSelectedValueKey(valueKey);
 
+    console.log('[RuntimePanel] Value clicked:', {
+      stepType: step.type,
+      functionName: step.functionName,
+      fieldName,
+      value,
+      hasAnalysis: !!dependencyAnalysis,
+      outputCount: dependencyAnalysis?.outputs.length ?? 0,
+    });
+
     if (!dependencyAnalysis) {
       onOutputClick?.(step.type, step.functionName, fieldName, value, []);
       return;
@@ -533,10 +542,20 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
       value
     );
 
+    console.log('[RuntimePanel] Found output path:', outputPath);
+
     if (outputPath) {
       const dependentConstants = getConstantsForOutput(dependencyAnalysis, outputPath);
+      console.log('[RuntimePanel] Dependent constants:', dependentConstants.map(c => c.path));
       onOutputClick?.(step.type, step.functionName, fieldName, value, dependentConstants);
     } else {
+      // Debug: show what outputs exist for this function
+      const matchingOutputs = dependencyAnalysis.outputs.filter(o => 
+        o.source === 'ir' && o.context === step.functionName
+      );
+      console.log('[RuntimePanel] Available outputs for', step.functionName, ':', 
+        matchingOutputs.map(o => ({ field: o.fieldName, value: o.value }))
+      );
       onOutputClick?.(step.type, step.functionName, fieldName, value, []);
     }
   }, [dependencyAnalysis, onOutputClick]);
