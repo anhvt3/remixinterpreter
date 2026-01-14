@@ -899,34 +899,57 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({
     return null;
   }, [anchorParamKey, selectedValueKey, navIndex]);
   
-  // Build value chain - chain of value keys upstream of the selected value
-  // This traces the calculation path: for each upstream step, find values that contributed
+  // Build value chain - trace upstream values within the same step and parent values
+  // For a selected value like "stepId:param.x.y", include parent path values and sibling params
   const valueChain = useMemo(() => {
-    if (!selectedValueKey) return [];
+    if (!selectedValueKey || !anchorStepId) return [];
     
-    // The valueChain contains only value keys from upstream steps
-    // Start with the selected value (index 0 in chain)
     const chain: string[] = [selectedValueKey];
     
-    // For each ancestor step, find values from its resolvedArgs
-    for (const ancestorStepId of ancestorChain) {
-      const ancestorStep = allStepsMap.get(ancestorStepId);
-      if (ancestorStep?.resolvedArgs) {
-        // Find the first param value that could have contributed
-        const entries = Object.entries(ancestorStep.resolvedArgs);
-        for (const [paramName, paramValue] of entries) {
-          const baseKey = `${ancestorStepId}:${paramName}`;
-          // If it's a simple value, add the param key as a value key
-          if (paramValue !== null && paramValue !== undefined) {
-            chain.push(baseKey);
-            break; // Take first param for simplicity
-          }
+    // Get the step containing this value
+    const step = allStepsMap.get(anchorStepId);
+    if (!step?.resolvedArgs) return chain;
+    
+    // Parse the selected value key to understand its structure
+    // Format: "stepId:paramName" or "stepId:paramName.key" or "stepId:paramName[idx]..."
+    const colonIdx = selectedValueKey.indexOf(':');
+    if (colonIdx === -1) return chain;
+    
+    const pathPart = selectedValueKey.slice(colonIdx + 1); // e.g., "param.x.y" or "param[0].x"
+    
+    // Build parent path values (walk up the object/array path)
+    // For "stepId:span.x.y", add "stepId:span.x" and "stepId:span"
+    let currentPath = pathPart;
+    while (currentPath.includes('.') || currentPath.includes('[')) {
+      // Find the last accessor (. or [)
+      const lastDot = currentPath.lastIndexOf('.');
+      const lastBracket = currentPath.lastIndexOf('[');
+      const cutPoint = Math.max(lastDot, lastBracket);
+      
+      if (cutPoint > 0) {
+        currentPath = currentPath.slice(0, cutPoint);
+        const parentKey = `${anchorStepId}:${currentPath}`;
+        if (!chain.includes(parentKey)) {
+          chain.push(parentKey);
         }
+      } else {
+        break;
+      }
+    }
+    
+    // Also add other params from the same step as related values
+    // (they're siblings in the calculation context)
+    const entries = Object.entries(step.resolvedArgs);
+    for (const [paramName] of entries) {
+      const siblingKey = `${anchorStepId}:${paramName}`;
+      // Don't add if it's already in chain or is ancestor of selected value
+      if (!chain.includes(siblingKey) && !selectedValueKey.startsWith(siblingKey)) {
+        chain.push(siblingKey);
       }
     }
     
     return chain;
-  }, [selectedValueKey, ancestorChain, allStepsMap]);
+  }, [selectedValueKey, anchorStepId, allStepsMap]);
   
   // Current navigation value key - which value in the chain is currently focused
   const currentNavValueKey = useMemo(() => {
