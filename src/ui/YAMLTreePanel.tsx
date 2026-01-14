@@ -754,13 +754,46 @@ const TreeParamRow: React.FC<{
   editable: boolean;
   onEdit?: (value: string) => void;
   onClick?: () => void;
-}> = ({ paramName, paramValue, paramHighlightType, canEdit, editable, onEdit, onClick }) => {
+  // Param chain navigation props
+  isCurrentNav?: boolean;
+  canGoUp?: boolean;
+  canGoDown?: boolean;
+  onNavigateUp?: () => void;
+  onNavigateDown?: () => void;
+  navIndex?: number;
+  chainLength?: number;
+}> = ({ 
+  paramName, 
+  paramValue, 
+  paramHighlightType, 
+  canEdit, 
+  editable, 
+  onEdit, 
+  onClick,
+  isCurrentNav = false,
+  canGoUp = false,
+  canGoDown = false,
+  onNavigateUp,
+  onNavigateDown,
+  navIndex = 0,
+  chainLength = 0,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const isArray = Array.isArray(paramValue);
   const isObject = paramValue && typeof paramValue === 'object' && !isArray && !('expr' in (paramValue as object));
   const expandable = isExpandableValue(paramValue);
   
-  const paramHighlightClass = paramHighlightType === 'primary'
+  // Auto-scroll when this param is the current navigation position
+  useEffect(() => {
+    if (isCurrentNav && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isCurrentNav]);
+  
+  const paramHighlightClass = isCurrentNav
+    ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1'
+    : paramHighlightType === 'primary'
     ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
     : paramHighlightType === 'secondary'
     ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
@@ -776,10 +809,43 @@ const TreeParamRow: React.FC<{
     if (isObject) return `{...${Object.keys(paramValue as object).length} keys}`;
     return formatValue(paramValue);
   };
+  
+  // Render navigation buttons for param chain
+  const renderParamNavButtons = () => {
+    if (!isCurrentNav) return null;
+    return (
+      <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted"
+          onClick={(e) => { e.stopPropagation(); onNavigateUp?.(); }}
+          disabled={!canGoUp}
+          title="Navigate up to source param"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </Button>
+        <span className="text-[10px] text-muted-foreground w-8 text-center">
+          {navIndex}/{chainLength}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 hover:bg-muted -ml-1"
+          onClick={(e) => { e.stopPropagation(); onNavigateDown?.(); }}
+          disabled={!canGoDown}
+          title="Navigate down toward anchor"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <>
       <div 
+        ref={rowRef}
         className={`flex items-center gap-2 ${paramHighlightClass}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -814,6 +880,7 @@ const TreeParamRow: React.FC<{
             {formatValue(paramValue)}
           </span>
         )}
+        {renderParamNavButtons()}
       </div>
       
       {/* Expanded children */}
@@ -902,6 +969,14 @@ interface StatementRowProps {
   highlightedParams?: ParamHighlightKey[];
   anchorParam?: ParamHighlightKey | null;
   onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
+  // Param chain navigation props
+  currentNavParam?: ParamHighlightKey | null;
+  paramCanGoUp?: boolean;
+  paramCanGoDown?: boolean;
+  onParamNavigateUp?: () => void;
+  onParamNavigateDown?: () => void;
+  paramNavIndex?: number;
+  paramChainLength?: number;
   // Force expand when params are highlighted
   forceExpanded?: boolean;
 }
@@ -927,6 +1002,13 @@ const StatementRow: React.FC<StatementRowProps> = ({
   highlightedParams = [],
   anchorParam = null,
   onParamClick,
+  currentNavParam = null,
+  paramCanGoUp = false,
+  paramCanGoDown = false,
+  onParamNavigateUp,
+  onParamNavigateDown,
+  paramNavIndex = 0,
+  paramChainLength = 0,
   forceExpanded = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -942,19 +1024,28 @@ const StatementRow: React.FC<StatementRowProps> = ({
   // forceExpanded only affects highlighting, not expansion state
   const isExpanded = expanded;
   
-  // Helper to check if a param path is the anchor (primary) or upstream (secondary)
+  // Helper to check if a param path is the current nav (primary) or in chain (secondary)
   const getParamHighlightType = (paramPath: string): 'primary' | 'secondary' | null => {
-    const isAnchor = anchorParam?.fnName === fnName && 
-                     anchorParam?.stmtIndex === stmtIndex && 
-                     anchorParam?.paramPath === paramPath;
-    if (isAnchor) return 'primary';
+    // Check if this is the current navigation position
+    const isCurrentParamNav = currentNavParam?.fnName === fnName && 
+                              currentNavParam?.stmtIndex === stmtIndex && 
+                              currentNavParam?.paramPath === paramPath;
+    if (isCurrentParamNav) return 'primary';
     
-    const isUpstream = highlightedParams.some(
+    // Check if in the param chain (secondary highlight)
+    const isInParamChain = highlightedParams.some(
       p => p.fnName === fnName && p.stmtIndex === stmtIndex && p.paramPath === paramPath
     );
-    if (isUpstream) return 'secondary';
+    if (isInParamChain) return 'secondary';
     
     return null;
+  };
+  
+  // Check if a specific param is the current navigation position
+  const isParamCurrentNav = (paramPath: string): boolean => {
+    return currentNavParam?.fnName === fnName && 
+           currentNavParam?.stmtIndex === stmtIndex && 
+           currentNavParam?.paramPath === paramPath;
   };
   
   // Debug: check if onClick is passed
@@ -1094,6 +1185,13 @@ const StatementRow: React.FC<StatementRowProps> = ({
                   editable={editable}
                   onEdit={(value) => handleArgChange(k, value, v)}
                   onClick={() => onParamClick?.(fnName, stmtIndex, paramPath)}
+                  isCurrentNav={isParamCurrentNav(paramPath)}
+                  canGoUp={isParamCurrentNav(paramPath) ? paramCanGoUp : false}
+                  canGoDown={isParamCurrentNav(paramPath) ? paramCanGoDown : false}
+                  onNavigateUp={onParamNavigateUp}
+                  onNavigateDown={onParamNavigateDown}
+                  navIndex={paramNavIndex}
+                  chainLength={paramChainLength}
                 />
               );
             })}
@@ -1169,11 +1267,46 @@ const StatementRow: React.FC<StatementRowProps> = ({
               // Check if this let variable is highlighted
               const paramPath = `let.${k}`;
               const paramHighlightType = getParamHighlightType(paramPath);
-              const paramHighlightClass = paramHighlightType === 'primary'
+              const isLetCurrentNav = isParamCurrentNav(paramPath);
+              const paramHighlightClass = isLetCurrentNav
+                ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1'
+                : paramHighlightType === 'primary'
                 ? 'bg-primary/30 ring-2 ring-primary/60 rounded px-1 -mx-1' 
                 : paramHighlightType === 'secondary'
                 ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 -mx-1'
                 : 'hover:bg-muted/30 rounded px-1 -mx-1 cursor-pointer';
+              
+              // Render navigation buttons for let variable
+              const renderLetNavButtons = () => {
+                if (!isLetCurrentNav) return null;
+                return (
+                  <div className="flex items-center gap-0.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 hover:bg-muted"
+                      onClick={(e) => { e.stopPropagation(); onParamNavigateUp?.(); }}
+                      disabled={!paramCanGoUp}
+                      title="Navigate up to source param"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground w-8 text-center">
+                      {paramNavIndex}/{paramChainLength}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 hover:bg-muted -ml-1"
+                      onClick={(e) => { e.stopPropagation(); onParamNavigateDown?.(); }}
+                      disabled={!paramCanGoDown}
+                      title="Navigate down toward anchor"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </div>
+                );
+              };
               
               return (
                 <div 
@@ -1205,6 +1338,7 @@ const StatementRow: React.FC<StatementRowProps> = ({
                     ) : (
                       <span className={`break-all text-xs ${getValueStyle(v, editable)}`}>{formatValue(v)}</span>
                     )}
+                    {renderLetNavButtons()}
                   </div>
                   {/* Show editable args for expr */}
                   {isExpr && exprObj && Object.keys(exprObj.args).length > 0 && (
@@ -1359,6 +1493,13 @@ const StatementRow: React.FC<StatementRowProps> = ({
                   editable={editable}
                   onEdit={(value) => handleIrArgChange(k, value, v)}
                   onClick={() => onParamClick?.(fnName, stmtIndex, paramPath)}
+                  isCurrentNav={isParamCurrentNav(paramPath)}
+                  canGoUp={isParamCurrentNav(paramPath) ? paramCanGoUp : false}
+                  canGoDown={isParamCurrentNav(paramPath) ? paramCanGoDown : false}
+                  onNavigateUp={onParamNavigateUp}
+                  onNavigateDown={onParamNavigateDown}
+                  navIndex={paramNavIndex}
+                  chainLength={paramChainLength}
                 />
               );
             })}
@@ -1455,6 +1596,14 @@ interface TreeNodeProps {
   highlightedParams?: ParamHighlightKey[];
   anchorParam?: ParamHighlightKey | null;
   onParamClick?: (fnName: string, stmtIndex: number, paramPath: string) => void;
+  // Param chain navigation props
+  currentNavParam?: ParamHighlightKey | null;
+  paramCanGoUp?: boolean;
+  paramCanGoDown?: boolean;
+  onParamNavigateUp?: () => void;
+  onParamNavigateDown?: () => void;
+  paramNavIndex?: number;
+  paramChainLength?: number;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({
@@ -1494,6 +1643,14 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   highlightedParams = [],
   anchorParam = null,
   onParamClick,
+  // Param chain navigation props
+  currentNavParam = null,
+  paramCanGoUp = false,
+  paramCanGoDown = false,
+  onParamNavigateUp,
+  onParamNavigateDown,
+  paramNavIndex = 0,
+  paramChainLength = 0,
 }) => {
   const isExpanded = expanded.has(node.name);
   const hasBody = node.def.body.length > 0;
@@ -1760,6 +1917,13 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   highlightedParams={highlightedParams}
                   anchorParam={anchorParam}
                   onParamClick={onParamClick}
+                  currentNavParam={currentNavParam}
+                  paramCanGoUp={paramCanGoUp}
+                  paramCanGoDown={paramCanGoDown}
+                  onParamNavigateUp={onParamNavigateUp}
+                  onParamNavigateDown={onParamNavigateDown}
+                  paramNavIndex={paramNavIndex}
+                  paramChainLength={paramChainLength}
                   forceExpanded={hasHighlightedParams}
                 />
               );
@@ -1986,6 +2150,7 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
   
   // Param highlighting state: when a param is clicked, we trace its origin through the call chain
   const [anchorParam, setAnchorParam] = useState<ParamHighlightKey | null>(null);
+  const [paramNavIndex, setParamNavIndex] = useState<number>(0);
   
   const nodes = useMemo(() => {
     if (!spec) return new Map();
@@ -2192,6 +2357,39 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return result;
   }, [anchorParam, spec]);
   
+  // Current param navigation position
+  // paramNavIndex 0 = anchor (clicked param), paramNavIndex 1+ = upstream params in chain
+  const currentNavParam = useMemo((): ParamHighlightKey | null => {
+    if (!anchorParam || highlightedParams.length === 0) return null;
+    if (paramNavIndex < highlightedParams.length) {
+      return highlightedParams[paramNavIndex];
+    }
+    return null;
+  }, [anchorParam, highlightedParams, paramNavIndex]);
+  
+  // All params in the chain that should have secondary highlighting (excluding current nav)
+  const paramChainSecondary = useMemo((): ParamHighlightKey[] => {
+    if (!anchorParam || highlightedParams.length === 0) return [];
+    return highlightedParams.filter((_, idx) => idx !== paramNavIndex);
+  }, [anchorParam, highlightedParams, paramNavIndex]);
+  
+  // Param navigation functions
+  const paramNavigateUp = useCallback(() => {
+    if (paramNavIndex < highlightedParams.length - 1) {
+      setParamNavIndex(paramNavIndex + 1);
+    }
+  }, [paramNavIndex, highlightedParams.length]);
+  
+  const paramNavigateDown = useCallback(() => {
+    if (paramNavIndex > 0) {
+      setParamNavIndex(paramNavIndex - 1);
+    }
+  }, [paramNavIndex]);
+  
+  const paramCanGoUp = !!anchorParam && paramNavIndex < highlightedParams.length - 1;
+  const paramCanGoDown = !!anchorParam && paramNavIndex > 0;
+  const paramChainLength = highlightedParams.length;
+  
   // Handle param click - clears ALL other highlights for clean navigation
   const handleParamClick = useCallback((fnName: string, stmtIndex: number, paramPath: string) => {
     console.log('YAMLTreePanel: Param clicked (direct)', { fnName, stmtIndex, paramPath });
@@ -2205,13 +2403,19 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     setAnchorFunction(null);
     setFnNavIndex(0);
     
-    // Toggle: if clicking the same param, clear it
-    if (anchorParam?.fnName === fnName && anchorParam?.stmtIndex === stmtIndex && anchorParam?.paramPath === paramPath) {
+    // Toggle: if clicking the same param when at anchor position, clear it
+    const isSameParam = anchorParam?.fnName === fnName && 
+                        anchorParam?.stmtIndex === stmtIndex && 
+                        anchorParam?.paramPath === paramPath;
+    if (isSameParam && paramNavIndex === 0) {
       setAnchorParam(null);
+      setParamNavIndex(0);
     } else {
+      // Set new anchor and reset nav index
       setAnchorParam({ fnName, stmtIndex, paramPath });
+      setParamNavIndex(0);
     }
-  }, [anchorParam, onClearElementHighlight]);
+  }, [anchorParam, paramNavIndex, onClearElementHighlight]);
   
   // Handle statement click - clears ALL other highlights (including element and param highlights)
   // Sets clicked statement as anchor (primary) with upstream chain as secondary
@@ -2544,6 +2748,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
               highlightedParams={highlightedParams}
               anchorParam={anchorParam}
               onParamClick={handleParamClick}
+              // Param chain navigation props
+              currentNavParam={currentNavParam}
+              paramCanGoUp={paramCanGoUp}
+              paramCanGoDown={paramCanGoDown}
+              onParamNavigateUp={paramNavigateUp}
+              onParamNavigateDown={paramNavigateDown}
+              paramNavIndex={paramNavIndex}
+              paramChainLength={paramChainLength}
             />
           ))}
           </div>
