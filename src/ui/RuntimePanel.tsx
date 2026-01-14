@@ -97,21 +97,39 @@ const ClickableValue: React.FC<{
   label?: string;
   value: unknown;
   valueKey: string;
-  isSelected: boolean;
   indent: number;
   onValueClick: (valueKey: string, value: unknown) => void;
+  selectedValueKey?: string | null;
   labelColor?: string;
   inline?: boolean;
-}> = ({ label, value, valueKey, isSelected, indent, onValueClick, labelColor = 'text-orange-400', inline = false }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+}> = ({
+  label,
+  value,
+  valueKey,
+  indent,
+  onValueClick,
+  selectedValueKey,
+  labelColor = 'text-orange-400',
+  inline = false,
+}) => {
   const isArray = Array.isArray(value);
   const isObject = value && typeof value === 'object' && !isArray;
   const expandable = isExpandable(value);
-  const rowRef = useRef<HTMLDivElement>(null);
+
+  // Auto-expand small objects so nested fields (e.g. at.x / at.y) are directly clickable.
+  const autoExpand = !inline && isObject && expandable && Object.keys(value as object).length <= 6;
+  const [isExpanded, setIsExpanded] = useState<boolean>(autoExpand);
+
+  // If value changes (new run), reset to autoExpand default.
+  useEffect(() => {
+    setIsExpanded(autoExpand);
+  }, [autoExpand]);
+
+  const isSelected = selectedValueKey === valueKey;
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
+    setIsExpanded(v => !v);
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -130,10 +148,7 @@ const ClickableValue: React.FC<{
   // Inline mode: render as part of parent line
   if (inline) {
     return (
-      <span
-        className={`cursor-pointer hover:bg-muted/50 px-0.5 rounded ${highlight}`}
-        onClick={handleClick}
-      >
+      <span className={`cursor-pointer hover:bg-muted/50 px-0.5 rounded ${highlight}`} onClick={handleClick}>
         {formatValue(value)}
       </span>
     );
@@ -142,7 +157,6 @@ const ClickableValue: React.FC<{
   return (
     <>
       <div
-        ref={rowRef}
         className={`flex items-center gap-1 py-0.5 px-2 hover:bg-muted/30 cursor-pointer ${highlight}`}
         style={{ paddingLeft: `${indent}px` }}
         onClick={handleClick}
@@ -151,8 +165,13 @@ const ClickableValue: React.FC<{
           <button
             onClick={handleExpandClick}
             className="w-3 shrink-0 flex items-center justify-center p-0 hover:bg-muted/50 rounded"
+            aria-label={isExpanded ? 'Collapse' : 'Expand'}
           >
-            {isExpanded ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" /> : <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />}
+            {isExpanded ? (
+              <ChevronDown className="w-2.5 h-2.5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />
+            )}
           </button>
         ) : (
           <span className="w-3 shrink-0" />
@@ -171,34 +190,33 @@ const ClickableValue: React.FC<{
       {/* Expanded children */}
       {expandable && isExpanded && (
         <>
-          {isArray && (value as unknown[]).map((item, idx) => (
-            <ClickableValue
-              key={idx}
-              label={`[${idx}]`}
-              value={item}
-              valueKey={`${valueKey}[${idx}]`}
-              isSelected={false}
-              indent={indent + 16}
-              onValueClick={onValueClick}
-              labelColor="text-muted-foreground/60"
-            />
-          ))}
-          {isObject && Object.entries(value as object).map(([k, v]) => (
-            <ClickableValue
-              key={k}
-              label={k}
-              value={v}
-              valueKey={`${valueKey}.${k}`}
-              isSelected={false}
-              indent={indent + 16}
-              onValueClick={onValueClick}
-              labelColor="text-cyan-400/70"
-            />
-          ))}
-          <div
-            className="flex gap-1 py-0.5 px-2 text-muted-foreground"
-            style={{ paddingLeft: `${indent}px` }}
-          >
+          {isArray &&
+            (value as unknown[]).map((item, idx) => (
+              <ClickableValue
+                key={idx}
+                label={`[${idx}]`}
+                value={item}
+                valueKey={`${valueKey}[${idx}]`}
+                indent={indent + 16}
+                onValueClick={onValueClick}
+                selectedValueKey={selectedValueKey}
+                labelColor="text-muted-foreground/60"
+              />
+            ))}
+          {isObject &&
+            Object.entries(value as object).map(([k, v]) => (
+              <ClickableValue
+                key={k}
+                label={k}
+                value={v}
+                valueKey={`${valueKey}.${k}`}
+                indent={indent + 16}
+                onValueClick={onValueClick}
+                selectedValueKey={selectedValueKey}
+                labelColor="text-cyan-400/70"
+              />
+            ))}
+          <div className="flex gap-1 py-0.5 px-2 text-muted-foreground" style={{ paddingLeft: `${indent}px` }}>
             <span className="w-3 shrink-0" />
             <span>{isArray ? ']' : '}'}</span>
           </div>
@@ -316,9 +334,9 @@ const RuntimeStepRow: React.FC<{
               <ClickableValue
                 value={step.value}
                 valueKey={`${step.id}:${step.variable}`}
-                isSelected={selectedValueKey === `${step.id}:${step.variable}`}
                 indent={0}
                 onValueClick={handleValueClick}
+                selectedValueKey={selectedValueKey}
                 inline
               />
             </div>
@@ -332,9 +350,9 @@ const RuntimeStepRow: React.FC<{
               <ClickableValue
                 value={step.iteration.value}
                 valueKey={`${step.id}:${step.iteration.var}`}
-                isSelected={selectedValueKey === `${step.id}:${step.iteration.var}`}
                 indent={0}
                 onValueClick={handleValueClick}
+                selectedValueKey={selectedValueKey}
                 inline
               />
               <span className="text-muted-foreground/60">(iter {step.iteration.index})</span>
@@ -347,9 +365,9 @@ const RuntimeStepRow: React.FC<{
               <ClickableValue
                 value={step.returnValue}
                 valueKey={`${step.id}:return`}
-                isSelected={selectedValueKey === `${step.id}:return`}
                 indent={0}
                 onValueClick={handleValueClick}
+                selectedValueKey={selectedValueKey}
                 inline
               />
             </div>
@@ -373,9 +391,9 @@ const RuntimeStepRow: React.FC<{
               label={k}
               value={v}
               valueKey={`${step.id}:${k}`}
-              isSelected={selectedValueKey === `${step.id}:${k}`}
               indent={8 + indent + 24}
               onValueClick={handleValueClick}
+              selectedValueKey={selectedValueKey}
             />
           ))}
         </div>
@@ -390,9 +408,9 @@ const RuntimeStepRow: React.FC<{
               label={k}
               value={v}
               valueKey={`${step.id}:${k}`}
-              isSelected={selectedValueKey === `${step.id}:${k}`}
               indent={8 + indent + 24}
               onValueClick={handleValueClick}
+              selectedValueKey={selectedValueKey}
               labelColor="text-orange-400/70"
             />
           ))}
