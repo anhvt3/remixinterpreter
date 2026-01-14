@@ -63,6 +63,8 @@ interface YAMLScriptPanelProps {
   onSelectVersion?: (versionId: string | null) => void;
   // Save callback - creates a new version and triggers rebuild
   onSaveVersion?: (content: string) => Promise<void>;
+  // Callback to clear element-based highlighting
+  onClearElementHighlight?: () => void;
 }
 
 export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
@@ -86,6 +88,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
   selectedVersionId,
   onSelectVersion,
   onSaveVersion,
+  onClearElementHighlight,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   
@@ -432,6 +435,7 @@ export const YAMLScriptPanel: React.FC<YAMLScriptPanelProps> = ({
             selectedStatement={selectedStatement}
             onFunctionDefinitionClick={onFunctionDefinitionClick}
             selectedFunctionDefinition={selectedFunctionDefinition}
+            onClearElementHighlight={onClearElementHighlight}
           />
         ) : (
           <div className="h-full flex flex-col min-h-0">

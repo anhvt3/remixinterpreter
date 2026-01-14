@@ -1162,6 +1162,11 @@ export const App: React.FC = () => {
     }
   }, [selectedFunctionDefinition]);
 
+  // Callback to clear element-based highlighting from Anim panel
+  const handleClearElementHighlight = useCallback(() => {
+    setSelectedElementId(null);
+  }, []);
+
   const dslPanelProps = {
     spec: parsedSpec,
     content: paramsContent,
@@ -1181,6 +1186,7 @@ export const App: React.FC = () => {
     selectedVersionId: selectedDslVersionId,
     onSelectVersion: handleSelectDslVersion,
     onSaveVersion: handleSaveDslVersion,
+    onClearElementHighlight: handleClearElementHighlight,
   };
 
   // Common Anim panel props
