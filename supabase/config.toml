@@ -1,1 +1,7 @@
 project_id = "nzdgglqvaeibniasozfw"
+
+[functions.protect-config]
+verify_jwt = false
+
+[functions.extract-video-desc]
+verify_jwt = false

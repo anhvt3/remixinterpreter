@@ -740,6 +740,66 @@ export const App: React.FC = () => {
     }
   }, [selectedVideoId, hasUnsavedVideoChanges, videoVersions, createVideoVersion, gdriveLink]);
   
+  // Extract description from video state
+  const [isExtractingDesc, setIsExtractingDesc] = useState(false);
+  
+  // Extract description from video handler
+  const handleExtractDesc = useCallback(async () => {
+    if (!gdriveLink) {
+      addLog('error', 'ExtractDesc', 'Please enter a video URL first');
+      return;
+    }
+    
+    // Check for GDrive link - not supported
+    if (gdriveLink.includes('drive.google.com')) {
+      addLog('error', 'ExtractDesc', 'Google Drive links are not supported for extraction. Please use a CDN video URL.');
+      return;
+    }
+    
+    setIsExtractingDesc(true);
+    addLog('info', 'ExtractDesc', 'Starting video description extraction...');
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-video-desc`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoUrl: gdriveLink }),
+        }
+      );
+      
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      
+      // Save to Desc panel (first LO desc slot if on LO tab, otherwise video desc)
+      if (sourceActiveTab === 'video') {
+        // Set to video desc (index 5)
+        setDescContents(prev => {
+          const newContents = [...prev];
+          newContents[5] = data.description;
+          return newContents;
+        });
+      } else {
+        // Set to first LO desc (index 0)
+        setDescContents(prev => {
+          const newContents = [...prev];
+          newContents[0] = data.description;
+          return newContents;
+        });
+      }
+      
+      addLog('success', 'ExtractDesc', 'Description extracted and saved to Desc panel!');
+      
+    } catch (error) {
+      console.error("Extraction error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addLog('error', 'ExtractDesc', `Failed to extract description: ${errorMessage}`);
+    } finally {
+      setIsExtractingDesc(false);
+    }
+  }, [gdriveLink, sourceActiveTab, addLog]);
+  
   // Config tab password protection
   const [configAuthenticated, setConfigAuthenticated] = useState(false);
   const [configPassword, setConfigPassword] = useState('');
@@ -1320,6 +1380,8 @@ export const App: React.FC = () => {
           hasUnsavedVideoChanges={hasUnsavedVideoChanges}
           onCreateNewVideo={handleCreateNewVideo}
           onDeleteVideo={handleDeleteVideo}
+          onExtractDesc={handleExtractDesc}
+          isExtractingDesc={isExtractingDesc}
         />
       ),
     },
@@ -1386,7 +1448,7 @@ export const App: React.FC = () => {
         <ChatPanel title="6. Activity Log" zoomLevel={zoomLevel} />
       ),
     },
-  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion, videos, videoVersions, selectedVideoId, handleSelectVideo, selectedVideoVersionId, handleSelectVideoVersion, handleVideoUndo, handleVideoRedo, handleVideoSave, canVideoUndo, canVideoRedo, hasUnsavedVideoChanges, handleCreateNewVideo, handleDeleteVideo, setGdriveLinkUndoable]);
+  ], [loCode, loContent, gdriveLink, sourceActiveTab, descContents, descVideoLink, zoomLevel, dslPanelProps, runtimeSteps, selectedElementCallChain, handleRuntimeStepClick, selectedRuntimeStepId, combinedHighlightedStepIds, stepCallChains, animPanelProps, los, versions, selectedLoId, handleSelectLo, selectedVersionId, handleSelectVersion, loDescs, videoDesc, selectedDescVersionIds, handleSelectDescVersion, handleCreateDesc, handleDeleteDesc, handleSaveDesc, handleDescUndo, handleDescRedo, canUndoDesc, canRedoDesc, hasUnsavedDescChanges, dslScripts, selectedDslVersionId, handleSelectDslVersion, videos, videoVersions, selectedVideoId, handleSelectVideo, selectedVideoVersionId, handleSelectVideoVersion, handleVideoUndo, handleVideoRedo, handleVideoSave, canVideoUndo, canVideoRedo, hasUnsavedVideoChanges, handleCreateNewVideo, handleDeleteVideo, setGdriveLinkUndoable, handleExtractDesc, isExtractingDesc]);
   
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
