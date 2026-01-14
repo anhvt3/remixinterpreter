@@ -400,13 +400,19 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const content = (node as TextProps).content;
       if (typeof content !== 'string') continue;
 
+      // Skip invisible nodes
+      if (!node.visible || node.style.opacity <= 0) continue;
+      if (node.visibilitySpan) {
+        const { t0, t1 } = node.visibilitySpan;
+        if (currentTime < t0 || currentTime > t1) continue;
+      }
+
       const wt = getWorldTransform(runtime, node.id);
       const style = node.style;
       const textStyle = style.text;
       const zIndex = node.zIndex;
 
       // Compute a robust (rotation-aware) screen-space bounding box for this text.
-      // This avoids "drift" and makes tiny numerals reliably clickable.
       let xMin = 0;
       let xMax = 0;
       let yMin = 0;
@@ -432,7 +438,6 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
           yMin = -ascent;
           yMax = descent;
         } else {
-          // Fallback: approximate from measured width + baseline/alignment.
           const widthPx = m.width;
           const heightPx = textStyle.fontSize;
 
@@ -488,7 +493,38 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const w = Math.max(44, maxX - minX);
       const h = Math.max(44, maxY - minY);
 
-      const centerLocal = { x: (xMin + xMax) / 2, y: (yMin + yMax) / 2 };
+      const opacity = style.opacity;
+
+      if (isLatexContent(content)) {
+        // LaTeX: visible DOM overlay
+        const latex = content
+          .replace(/^\\\(|\\\)$/g, '')
+          .replace(/^\\\[|\\\]$/g, '')
+          .replace(/^\$|\$$/g, '');
+
+        latexOverlays.push({
+          id: node.id,
+          x,
+          y,
+          latex,
+          fontSize: textStyle?.fontSize ?? 16,
+          color: style.fill?.color ? colorToRGBA(style.fill.color) : 'black',
+          opacity,
+          zIndex,
+        });
+      } else {
+        // Plain text: invisible hit target overlay
+        plainTextHitTargets.push({
+          id: node.id,
+          x,
+          y,
+          w,
+          h,
+          opacity,
+          zIndex,
+          content,
+        });
+      }
     }
 
     // Highest zIndex should be on top in DOM
