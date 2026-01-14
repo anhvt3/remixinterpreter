@@ -70,7 +70,9 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
   
   // Force re-render counter for LaTeX loading
   const [renderKey, setRenderKey] = useState(0);
-  
+
+  // Debug: show computed clickable boxes for text overlays
+  const [showHitDebug, setShowHitDebug] = useState(false);
   // Initialize runtime and attach canvas
   useEffect(() => {
     if (!canvasRef.current || !compiledProgram) return;
@@ -403,96 +405,90 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
       const textStyle = style.text;
       const zIndex = node.zIndex;
 
-      // Compute a reasonable clickable center for text based on textAlign/textBaseline.
-      // This fixes cases where the drawn text's bounding box is offset from (0,0).
-      let widthPx = 0;
-      let heightPx = 0;
-      let x0 = 0;
-      let y0 = 0;
+      // Compute a robust (rotation-aware) screen-space bounding box for this text.
+      // This avoids "drift" and makes tiny numerals reliably clickable.
+      let xMin = 0;
+      let xMax = 0;
+      let yMin = 0;
+      let yMax = 0;
 
       if (ctx && textStyle) {
         ctx.save();
         ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
-        widthPx = ctx.measureText(content).width;
-        heightPx = textStyle.fontSize;
-        ctx.restore();
+        ctx.textAlign = textStyle.textAlign;
+        ctx.textBaseline = textStyle.textBaseline;
 
-        if (textStyle.textAlign === 'center') x0 = -widthPx / 2;
-        if (textStyle.textAlign === 'right') x0 = -widthPx;
+        const m = ctx.measureText(content);
 
-        switch (textStyle.textBaseline) {
-          case 'middle':
-            y0 = -heightPx / 2;
-            break;
-          case 'bottom':
-            y0 = -heightPx;
-            break;
-          case 'alphabetic':
-            y0 = -heightPx * 0.8;
-            break;
-          case 'top':
-          default:
-            y0 = 0;
-        }
-      }
+        // Prefer actual glyph boxes when available.
+        const ascent = (m as any).actualBoundingBoxAscent ?? textStyle.fontSize * 0.8;
+        const descent = (m as any).actualBoundingBoxDescent ?? textStyle.fontSize * 0.2;
+        const left = (m as any).actualBoundingBoxLeft;
+        const right = (m as any).actualBoundingBoxRight;
 
-      const centerLocal = { x: x0 + widthPx / 2, y: y0 + heightPx / 2 };
-      const centerWorld = localToWorld(centerLocal, wt);
-      const x = centerWorld.x * scaleX;
-      const y = centerWorld.y * scaleY;
-
-      if (isLatexContent(content)) {
-        // Extract LaTeX from delimiters
-        let latex = content;
-        const inlineMatch = content.match(/\\\(([^]*?)\\\)/);
-        if (inlineMatch) {
-          latex = inlineMatch[1];
+        if (typeof left === 'number' && typeof right === 'number') {
+          xMin = -left;
+          xMax = right;
+          yMin = -ascent;
+          yMax = descent;
         } else {
-          const displayMatch = content.match(/\\\[([^]*?)\\\]/);
-          if (displayMatch) {
-            latex = displayMatch[1];
-          } else {
-            const dollarMatch = content.match(/\$([^]*?)\$/);
-            if (dollarMatch) {
-              latex = dollarMatch[1];
-            }
+          // Fallback: approximate from measured width + baseline/alignment.
+          const widthPx = m.width;
+          const heightPx = textStyle.fontSize;
+
+          let x0 = 0;
+          if (textStyle.textAlign === 'center') x0 = -widthPx / 2;
+          if (textStyle.textAlign === 'right') x0 = -widthPx;
+
+          let y0 = 0;
+          switch (textStyle.textBaseline) {
+            case 'middle':
+              y0 = -heightPx / 2;
+              break;
+            case 'bottom':
+              y0 = -heightPx;
+              break;
+            case 'alphabetic':
+              y0 = -heightPx * 0.8;
+              break;
+            case 'top':
+            default:
+              y0 = 0;
           }
+
+          xMin = x0;
+          xMax = x0 + widthPx;
+          yMin = y0;
+          yMax = y0 + heightPx;
         }
 
-        const fontSize = (textStyle?.fontSize || 24) * Math.abs(wt.scaleY || 1) * scaleY;
-        const color = colorToRGBA(style.fill.color);
-
-        latexOverlays.push({
-          id: node.id,
-          x,
-          y,
-          latex,
-          fontSize,
-          color,
-          opacity: style.opacity,
-          zIndex,
-        });
-      } else {
-        // Invisible click target for plain text.
-        // We intentionally overshoot so tiny numerals are easy to select.
-        const pad = 8;
-        const localW = Math.max(0, widthPx + pad * 2);
-        const localH = Math.max(0, heightPx + pad * 2);
-
-        const w = Math.max(44, localW * Math.abs(wt.scaleX || 1) * scaleX);
-        const h = Math.max(44, localH * Math.abs(wt.scaleY || 1) * scaleY);
-
-        plainTextHitTargets.push({
-          id: node.id,
-          x,
-          y,
-          w,
-          h,
-          opacity: style.opacity,
-          zIndex,
-          content,
-        });
+        ctx.restore();
       }
+
+      const padLocal = 10;
+      const cornersLocal = [
+        { x: xMin - padLocal, y: yMin - padLocal },
+        { x: xMax + padLocal, y: yMin - padLocal },
+        { x: xMax + padLocal, y: yMax + padLocal },
+        { x: xMin - padLocal, y: yMax + padLocal },
+      ];
+
+      const cornersScreen = cornersLocal
+        .map((p) => localToWorld(p, wt))
+        .map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+
+      const minX = Math.min(...cornersScreen.map((p) => p.x));
+      const maxX = Math.max(...cornersScreen.map((p) => p.x));
+      const minY = Math.min(...cornersScreen.map((p) => p.y));
+      const maxY = Math.max(...cornersScreen.map((p) => p.y));
+
+      const x = (minX + maxX) / 2;
+      const y = (minY + maxY) / 2;
+
+      const w = Math.max(44, maxX - minX);
+      const h = Math.max(44, maxY - minY);
+
+      const centerLocal = { x: (xMin + xMax) / 2, y: (yMin + yMax) / 2 };
     }
 
     // Highest zIndex should be on top in DOM
