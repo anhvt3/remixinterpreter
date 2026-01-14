@@ -650,9 +650,16 @@ export const IRAnimRenderer: React.FC<IRAnimRendererProps> = ({
         }
         case 'text': {
           const content = (node as TextProps).content;
-          const textStyle = node.style.text;
+          const textStyle = node.style.text ?? {
+            fontFamily: 'Georgia, serif',
+            fontSize: 24,
+            fontWeight: 'normal' as const,
+            fontStyle: 'normal' as const,
+            textAlign: 'center' as const,
+            textBaseline: 'middle' as const,
+          };
           const ctx = runtime.ctx;
-          if (!ctx || !textStyle || typeof content !== 'string') return null;
+          if (!ctx || typeof content !== 'string') return null;
 
           ctx.save();
           ctx.font = `${textStyle.fontStyle} ${textStyle.fontWeight} ${textStyle.fontSize}px ${textStyle.fontFamily}`;
