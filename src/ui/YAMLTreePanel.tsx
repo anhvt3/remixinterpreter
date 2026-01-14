@@ -2009,7 +2009,9 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return null;
   }, [anchorStatement, stmtNavIndex, upstreamChain]);
   
-  // All statements in the chain (for dim highlighting)
+  // All statements in the chain that should have secondary highlighting
+  // When clicking directly: anchor = primary (bright), upstream = secondary (dim)
+  // When navigating up: current nav = primary, rest = secondary
   const chainStatements = useMemo((): StatementKey[] => {
     if (!anchorStatement) return [];
     const allInChain = [anchorStatement, ...upstreamChain];
@@ -2190,14 +2192,14 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     return result;
   }, [anchorParam, spec]);
   
-  // Handle param click - clears other highlights
+  // Handle param click - clears ALL other highlights for clean navigation
   const handleParamClick = useCallback((fnName: string, stmtIndex: number, paramPath: string) => {
-    console.log('YAMLTreePanel: Param clicked', { fnName, stmtIndex, paramPath });
+    console.log('YAMLTreePanel: Param clicked (direct)', { fnName, stmtIndex, paramPath });
     
     // Clear element-based highlighting from Anim panel
     onClearElementHighlight?.();
     
-    // Clear other navigation types
+    // Clear ALL other navigation types for clean slate
     setAnchorStatement(null);
     setStmtNavIndex(0);
     setAnchorFunction(null);
@@ -2211,62 +2213,64 @@ export const YAMLTreePanel: React.FC<YAMLTreePanelProps> = ({
     }
   }, [anchorParam, onClearElementHighlight]);
   
-  // Handle statement click - clears other highlights
+  // Handle statement click - clears ALL other highlights (including element and param highlights)
+  // Sets clicked statement as anchor (primary) with upstream chain as secondary
   const handleStatementClickInternal = useCallback((fnName: string, stmtIndex: number) => {
-    console.log('YAMLTreePanel: Statement clicked', { fnName, stmtIndex });
+    console.log('YAMLTreePanel: Statement clicked (direct)', { fnName, stmtIndex });
     const clickedKey = { fnName, stmtIndex };
     
     // Clear element-based highlighting from Anim panel
     onClearElementHighlight?.();
     
-    // Clear other navigation types
+    // Clear ALL other navigation types for clean slate
     setAnchorFunction(null);
     setFnNavIndex(0);
     setAnchorParam(null);
     
-    if (anchorStatement?.fnName === fnName && anchorStatement?.stmtIndex === stmtIndex) {
-      // Click same statement - clear navigation
+    if (anchorStatement?.fnName === fnName && anchorStatement?.stmtIndex === stmtIndex && stmtNavIndex === 0) {
+      // Click same statement when already at anchor - clear everything
       console.log('YAMLTreePanel: Clearing anchor');
       setAnchorStatement(null);
       setStmtNavIndex(0);
     } else {
-      // Set new anchor
-      console.log('YAMLTreePanel: Setting new anchor');
+      // Set new anchor - always reset nav index to 0 (clicked item = primary)
+      console.log('YAMLTreePanel: Setting new anchor with upstream chain');
       setAnchorStatement(clickedKey);
       setStmtNavIndex(0);
     }
     
     // Also call external handler if provided
     onStatementClick?.(fnName, stmtIndex);
-  }, [anchorStatement, onStatementClick, onClearElementHighlight]);
+  }, [anchorStatement, stmtNavIndex, onStatementClick, onClearElementHighlight]);
   
-  // Handle function definition click - clears other highlights
+  // Handle function definition click - clears ALL other highlights
+  // Sets clicked function as anchor (primary) with upstream callers as secondary
   const handleFunctionDefinitionClickInternal = useCallback((fnName: string) => {
-    console.log('YAMLTreePanel: Function definition clicked', { fnName });
+    console.log('YAMLTreePanel: Function definition clicked (direct)', { fnName });
     
     // Clear element-based highlighting from Anim panel
     onClearElementHighlight?.();
     
-    // Clear other navigation types
+    // Clear ALL other navigation types for clean slate
     setAnchorStatement(null);
     setStmtNavIndex(0);
     setAnchorParam(null);
     
-    if (anchorFunction === fnName) {
-      // Click same function - clear navigation
+    if (anchorFunction === fnName && fnNavIndex === 0) {
+      // Click same function when already at anchor - clear everything
       console.log('YAMLTreePanel: Clearing function anchor');
       setAnchorFunction(null);
       setFnNavIndex(0);
     } else {
-      // Set new function anchor
-      console.log('YAMLTreePanel: Setting new function anchor');
+      // Set new function anchor - always reset nav index to 0 (clicked item = primary)
+      console.log('YAMLTreePanel: Setting new function anchor with upstream chain');
       setAnchorFunction(fnName);
       setFnNavIndex(0);
     }
     
     // Also call external handler if provided
     onFunctionDefinitionClick?.(fnName);
-  }, [anchorFunction, onFunctionDefinitionClick, onClearElementHighlight]);
+  }, [anchorFunction, fnNavIndex, onFunctionDefinitionClick, onClearElementHighlight]);
   
   // Statement navigation: Navigate up (to higher level / parent caller)
   const navigateUp = useCallback(() => {
